@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.egg-info/
+*.tsbuildinfo
+
+# Env / secrets
+**/.env*
+!.env.example
+!apps/api/.env.example
+!apps/vision/.env.example
+
+# User file storage — never belongs in git, this is a personal file drive
+blobs/
+
+# Vision model weights — fetched/exported at deploy time, not committed
+*.onnx
+*.pt
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors / OS
+.vscode/*
+**/.claude/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.swp
+
+# Test / coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+test-results/

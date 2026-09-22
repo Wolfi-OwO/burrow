@@ -1,0 +1,7 @@
+# Display-only identity mapping. Rewrites nothing in history — git applies
+# this at read time (log, shortlog, blame), so commits keep their original
+# bytes. Pre-emptive: this repo has zero commits so far, but the same split
+# (capitalised old handle vs. the current one) has happened on other repos
+# under this account, so it's mapped here before it can happen again.
+
+Wolfi-OwO <koflerphillip@outlook.com> Wolfi <KoflerPhillip@outlook.com>

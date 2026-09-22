@@ -1,0 +1,66 @@
+# The full stack for local development: Postgres, apps/api, apps/vision.
+# Neither service exists yet, so this file describes the intended shape —
+# it will not build until Task-1's scaffolding grows real Dockerfiles.
+#
+# Usage: cp .env.example .env && docker compose up
+
+services:
+  postgres:
+    # pgvector/pgvector (not plain postgres) — the category-tree design
+    # needs `ltree` (built into postgres core, no special image required)
+    # and file embeddings need the `pgvector` extension, which this image
+    # ships pre-built on top of postgres:16.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: burrow
+      POSTGRES_PASSWORD: burrow
+      POSTGRES_DB: burrow
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - burrow-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 is load-bearing: without a host, pg_isready goes over
+      # the Unix socket, which the entrypoint's temporary init server
+      # accepts even before the real server (listening on TCP) is up — the
+      # probe would then report healthy too early. Over TCP the temp server
+      # isn't reachable at all, so the probe can't pass early.
+      test: ["CMD-SHELL", "pg_isready -U burrow -d burrow -h 127.0.0.1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  vision:
+    build:
+      context: apps/vision
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://burrow:burrow@postgres:5432/burrow
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      PORT: "8080"
+      NODE_ENV: development
+      VISION_SERVICE_URL: http://vision:8000
+      OAUTH_FRONTEND_BASE_URL: ${OAUTH_FRONTEND_BASE_URL:-http://localhost:8080}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vision:
+        condition: service_started
+
+volumes:
+  burrow-pgdata:

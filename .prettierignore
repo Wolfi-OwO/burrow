@@ -1,0 +1,8 @@
+# prototype is a standalone Vite app expected to carry its own toolchain
+# once it exists — formatted independently, not by the root Prettier config.
+prototype/
+
+dist/
+build/
+coverage/
+node_modules/
