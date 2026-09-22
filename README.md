@@ -56,13 +56,13 @@ directories with a placeholder README.
 
 ## Stack
 
-| Component     | Stack                                                        |
-| -------------- | ------------------------------------------------------------ |
-| Frontend       | React 19, Vite, TypeScript                                   |
-| API server     | Node.js, TypeScript, Express 4, PostgreSQL 16, zod            |
-| Vision server  | Python, FastAPI, ONNX Runtime (self-hosted OpenCLIP-based model) |
-| Database       | PostgreSQL 16 — `ltree` for the category tree, `pgvector` for embeddings |
-| Infra          | Docker per service                                            |
+| Component | Stack |
+| - | - |
+| Frontend | React 19, Vite, TypeScript |
+| API server | Node.js, TypeScript, Express 4, PostgreSQL 16, zod |
+| Vision server | Python, FastAPI, ONNX Runtime (self-hosted OpenCLIP-based model) |
+| Database | PostgreSQL 16 — `ltree` for the category tree, `pgvector` for embeddings |
+| Infra | Docker per service |
 
 ## Repository layout
 

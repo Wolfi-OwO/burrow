@@ -1,0 +1,38 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan to catch newly-disclosed CVEs / newly-committed secrets.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          VERSION="$(curl -sSf https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
+      # --no-git is load-bearing: `gitleaks detect` (no flag) only scans
+      # committed git history and would pass a file that was never
+      # committed untouched — the exact gap Task 4 found. Scanning the
+      # working tree instead catches secrets before they're ever committed.
+      - name: Run gitleaks (working tree, not git history)
+        run: gitleaks detect --no-git --source . --redact --verbose

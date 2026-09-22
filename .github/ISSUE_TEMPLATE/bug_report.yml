@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a problem with burrow
+labels: ["type:bugfix"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug report!
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - "apps/api"
+        - "apps/vision"
+        - "apps/frontend"
+        - "packages/shared"
+        - "prototype"
+        - "not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell

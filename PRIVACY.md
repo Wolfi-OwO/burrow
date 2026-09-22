@@ -38,7 +38,7 @@ document.
 ## 3. What Is Collected
 
 | Data | Likely legal basis (if DSGVO applies, see § 1) | Notes |
-|---|---|---|
+| - | - | - |
 | Login credentials / OIDC identity (GitHub, Microsoft, Google) | Art 6(1)(b) or Art 6(1)(f), pending § 1 | Third-party IdP — see § 5 |
 | Profile (avatar, name, bio) | Art 6(1)(b)/(f), pending § 1 | |
 | Uploaded files and the user-defined category tree | Art 6(1)(b)/(f), pending § 1 | |
