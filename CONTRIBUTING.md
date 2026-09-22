@@ -59,3 +59,14 @@ process yet — this section is here for when there is.
 
 By contributing you agree that your contributions are covered by this
 project's license terms once one is chosen (see `README.md#legal`).
+
+## Branch protection
+
+`main` is protected: no force-pushes, no deletions, and every change lands
+through a pull request that must pass both required checks —
+**Repository hygiene** (markdownlint + the AI-attribution guard) and
+**Secret scan (gitleaks)** — before it can merge. `required_approving_review_count`
+is `0` since this is a single-maintainer repo; the gate is CI, not a second
+human. `enforce_admins` is `false` so the one maintainer can still push an
+emergency fix directly to `main` if a check itself is broken — that's an
+escape hatch for incidents, not the normal path.
