@@ -41,7 +41,7 @@ document.
 | - | - | - |
 | Login credentials / OIDC identity (GitHub, Microsoft, Google) | Art 6(1)(b) or Art 6(1)(f), pending § 1 | Third-party IdP — see § 5 |
 | Profile (avatar, name, bio) | Art 6(1)(b)/(f), pending § 1 | |
-| Uploaded files and the user-defined category tree | Art 6(1)(b)/(f), pending § 1 | |
+| Uploaded files and the user-defined category tree | Art 6(1)(b)/(f), pending § 1 | Canonical copy stored off-VPS on Backblaze B2 — see § 5 |
 | AI-generated category assignment per file (including the NSFW branch) | See § 4 | Inference output, not raw upload |
 
 **TODO** — finalize legal basis per row once § 1 is resolved; a purely
@@ -84,6 +84,48 @@ private; Art 9 attaches to the nature of the data, not to audience size.
   third-party or cloud vision API — this was an explicit design constraint
   (see README.md), and it means no Chapter V third-country transfer
   question arises for the classification step itself.
+- **User-uploaded file storage: Backblaze B2, EU-Central region, via its
+  S3-compatible API, is the canonical durable tier for every uploaded file
+  blob — not a backup copy.** The local Contabo VPS disk holds only a
+  bounded ~50GB cache of recently-accessed blobs (GitHub issue #30,
+  ADR-0002); a blob evicted from that cache exists only on B2 until
+  re-fetched. **This means uploaded files — including files that land in
+  the NSFW-classified branch (§ 4) — leave the VPS and are held by
+  Backblaze, a sub-processor. This document must not be read as saying
+  uploads stay on the VPS; since the blob-store change (issue #30) they do
+  not.**
+  - **Region.** EU-Central is Backblaze's own designated EU region; per
+    Backblaze's published regional documentation this keeps blob data
+    physically within the EU at rest, which is why this deployment uses it
+    and not a US-region bucket — the same reasoning `mona/PRIVACY.md` § 5
+    applies to its own (not yet provisioned) Backblaze target.
+  - **Backblaze Inc. is a US-headquartered company**, unlike Contabo GmbH
+    (EU-established; see `mona/PRIVACY.md` § 5 for the equivalent
+    reasoning there). Physical data residency in the EU does not by itself
+    close the Chapter V DSGVO question if Backblaze's US entity retains
+    remote administrative or support access to EU-Central data from
+    outside the EEA — under EDPB post-Schrems-II guidance, remote access
+    from a third country can itself constitute a transfer, independent of
+    where the bytes are stored at rest.
+  - **TODO — unresolved:** confirm (a) whether Backblaze's EU-Central
+    offering is covered by executed Standard Contractual Clauses or a
+    current EU-US Data Privacy Framework certification specific to
+    Backblaze Inc. (DPF status must be checked live against Backblaze's
+    current certification list, not assumed from general knowledge — the
+    same caveat § 5 already states for the OIDC providers below), and (b)
+    whether an Art 28 Auftragsverarbeitervertrag with Backblaze has been
+    reviewed and executed for this account. Until both are confirmed,
+    treat Backblaze as a **named-but-unconfirmed processor**, not a
+    documented one — the same posture `mona/PRIVACY.md` § 5 takes with
+    Contabo's own open DPA point.
+  - **Sub-processor disclosure.** Backblaze B2 is named here as a
+    sub-processor of user-uploaded file content for every account —
+    operator and family members alike. This disclosure is made regardless
+    of how § 1's household-exemption question ultimately resolves: family
+    members' accounts are the slice least likely to fall inside any Art
+    2(2)(c) exemption in the first place, and even if the exemption were
+    to hold in full, this document still has to say where uploads actually
+    live rather than where an earlier draft assumed they lived.
 - **OIDC login (GitHub, Microsoft, Google)** is a third-party data flow: the
   chosen provider receives the OAuth handshake and, depending on scopes,
   identity/profile fields. These are US-headquartered providers.
@@ -103,7 +145,14 @@ private; Art 9 attaches to the nature of the data, not to audience size.
 ## 6. Retention
 
 **TODO** — not decided. No automated deletion policy exists yet; this is
-scaffolding, not a built feature.
+scaffolding, not a built feature. Retention now has to be decided for two
+tiers, not one: the ~50GB local cache (evicts on its own capacity policy,
+not a data-protection one) and the Backblaze B2 canonical copy (no
+deletion job exists yet — deleting a file record does not yet imply
+deleting the underlying B2 object). A DSAR erasure request is not fully
+answerable until a delete path reaches B2 as well as the local cache and
+the database row; do not treat "removed from the app" as "removed from
+B2" until that path is built.
 
 ## 7. Rights
 
