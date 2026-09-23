@@ -56,7 +56,7 @@ create_issue "Epic: Storage and metadata index" "epic,area:database,phase:full-a
 Tracks the M3 issues: the Postgres 16 schema and migration tooling, the
 `ltree` category tree, content-addressed blob storage with SHA-256 dedup,
 full-text search, the deferred `pgvector` embedding column, and the
-100GB backup/restore runbook.
+backup/restore runbook for Postgres and the B2 blob tier.
 
 ## Child issues
 EOF
