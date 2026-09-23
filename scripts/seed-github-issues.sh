@@ -267,12 +267,36 @@ EOF
 
 create_issue "ADR-0002: storage layout and content addressing" "type:docs,area:organizational,priority:high,phase:full-app" "$M2" <<'EOF'
 Record the on-disk/blob layout for uploaded files: content-addressed by
-SHA-256, directory sharding, and how that interacts with dedup.
+SHA-256, directory sharding, and how that interacts with dedup - and, now
+that the VPS's real disk has been measured, where the durable copy
+actually lives.
+
+**Measured, 2026-09-23** (`df -h /` on the VPS): 96G filesystem, 20G used,
+77G avail, shared with five other stacks (portfolio, nutrilens, netviz,
+preussen, metrion) plus a TimescaleDB that grows daily. Burrow cannot plan
+around "the whole disk" - the local filesystem can hold **at most ~50GB**
+of blob data as a bounded cache, not the canonical copy.
+
+**Decision: Backblaze B2 EU-Central (S3-compatible API) is the durable
+tier.** At 100GB stored, B2's published pricing works out to ~€0.64/month.
+Contabo Object Storage was the other option evaluated and rejected: its
+entry tier is €3.99/month, above the ~1-2€/month ceiling for this
+project. B2 wins on both cost and region (EU-Central keeps data in the
+EEA).
 
 ## Acceptance Criteria
-- Decision on directory sharding scheme (e.g. first two hex chars as a bucket).
-- States how dedup is detected and what happens to duplicate uploads.
-- Notes the storage-usage metric this creates, since M7's metrion issue depends on it.
+- Decision on directory sharding scheme (first two hex chars / next two
+  hex chars as nested buckets, `blobs/<sha256[0:2]>/<sha256[2:4]>/<sha256>`)
+  - this becomes the **object key** in B2, not a directory path on disk;
+  the local cache uses the same shape.
+- States how dedup is detected and what happens to duplicate uploads
+  (unchanged: hash before write, skip if the key already exists).
+- States the ~50GB local cache ceiling and the measured `df -h` numbers
+  above as the reason it's a cache, not the store of record.
+- Records the B2 vs Contabo Object Storage cost comparison (€0.64/month
+  vs €3.99/month at 100GB) as the basis for picking B2.
+- Notes the storage-usage metric this creates, since the metrion-onboarding
+  issue depends on it (B2 bytes used, not local disk usage).
 EOF
 
 create_issue "ADR-0003: category-tree model (ltree vs adjacency list)" "type:docs,area:organizational,priority:high,phase:full-app" "$M2" <<'EOF'
@@ -291,12 +315,24 @@ Record why OpenCLIP ViT-B/32 (self-hosted, open weights) was chosen over a
 cloud vision API for classification, with the cloud provider's terms of
 service as the deciding factor for a private personal-file drive.
 
+**Measured, 2026-09-23**: the target VPS has 4 vCPU (AMD EPYC), load
+average 0.26-0.82 observed idle, 7.8GiB RAM and zero swap. These are the
+real numbers the CPU-inference decision rests on. **No benchmark has been
+run yet** - this ADR records the reasoning and the host specs it's based
+on, not a measured inference time. The embed-endpoint issue's first
+implementation task is to actually time a real inference on this hardware
+and record it; until then, any latency figure quoted elsewhere is an
+estimate, not a measurement.
+
 ## Acceptance Criteria
 - States the cloud-ToS constraint explicitly (most cloud vision APIs reserve
   rights to inspect/retain uploaded images) as the reason self-hosting wins
   over a hosted API, even though a hosted API would be simpler to run.
 - Names the specific model (OpenCLIP ViT-B/32) and where its weights come from.
 - Flags that the NSFW/SFW split needs a dedicated classifier, not CLIP zero-shot alone — feeds M6.
+- Records the measured host specs (4 vCPU AMD EPYC, load average
+  0.26-0.82 idle) as the basis for the CPU-inference decision, and states
+  explicitly that no benchmark has been run yet.
 EOF
 
 create_issue "Design the bulk-sort scheduling approach" "type:docs,area:organizational,priority:medium,phase:full-app" "$M2" <<'EOF'
@@ -348,14 +384,18 @@ including the GiST index needed for efficient subtree queries.
 EOF
 
 create_issue "Content-addressed blob store with SHA-256 dedup" "type:feature,area:database,priority:high,phase:full-app" "$M3" <<'EOF'
-Implement the blob storage layer from ADR-0002: files are written keyed by
-their SHA-256 hash, and a second upload of identical bytes reuses the
-existing blob instead of writing a duplicate.
+Implement the blob storage layer from ADR-0002: files are content-addressed
+by SHA-256, with Backblaze B2 EU-Central (S3-compatible API) as the
+durable tier and a bounded local disk cache (~50GB ceiling - the VPS disk
+is shared with five other stacks, see ADR-0002) in front of it.
 
 ## Acceptance Criteria
-- Upload path hashes content before writing and checks for an existing blob with that hash.
-- Duplicate upload creates a new file-metadata row but no new blob.
-- Deleting the last reference to a blob removes the blob from disk (no orphaned data, no premature deletion while still referenced).
+- Upload path hashes content before writing and checks for an existing
+  object with that hash's key in B2 before uploading.
+- Duplicate upload creates a new file-metadata row but no new B2 object.
+- Deleting the last reference to a blob removes the object from B2 (and
+  any local cache copy) - no orphaned data, no premature deletion while
+  still referenced.
 EOF
 
 create_issue "tsvector and GIN full-text search" "type:feature,area:database,priority:medium,phase:full-app" "$M3" <<'EOF'
@@ -379,14 +419,22 @@ apps/vision for each file, sized for ViT-B/32's 512-dim output.
 - Migration includes a comment stating the HNSW deferral and what would trigger adding it.
 EOF
 
-create_issue "Backup and restore runbook for 100GB" "type:docs,area:database,priority:medium,phase:full-app" "$M3" <<'EOF'
+create_issue "Backup and restore runbook for Postgres and the B2 blob tier" "type:docs,area:database,priority:medium,phase:full-app" "$M3" <<'EOF'
 Write the runbook for backing up and restoring both the Postgres database
-and the blob store at the ~100GB scale this drive is sized for.
+and the B2-backed blob store (see ADR-0002 and the blob-store issue) - the
+drive isn't sized for the dataset, so this covers the real tiering:
+Postgres dump/restore plus B2 object-store restore, not a single-volume
+backup.
 
 ## Acceptance Criteria
-- Covers both the Postgres dump/restore path and the blob-store backup path (see M7's restic/rsync timer issue) as one coherent procedure.
-- Includes a tested restore-from-backup walkthrough, not just the backup half.
-- States an expected backup window and restore-time estimate at 100GB.
+- Covers both the Postgres dump/restore path and the blob-store backup
+  path (see the nightly backup timer issue) as one coherent procedure.
+- Includes a tested restore-from-backup walkthrough, not just the backup
+  half.
+- States an expected backup window and restore-time estimate against B2
+  download throughput for the ~50GB local cache size, not a full disk's
+  worth of local data - the durable copy already lives on B2, so "restore" mostly means
+  re-warming the local cache plus the Postgres dump/restore.
 EOF
 
 # ============================================================
@@ -528,6 +576,12 @@ API/vision split.
 - FastAPI app with a health-check endpoint, runnable via its own Dockerfile (matching docker-compose.yml's `vision` service).
 - Holds no persistent user data, per CONTRIBUTING.md's ground rules — receives a file, returns a result, keeps nothing.
 - Startup fails loudly if a required model file is missing, rather than serving broken predictions.
+- Declares an explicit `mem_limit` (~1GiB) for the `vision` service in
+  docker-compose.yml, matching every other container on this box - the
+  host has 7.8GiB RAM and zero swap (confirmed live: `swapon --show`
+  empty), and existing containers' `mem_limit`s already sum to ~6.1GiB, so
+  an unbounded ML container is a real risk on this box, not a theoretical
+  one.
 EOF
 
 create_issue "OpenCLIP ViT-B/32 embed endpoint" "type:feature,area:vision,priority:high,phase:full-app" "$M6" <<'EOF'
@@ -537,7 +591,15 @@ given file, to be stored in M3's pgvector column.
 ## Acceptance Criteria
 - Endpoint accepts an image and returns a 512-length float vector.
 - Same input produces the same embedding across calls (deterministic inference).
-- Documented latency/throughput at the batch size apps/api will realistically send.
+- Documented latency/throughput at the batch size apps/api will
+  realistically send - measured on this VPS's real hardware (4 vCPU AMD
+  EPYC), not derived from a spec sheet. No benchmark has been run yet
+  (see ADR-0004); running one and recording the real number is this
+  issue's first implementation task, not an afterthought.
+- Vision container declares an explicit `mem_limit` (~1GiB) in
+  docker-compose.yml, matching every other container on this box - the
+  host has 7.8GiB RAM and zero swap (`swapon --show` empty), and existing
+  containers' `mem_limit`s already sum to ~6.1GiB.
 EOF
 
 create_issue "Zero-shot classification against user-defined category names" "type:feature,area:vision,priority:high,phase:full-app" "$M6" <<'EOF'
@@ -627,39 +689,112 @@ create_issue "Caddy reverse-proxy vhost for burrow" "type:feature,area:infra,pri
 Add a Caddy vhost routing burrow.woofi-developments.at to the burrow
 containers, alongside the VPS's existing Caddy-fronted services.
 
+**Concrete target** (confirmed on the VPS): the live Caddy config is
+`/opt/portfolio/Caddyfile`, owned by container `portfolio-caddy-1`
+(despite the "portfolio" name, it fronts every stack on this box), and is
+reloaded via `/opt/caddy-reload.sh` after an edit - not a container
+restart. Follow the existing `nutrilens.woofi-developments.at` block
+shape: `import access_log`, `import error_pages`, then
+`reverse_proxy <container>:8080 { import edge_upstream_errors }`.
+
 ## Acceptance Criteria
-- TLS is handled by Caddy's automatic HTTPS, no manual certificate management.
-- Vhost proxies to the api container's exposed port from docker-compose.yml.
-- Caddy's access log for this vhost is what M7's metrion-onboarding issue depends on for per-hostname request counts — verify it's actually being written.
+- TLS is handled by Caddy's automatic HTTPS, no manual certificate
+  management.
+- Vhost proxies to the api container's exposed port from
+  docker-compose.yml, matching the `reverse_proxy ... { import
+  edge_upstream_errors }` shape used by other blocks in
+  `/opt/portfolio/Caddyfile`.
+- `import access_log` is present in the vhost so the log exists for a
+  future collector - no request-count collector reads it today (confirmed
+  live: the metrics collector only emits `container.cpu`/
+  `container.memory.*`); this issue only makes the data available for
+  later.
 EOF
 
 create_issue "Onboard burrow into metrion for CPU, RAM, request-count and storage metrics" "type:feature,area:infra,priority:medium,phase:full-app" "$M7" <<'EOF'
-Add burrow as a monitored target in the user's existing metrion tool
-rather than installing a second monitoring stack.
+Add burrow as a monitored target in metrion by wiring it into the existing
+`/opt/vps-container-metrics/collect.sh` per-container collector, rather
+than installing a second monitoring stack.
 
-metrion already collects box-level CPU/RAM/disk/network metrics on this
-VPS and derives per-hostname request counts from Caddy's access log — so
-once burrow sits behind the same Caddy instance (see the vhost issue
-above), request-count metrics come for free. The only genuinely new work
-is a blob-directory storage-usage metric for burrow's content-addressed
-store. metrion/docs/adr/0002-one-metrics-source.md exists specifically to
-forbid adding a second collector (no Netdata/Prometheus/Grafana here).
+**What the live collector actually does** (confirmed on the VPS,
+2026-09-23): `/opt/vps-container-metrics/collect.sh`, run every minute by
+`vps-container-metrics.timer`, emits exactly three metrics per matched
+container - `container.cpu`, `container.memory.used`,
+`container.memory.limit` - routed by a container-name PREFIX -> project
+mapping (the `ROUTES` array in the script) to each project's Metrion API
+key from `/etc/vps-container-metrics/routing.env`. It does **not** collect
+box-level disk or network at all, and it does **not** derive per-hostname
+request counts from Caddy's access log - see the script's own `ponytail:`
+comment ("no whole-host aggregate ... and no per-hostname request/latency
+numbers"). The older `vps-metrics-collector.service`/`.timer` pair that
+once did host-level collection is disabled and dead (last log line is a
+404 against a container name, `portfolio-caddy-1`, from before a rename -
+it is not what's running today).
+
+Onboarding burrow means:
+1. Add `"burrow-|burrow|BURROW_API_KEY"` to the `ROUTES` array in
+   `/opt/vps-container-metrics/collect.sh`.
+2. Add `BURROW_API_KEY=...` to `/etc/vps-container-metrics/routing.env`.
+3. **Every burrow container must be named with a `burrow-` prefix**
+   (matching docker-compose.yml's project-name-based default, e.g.
+   `burrow-api-1`) - the router does first-match-on-prefix, so any
+   container not prefixed `burrow-` is silently skipped, not
+   miscategorized.
+
+Request-count and blob-store storage-usage metrics are **not** covered by
+the existing collector and are genuinely new work if wanted - this issue
+does not implement either; it only gets container CPU/RAM into metrion.
+metrion/docs/adr/0002-one-metrics-source.md still forbids a second
+collector (no Netdata/Prometheus/Grafana here) - this stays inside the
+existing `/opt/vps-container-metrics` collector, it doesn't add a parallel
+one for burrow.
 
 ## Acceptance Criteria
-- burrow's host/containers appear in metrion's existing CPU/RAM/disk/network views with no new collector installed.
-- Confirm per-hostname request counts for burrow.woofi-developments.at show up, sourced from the same Caddy access log metrion already reads.
-- New work is limited to a blob-store storage-usage metric (bytes used under the content-addressed directory); everything else reuses metrion as-is.
+- burrow's containers (named with the `burrow-` prefix) appear in
+  metrion's existing container CPU/RAM views with no new collector
+  installed - only a `ROUTES` entry and a routing.env key.
+- No claim of request-count or disk/network metrics - those need new
+  collector work, tracked separately if wanted.
+- The `burrow-` prefix requirement is checked at deploy time (e.g. in the
+  compose file or deploy runbook), since a missing prefix means silent,
+  no-error omission from metrics, not a visible failure.
 EOF
 
 create_issue "Nightly restic/rsync backup timer for the blob store" "type:feature,area:infra,priority:high,phase:full-app" "$M7" <<'EOF'
-A systemd timer (matching this account's existing hypr-backup pattern) that
-backs up burrow's blob store nightly, complementing M3's backup/restore
-runbook.
+A systemd timer, matching this VPS's own existing pattern for background
+jobs - `Type=oneshot` under `flock`, invoked by a paired `.timer` (see
+`nutrilens-db-backup.service`/`.timer` and
+`metrion-nightly-backup.service`/`.timer` already running on this box) -
+that backs up burrow's data nightly, complementing M3's backup/restore
+runbook. This follows the pattern already proven on this same VPS, not
+any tooling tied to a different machine.
+
+**Backend: restic with the `b2` backend, not `azure`.** Confirmed on the
+VPS: `restic` is installed at `/usr/bin/restic`, version 0.16.4
+(`0.16.4-2ubuntu0.24.04.3`), and its Azure backend is excluded from this
+Ubuntu package build. `b2` parses and works fine on this box - viable
+here even though nutrilens' own backup couldn't use it for the same
+reason on Azure.
+
+**If the blob store already lives on B2** (per the storage-layout ADR),
+this timer backs up **Postgres only** - the blob store's durability is
+already covered by B2 itself, and a second nightly copy of the same bytes
+would be a redundant copy of data that's already off-box and already
+durable. Only add blob-store backup here if, at implementation time, the
+blob store is still local-only.
 
 ## Acceptance Criteria
-- Timer runs nightly without manual intervention and logs success/failure.
+- Timer runs nightly without manual intervention and logs success/failure,
+  built as `Type=oneshot` under `flock`, triggered by a `.timer` unit -
+  matching `nutrilens-db-backup.service`/`metrion-nightly-backup.service`.
 - Backup target is off-box (not just another directory on the same VPS).
-- A restore from the nightly backup has been tested at least once, not just the backup path.
+- Uses restic's `b2` backend, not `azure` (broken on this box's restic
+  package).
+- A restore from the nightly backup has been tested at least once, not
+  just the backup path.
+- If the blob store is already on B2 at implementation time, this backs
+  up Postgres only, with a one-line note in the runbook explaining why the
+  blob store isn't duplicated here.
 EOF
 
 # ============================================================
