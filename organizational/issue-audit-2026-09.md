@@ -13,7 +13,7 @@ updated in this pass. `already-corrected` — one of the 9 issues fixed in
 commit `5bb7332`, re-verified here and still accurate.
 
 | Issue | Verdict | Note |
-|---|---|---|
+| --- | --- | --- |
 | #1 | accurate | Epic tracker, no VPS-specific claims. |
 | #2 | accurate | Epic tracker, no VPS-specific claims. |
 | #3 | corrected | Epic body said "the 100GB backup/restore runbook" — a leftover false premise from before the B2/~50GB-cache decision (issue #33, corrected in `5bb7332`, no longer matches). Reworded to "the backup/restore runbook for Postgres and the B2 blob tier", matching #33's actual title/scope. Missed by the earlier pass since only #33 itself, not the epic referencing it, was touched. |
