@@ -213,9 +213,54 @@ there (§5), and (c) re-check this finding against Backblaze's
 then-current Terms of Service and AUP before relying on it — both are dated
 April 16, 2026 and, per the Terms of Service itself, can change.
 
+## Blocking gate before #30
+
+Two items below are late-stage entries in "Everything Else" by default —
+both trace back to Finding 3 and to
+`organizational/deploy/b2-credential-security.md`'s "Live findings" §5 —
+but they cannot wait for M8. Issue #30 (content-addressed B2 blob store)
+is the point where real, canonical user files start landing in Backblaze
+B2 for the first time. The moment that happens, everything Finding 3
+flags as an open risk stops being theoretical. Both items below must
+close **before any real user file is written to B2** — i.e. before #30's
+implementation is safe to run against production data, even if #30's code
+itself is finished earlier. Neither item blocks writing or reviewing #30's
+code; both block shipping it live.
+
+- [ ] **(a) Art 28 DSGVO Auftragsverarbeitervertrag (AVV/DPA) with
+      Backblaze.** Currently absent. Finding 3's closing paragraph states
+      this directly, and `b2-credential-security.md` §5 confirms it
+      independently: *"A DPA (processor agreement) with Backblaze is
+      separately needed before real user files land there."* **This is an
+      operator action, not something any agent can do.** Obtaining and
+      executing Backblaze's Art 28 DPA (or confirming Backblaze's standard
+      one is already in force for this account) requires Phillip Kofler to
+      deal with Backblaze directly — no agent working in this repository
+      can sign, negotiate or execute a contract on the operator's behalf.
+      Track this here as a checkbox against a real action taken with
+      Backblaze, not as anything resolvable in code or documentation.
+- [ ] **(b) Re-fetch and re-verify Backblaze's Terms of Service and
+      Acceptable Use Policy before relying on Finding 3 again.** Finding
+      3's conclusion — that lawful, private NSFW content is "not currently
+      prohibited" by B2's terms — rests on the *absence* of a prohibition
+      clause in documents dated 2026-04-16, not on an explicit permission.
+      An absence is weaker and less stable than an explicit clause: per
+      Finding 3's own TODO, this is "weaker evidence than Finding 1 in one
+      respect... rests partly on the absence of one, which can change
+      without the kind of visible amendment a new prohibition clause would
+      get." This is a **re-verify-before-relying-on-this-again** item, not
+      a one-time check closed forever by the 2026-09-23 fetch — re-run the
+      same live retrieval against Backblaze's *then-current* Terms of
+      Service and AUP immediately before #30 ships to production, and
+      again at any later point this finding is relied on for a decision
+      (expanding the NSFW category, onboarding a second account, or
+      similar).
+
 ## Everything Else — Deferred to the Full-App Phase
 
 The items below are named so they become issues later, not resolved now.
+Backblaze's Art 28 AVV and AUP re-verification are pulled forward into
+the blocking gate above and are not restated here.
 
 - [ ] `TODO` — DSGVO Art 30 Verarbeitungsverzeichnis: not started.
 - [ ] `TODO` — DPIA (Art 35) assessment: the NSFW/Art 9-adjacent
@@ -224,8 +269,13 @@ The items below are named so they become issues later, not resolved now.
 - [ ] `TODO` — Art 28 AVV with Contabo (hosting): not reviewed.
 - [ ] `TODO` — OIDC provider (GitHub/Microsoft/Google) transfer mechanism
       check (DPF certification vs. SCCs) at time of launch: not done.
-- [ ] `TODO` — DSGVO Art 2(2)(c) household-exemption question
-      (PRIVACY.md § 1): not resolved.
+- [x] DSGVO Art 2(2)(c) household-exemption question (PRIVACY.md § 1):
+      resolved with a conditional default, not left open — see
+      PRIVACY.md § 1. Holds only while burrow has exactly one account
+      (the operator's, per README.md's "Legal" section); breaks the
+      moment a second, non-operator account is provisioned, or sooner
+      if the separate single-tenant-vs-multi-user product question is
+      settled either way first.
 - [ ] `TODO` — self-service export/delete (Art 15/17/20) endpoints: not
       built.
 - [ ] `TODO` — breach-notification process (Art 33/34): not defined.

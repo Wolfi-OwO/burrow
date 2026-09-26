@@ -10,21 +10,73 @@ claim.
 ## 1. Controller and the Household Question
 
 Phillip Kofler operates the deployment (Contabo VPS, Austria-based
-operator). **TODO — unresolved:** DSGVO Art 2(2)(c) exempts processing by a
-natural person "in the course of a purely personal or household activity."
-burrow is intended as household/family use, which is the shape that
-exemption is written for — but burrow provisions **separate accounts for
-other family members**, who are not merely subjects of the operator's own
-processing but users acting on their own behalf (uploading their own files,
-having their own photos sorted). Whether the whole system still qualifies as
-"purely personal or household," or whether Phillip Kofler is a controller
-relative to the other family members' accounts (taking the processing
-outside the Art 2(2)(c) exemption for that slice of it), is a genuine open
-question — not resolved here, and not assumed either way. This gates
-everything below: if DSGVO applies, the rest of this document is the
-scaffold for a real policy; if the household exemption holds in full, a
-much lighter framework may be appropriate instead. **TODO: resolve before
-any non-operator account is provisioned.**
+operator). **Resolved with a conditional default — see below.** DSGVO
+Art 2(2)(c) exempts processing by a natural person "in the course of a
+purely personal or household activity." burrow is intended as
+household/family use, which is the shape that exemption is written for —
+but this document (see § 5's "sub-processor ... for every account —
+operator and family members alike") is written anticipating **separate
+accounts for other family members**, who would not merely be subjects of
+the operator's own processing but users acting on their own behalf
+(uploading their own files, having their own photos sorted). Whether the
+whole system still qualifies as "purely personal or household," or whether
+Phillip Kofler would become a controller relative to other family members'
+accounts (taking the processing outside the Art 2(2)(c) exemption for that
+slice of it), was a genuine open question. It is resolved below by tying
+the answer to the system's *current* state rather than to its anticipated
+one. This gates everything below: if DSGVO applies, the rest of this
+document is the scaffold for a real policy; while the household exemption
+holds in full, a much lighter framework applies instead.
+
+**Resolution (2026-09-26), conditional default.** As of this pass, burrow
+has exactly one account — the operator's own. README.md's "Legal" section
+states this plainly: *"burrow is personal, single-tenant software — I am
+the only user, running it on my own infrastructure."* With no
+non-operator account yet provisioned, there is no other data subject whose
+files or identity the operator processes as anyone other than themself. On
+that fact pattern, **the Art 2(2)(c) purely-personal-or-household-activity
+exemption applies in full**: DSGVO does not attach to the operator's own
+single-account use of burrow. Concretely, this means no Art 6 legal basis
+is required for the rows in § 3, Art 35 (DPIA) is not triggered by § 4's
+NSFW classification because Art 9 attaches to *processing subject to
+DSGVO in the first place* and the exemption removes that predicate, and
+Art 15/17/20 self-service rights (§ 7) are not a *legal* requirement —
+though none of this is a reason to skip reasonable data hygiene as a
+matter of practice, only a statement of what is not legally compelled.
+
+**This default is state-dependent, not a one-time answer, and it breaks
+automatically the moment a second, non-operator account is provisioned** —
+at that point the operator becomes a controller relative to that other
+person's own files and identity (their own uploads, their own login,
+processed on infrastructure the operator controls but for that other
+person's own purposes), which is exactly the "users acting on their own
+behalf" scenario this section already anticipated above. CJEU case law on
+the household exemption (*Rynes*, C-212/13) reads the carve-out narrowly
+even for activity that is genuinely private but extends beyond the
+operator's own strictly personal sphere; provisioning a distinct account
+for a named third party is a clearer step outside that sphere than the
+facts in *Rynes* itself (a home security camera incidentally recording a
+public street). No new legal analysis is required to reach that
+conclusion when it happens — it follows directly from the reasoning above
+— but from that moment §§ 3, 4, 6, 7 of this document stop being
+scaffolding for a hypothetical and start being binding for the
+non-operator account(s), at minimum.
+
+**Known inconsistency this default does not paper over.** The paragraph
+above and § 5 of this document are written anticipating family-member
+accounts, while README.md's "Legal" section states burrow is single-tenant
+with the operator as its only user. Those two framings do not currently
+agree with each other, and this resolution does not paper over that by
+picking one — it is a separate, open **product** question (does burrow
+stay single-tenant, or become multi-user) that a technical planning pass
+already flagged as unresolved and that this document cannot settle, since
+it is a build decision, not a legal one. This default simply tracks
+whichever is true *right now* per README.md (one account) and is
+explicitly revisable the instant that product question is settled either
+way: staying single-tenant keeps this exemption durable; becoming
+multi-user ends the exemption for every non-operator account the moment it
+exists, per the reasoning above, with no further legal analysis needed to
+re-trigger it.
 
 ## 2. Data Subjects
 
