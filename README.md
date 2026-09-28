@@ -5,7 +5,12 @@
 A private, self-hosted file drive — like Google Drive, but single-tenant and
 mine. Upload anything, and a scheduled AI job sorts it into a category tree
 I define myself (`Furry/SFW/WOLF`, `Furry/NSFW`, `Nature`, ...), instead of
-me filing it by hand.
+me filing it by hand. Scaffolding only right now: this pass created the
+repository layout, npm workspaces, and shared tooling config (ESLint,
+Prettier, TypeScript base config, markdownlint, Docker Compose skeleton).
+Nothing is implemented — no auth, no API, no frontend, no vision model, no
+database schema. `apps/api`, `apps/vision`, `apps/frontend`, and
+`packages/shared` are all empty directories with a placeholder README.
 
 ![CI](https://img.shields.io/badge/CI-not_set_up_yet-lightgrey)
 ![Security](https://img.shields.io/badge/security_scan-not_set_up_yet-lightgrey)
@@ -23,7 +28,7 @@ me filing it by hand.
 
 </div>
 
-## Why a separate vision service
+## Why it is built this way
 
 burrow is split into two independently deployable services, the same way
 nutrilens is (see nutrilens's ADR-0001, and this project's own ADR once
@@ -45,16 +50,7 @@ its own branch of the category tree, and every mainstream cloud vision
 API's terms of service forbid classifying that kind of content — there is
 no cloud option here, only a model running under my own roof.
 
-## Status
-
-Scaffolding only. This pass created the repository layout, npm workspaces,
-and shared tooling config (ESLint, Prettier, TypeScript base config,
-markdownlint, Docker Compose skeleton). Nothing is implemented: no auth, no
-API, no frontend, no vision model, no database schema. `apps/api`,
-`apps/vision`, `apps/frontend`, and `packages/shared` are all empty
-directories with a placeholder README.
-
-## Stack
+## Tech stack
 
 | Component | Stack |
 | - | - |
@@ -64,7 +60,18 @@ directories with a placeholder README.
 | Database | PostgreSQL 16 — `ltree` for the category tree, `pgvector` for embeddings |
 | Infra | Docker per service |
 
-## Repository layout
+## Getting started
+
+```bash
+cp .env.example .env
+docker compose up
+```
+
+This is the planned shape once `apps/api` and `apps/vision` have Dockerfiles
+— it does not build yet. Nothing else to run locally today; there is no
+application code in this pass.
+
+## Project structure
 
 ```text
 apps/api/                    Main application server (Node.js/TypeScript) — empty scaffold
@@ -80,38 +87,25 @@ scripts/                      Repo-maintenance scripts — empty
 todo/                         Scratch task notes ahead of a proper issue or requirement — empty
 ```
 
-## Development
-
-```bash
-cp .env.example .env
-docker compose up
-```
-
-This is the planned shape once `apps/api` and `apps/vision` have Dockerfiles
-— it does not build yet. Nothing else to run locally today; there is no
-application code in this pass.
-
 ## Security
 
 No auth, no network-facing code, nothing to attack surface yet. Once
 `apps/api` exists, secrets stay in `.env` (never committed — see
 `.gitignore`), and vulnerability handling gets its own `SECURITY.md`.
 
-## Legal
+## Documentation
 
-burrow is personal, single-tenant software — I am the only user, running it
-on my own infrastructure. No public license has been chosen yet and none is
-needed while nothing is published; this section will state the terms before
-any code here is shared or self-hosted by anyone else. Because a stated goal
-of this app is sorting NSFW content, that content is mine, stored on
-infrastructure I control, and never processed by a third-party service —
-see [Why a separate vision service](#why-a-separate-vision-service).
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and commit-message
-convention. Single-contributor project for now — no PR workflow or CI to
-gate on yet.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — ground rules and commit-message
+  convention. Single-contributor project for now — no PR workflow or CI to
+  gate on yet
+- **Legal** — burrow is personal, single-tenant software: I am the only
+  user, running it on my own infrastructure. No public license has been
+  chosen yet and none is needed while nothing is published; this entry will
+  state the terms before any code here is shared or self-hosted by anyone
+  else. Because a stated goal of this app is sorting NSFW content, that
+  content is mine, stored on infrastructure I control, and never processed
+  by a third-party service — see
+  [Why it is built this way](#why-it-is-built-this-way)
 
 ## License
 
