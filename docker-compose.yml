@@ -1,31 +1,28 @@
-# The full stack for local development: Postgres, apps/api, apps/vision.
-# Neither service exists yet, so this file describes the intended shape —
-# it will not build until Task-1's scaffolding grows real Dockerfiles.
+# The full stack for local development: Postgres, apps/api (with the built frontend), apps/vision.
 #
-# Usage: cp .env.example .env && docker compose up
+#   cp .env.example .env && docker compose up --build
+#   open http://localhost:8080
+#
+# The first `vision` build exports the ONNX models (needs a few minutes and ~2 GB of downloads, once);
+# later builds reuse the cached layer.
 
 services:
   postgres:
-    # pgvector/pgvector (not plain postgres) — the category-tree design
-    # needs `ltree` (built into postgres core, no special image required)
-    # and file embeddings need the `pgvector` extension, which this image
-    # ships pre-built on top of postgres:16.
+    # pgvector/pgvector, not plain postgres: file embeddings need the pgvector extension, which this image
+    # ships on top of postgres:16. `ltree` is part of core.
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: burrow
       POSTGRES_PASSWORD: burrow
       POSTGRES_DB: burrow
     ports:
-      - "127.0.0.1:5432:5432"
+      - '127.0.0.1:5432:5432'
     volumes:
       - burrow-pgdata:/var/lib/postgresql/data
     healthcheck:
-      # -h 127.0.0.1 is load-bearing: without a host, pg_isready goes over
-      # the Unix socket, which the entrypoint's temporary init server
-      # accepts even before the real server (listening on TCP) is up — the
-      # probe would then report healthy too early. Over TCP the temp server
-      # isn't reachable at all, so the probe can't pass early.
-      test: ["CMD-SHELL", "pg_isready -U burrow -d burrow -h 127.0.0.1"]
+      # -h 127.0.0.1 is load-bearing: over the Unix socket pg_isready is satisfied by the entrypoint's
+      # temporary init server before the real one listens on TCP, and would report healthy too early.
+      test: ['CMD-SHELL', 'pg_isready -U burrow -d burrow -h 127.0.0.1']
       interval: 2s
       timeout: 5s
       retries: 30
@@ -33,22 +30,36 @@ services:
   vision:
     build:
       context: apps/vision
-      dockerfile: Dockerfile
+    # ADR-0004: both models together peak at ~1.07 GiB RSS, measured.
+    mem_limit: 1280m
+    read_only: true
+    tmpfs:
+      - /tmp
     expose:
-      - "8000"
+      - '8000'
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 60s
+      retries: 6
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       DATABASE_URL: postgresql://burrow:burrow@postgres:5432/burrow
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
-      PORT: "8080"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+      PORT: '8080'
       NODE_ENV: development
       VISION_SERVICE_URL: http://vision:8000
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-false}
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
       OAUTH_FRONTEND_BASE_URL: ${OAUTH_FRONTEND_BASE_URL:-http://localhost:8080}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
@@ -56,11 +67,14 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+    volumes:
+      - burrow-data:/data
     depends_on:
       postgres:
         condition: service_healthy
       vision:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   burrow-pgdata:
+  burrow-data:

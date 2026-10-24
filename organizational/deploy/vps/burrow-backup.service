@@ -1,0 +1,13 @@
+[Unit]
+Description=burrow nightly backup (database dump and new blobs)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+ExecStart=/opt/burrow/backup.sh
+# A backup that hangs must not hold the box's disk or bandwidth forever.
+TimeoutStartSec=3h
+Nice=10
+IOSchedulingClass=idle

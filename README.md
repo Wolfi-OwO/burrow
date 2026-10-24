@@ -3,14 +3,23 @@
 # burrow
 
 A private, self-hosted file drive — like Google Drive, but single-tenant and
-mine. Upload anything, and a scheduled AI job sorts it into a category tree
+mine. I upload anything, and a scheduled AI job sorts it into a category tree
 I define myself (`Furry/SFW/WOLF`, `Furry/NSFW`, `Nature`, ...), instead of
-me filing it by hand. Scaffolding only right now: this pass created the
-repository layout, npm workspaces, and shared tooling config (ESLint,
-Prettier, TypeScript base config, markdownlint, Docker Compose skeleton).
-Nothing is implemented — no auth, no API, no frontend, no vision model, no
-database schema. `apps/api`, `apps/vision`, `apps/frontend`, and
-`packages/shared` are all empty directories with a placeholder README.
+filing it by hand. It runs: the API, the web client and the vision service
+are built and tested end to end, with real model inference. What is not done
+is the deployment (it needs my Backblaze, DNS and registry credentials) and
+the legal documents (they need my address and decisions only I can make) — see
+[the release checklist](organizational/release-checklist.md).
+
+## Features
+
+- Sign in with a password (Argon2id) or GitHub, Microsoft or Google, with revocable sessions
+- A category tree of any depth, drag and drop, atomic subtree moves (Postgres `ltree`)
+- Upload with content-addressed storage: the same bytes are stored once
+- Name search, ranked, with each hit's place in the tree
+- AI sorting: OpenCLIP zero-shot against my own category names, a dedicated NSFW model, a confidence
+  threshold, and a review queue for what it is unsure of
+- Thumbnails, a profile, a colour panel with palettes and fine-tuning
 
 ![CI](https://img.shields.io/badge/CI-not_set_up_yet-lightgrey)
 ![Security](https://img.shields.io/badge/security_scan-not_set_up_yet-lightgrey)
@@ -63,35 +72,51 @@ no cloud option here, only a model running under my own roof.
 ## Getting started
 
 ```bash
-cp .env.example .env
-docker compose up
+cp .env.example .env      # set JWT_SECRET (openssl rand -base64 48)
+docker compose up --build
 ```
 
-This is the planned shape once `apps/api` and `apps/vision` have Dockerfiles
-— it does not build yet. Nothing else to run locally today; there is no
-application code in this pass.
+then open <http://localhost:8080> and create the owner account. The first build of
+`apps/vision` exports the ONNX models (a few minutes, once). The first account becomes
+the admin; registration stays closed afterwards.
+
+Without Docker, per app:
+
+```bash
+npm ci
+npm run database:migrate -w apps/api     # needs DATABASE_URL, see .env.example
+npm test -w apps/api                     # real Postgres with pgvector required
+npm run dev -w apps/api                  # :8080
+npm run dev -w apps/frontend             # :5173, proxies /api to :8080
+cd apps/vision && pip install -r requirements-export.txt && python scripts/export_models.py
+pip install -r requirements-dev.txt && python -m pytest
+node --test e2e/smoke.test.mjs           # against a running stack, BASE_URL=http://localhost:8080
+```
 
 ## Project structure
 
 ```text
-apps/api/                    Main application server (Node.js/TypeScript) — empty scaffold
-apps/vision/                 Isolated AI-classification service (Python/FastAPI) — empty scaffold
-apps/frontend/                Production frontend (React/Vite/TypeScript) — empty scaffold
-prototype/                   Static, hardcoded-data design walkthrough — empty scaffold
-packages/shared/              Types/schemas shared between apps/api and apps/frontend — empty scaffold
-organizational/adr/           Architecture decision records — empty
-organizational/requirements/  Numbered requirement docs, written before the feature they describe
-organizational/deploy/        Deployment docs for the self-hosted stack — empty
-docs/                         General project documentation — empty
-scripts/                      Repo-maintenance scripts — empty
-todo/                         Scratch task notes ahead of a proper issue or requirement — empty
+apps/api/                     Main application server (Node.js/TypeScript, Express, Postgres)
+apps/vision/                  Isolated AI service (Python/FastAPI, ONNX Runtime), no database, keeps nothing
+apps/frontend/                Web client (React, Vite, TypeScript)
+e2e/                          End-to-end smoke test against a running stack
+prototype/                    The early walkthrough plan; the real client replaced it
+packages/shared/              Reserved for types shared between api and client; unused so far
+organizational/adr/           Architecture decision records (ADR-0001 to 0005)
+organizational/requirements/  Functional requirements, FR-001 onwards
+organizational/deploy/        VPS runbook, deploy and backup scripts, B2 security design
+docs/, scripts/, todo/        General docs, repo maintenance, scratch notes
 ```
 
 ## Security
 
-No auth, no network-facing code, nothing to attack surface yet. Once
-`apps/api` exists, secrets stay in `.env` (never committed — see
-`.gitignore`), and vulnerability handling gets its own `SECURITY.md`.
+- Passwords are hashed with Argon2id; a wrong password and an unknown user get the same answer.
+- The access token (10 minutes) lives only in memory; the refresh token is an HttpOnly, SameSite=Strict cookie
+  that rotates on every use, and logout revokes the session row, so a stolen token dies at once.
+- Every file route checks ownership, and another user's id is a 404, not a 403.
+- Served files carry `nosniff` and a sandboxing CSP, so an uploaded HTML or SVG file cannot run as part of the site.
+- The vision service has no database, no internet route and keeps no upload; secrets live in `.env`, never in git.
+- gitleaks, Trivy and CodeQL run in CI. Report a vulnerability as described in [SECURITY.md](SECURITY.md).
 
 ## Documentation
 

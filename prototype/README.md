@@ -1,5 +1,4 @@
 # prototype
 
-Static, hardcoded-data design walkthrough for the file browser and category
-tree, built before any backend exists — the same role `ui-prototype/` plays
-in nutrilens. Nothing lives here yet.
+This directory held the plan for a static, hardcoded-data walkthrough built before any backend existed. The real
+client in `apps/frontend` was built directly against `apps/api` instead, so the walkthrough was never needed.

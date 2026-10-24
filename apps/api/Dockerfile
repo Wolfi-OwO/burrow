@@ -32,4 +32,5 @@ VOLUME /data
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:8080/livez').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-CMD ["node", "dist/server.js"]
+# Migrations are idempotent and run before the server starts, so a new image never serves against an old schema.
+CMD ["sh", "-c", "node scripts/run-migrations.mjs && exec node dist/server.js"]

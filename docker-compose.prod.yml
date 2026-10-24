@@ -1,0 +1,98 @@
+# Production stack for the VPS. Joins the `edge-net` network the shared Caddy already uses. Run with:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+# Image tags come from IMAGE_TAG in .env, which deploy.sh rewrites on every release.
+#
+# How this differs from docker-compose.yml (local dev):
+#   * No published host port. Caddy is the only process on the box allowed to publish 0.0.0.0 ports, and a
+#     bare `-p` would bypass the firewall entirely.
+#   * Service keys are `burrow` / `burrow-vision` / `burrow-db`, never generic names like `web` or `db`: on a
+#     host that shares one `edge-net`, a generic name has already routed every domain to the wrong app once.
+#   * `burrow-vision` joins ONLY `vision-net` and `burrow-db` ONLY `db-net`, both internal. The vision service
+#     holds no user data and must have no route to the internet or to the database (ADR-0001); `burrow` is the
+#     only service on all three networks.
+#   * Uploads are stored in Backblaze B2 (ADR-0002); /data is only the local cache, so the volume is disposable.
+#   * Not blue-green: one owner, one instance, and a restart of a few seconds is acceptable. deploy.sh gates on
+#     /readyz and rolls back to the previous tag if the new one never becomes ready (see ADR-0005).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  burrow:
+    image: ${REGISTRY:?REGISTRY must be set}/burrow-api:${IMAGE_TAG:?IMAGE_TAG must be set}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: '8080'
+      DATABASE_URL: postgresql://burrow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@burrow-db:5432/burrow
+      VISION_SERVICE_URL: http://burrow-vision:8000
+      BLOB_CACHE_DIR: /data
+    volumes:
+      - burrow-cache:/data
+    networks: [edge-net, vision-net, db-net]
+    mem_limit: 512m
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    depends_on:
+      burrow-db:
+        condition: service_healthy
+    healthcheck:
+      # livez, not readyz: a flaky database must not restart an otherwise healthy container.
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/livez').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      start_period: 30s
+      retries: 3
+    logging: *logging
+
+  burrow-vision:
+    image: ${REGISTRY}/burrow-vision:${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+    networks: [vision-net]
+    # ADR-0004: ~1.07 GiB peak for both models, measured; one worker, because a second process doubles it.
+    mem_limit: 1280m
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    logging: *logging
+
+  burrow-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: burrow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: burrow
+    volumes:
+      - burrow-db-data:/var/lib/postgresql/data
+    networks: [db-net]
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U burrow -d burrow -h 127.0.0.1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+networks:
+  edge-net:
+    external: true
+  vision-net:
+    internal: true
+  db-net:
+    internal: true
+
+volumes:
+  burrow-cache:
+  burrow-db-data:

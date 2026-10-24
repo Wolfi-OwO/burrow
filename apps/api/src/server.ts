@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import cors from 'cors';
@@ -84,7 +84,10 @@ const API_PREFIXES = ['/api', '/health', '/livez', '/readyz', '/metrics'];
 if (existsSync(frontendDist)) {
     app.use(express.static(frontendDist, { index: false }));
     app.get(/.*/, (req, res, next) => {
+        // A path with a file extension is an asset, not a client route: a missing one must be a 404, not an HTML
+        // page that a stale cache would then try to run as a script.
         if (
+            extname(req.path) !== '' ||
             API_PREFIXES.some((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`))
         ) {
             next();

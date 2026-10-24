@@ -1,0 +1,25 @@
+# Added to the shared Caddyfile on the VPS. Caddy reaches the container by its service name on edge-net.
+burrow.woofi-developments.at {
+	encode zstd gzip
+
+	# FR-017's cap is enforced by the API; this is the outer wall, a little above MAX_UPLOAD_MB so the API's own
+	# 413 (with a readable message) wins for ordinary oversize files.
+	request_body {
+		max_size 220MB
+	}
+
+	header {
+		-Server
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	reverse_proxy burrow:8080 {
+		# A large upload on a slow line must not be cut off mid-body.
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+		health_uri /readyz
+		health_interval 15s
+	}
+}

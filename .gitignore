@@ -49,3 +49,4 @@ test-results/
 # apps/api local blob cache and test staging
 apps/api/data/
 apps/api/data-test/
+apps/api/public/

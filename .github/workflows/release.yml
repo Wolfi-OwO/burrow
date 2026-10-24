@@ -1,0 +1,91 @@
+name: Release
+
+# Publishing a GitHub Release builds both images, pushes them under the release tag, and deploys that tag.
+# workflow_dispatch redeploys any existing tag, which is also the rollback path.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)deploy, e.g. v0.1.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve the tag
+        id: tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${RELEASE_TAG:-$INPUT_TAG}"
+          # Same rule deploy.sh enforces on the box; fail here first with a clearer message.
+          [[ "$TAG" =~ ^v[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(-dev-[0-9]{1,6})?$ ]] || { echo "::error::'$TAG' is not a release tag"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push burrow-api
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ vars.REGISTRY }}/burrow-api:${{ steps.tag.outputs.tag }}
+          build-args: |
+            APP_VERSION=${{ steps.tag.outputs.tag }}
+            APP_REVISION=${{ github.sha }}
+            APP_BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Build and push burrow-vision
+        uses: docker/build-push-action@v7
+        with:
+          context: apps/vision
+          push: true
+          tags: ${{ vars.REGISTRY }}/burrow-vision:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=vision
+          cache-to: type=gha,scope=vision,mode=max
+
+  deploy:
+    name: Deploy to the VPS
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Send the tag over the forced-command key
+        env:
+          TAG: ${{ needs.images.outputs.tag }}
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          (umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key)
+          ssh-keyscan -t ed25519 "$VPS_HOST" >> ~/.ssh/known_hosts
+          # The key on the box is bound to /opt/burrow/deploy.sh; this string is its only input.
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "deploy@${VPS_HOST}" "$TAG"
