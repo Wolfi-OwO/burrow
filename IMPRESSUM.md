@@ -8,19 +8,15 @@ Information pursuant to § 5 ECG and § 25 MedienG. Published in the app at `/im
 
 Phillip Kofler
 Software Developer | Fullstack Developer
-Villach, Carinthia, Austria
+Oberrainer Straße 53b
+9586 Fürnitz
+Kärnten, Österreich
 
 Contact: <KoflerPhillip@outlook.com>
 
-The scope and wording deliberately mirror the Impressum of `woofi-developments.at`, so every site operated under
-this domain shows the same operator details.
-
-**Decision on the street address (owner, 2026-10-24):** the street address is not published, the same as on
-`woofi-developments.at`. § 5 Abs 1 Z 1 ECG lists a geographic address among the details a provider has to make
-available. Whether that obligation attaches to a private, login-only service at all is not settled (see
-"Obligation" below), and whether a town and a working email address are enough for the sites that do fall under it
-is a question for a Rechtsanwalt, not something this file answers. Add the street address here and on the
-other site together if that advice says so.
+This is the geographic address § 5 Abs 1 Z 1 ECG asks for. It was provided by the operator on 2026-10-24 for
+publication here. The Impressum of `woofi-developments.at` shows town and email only; whether to add the street
+there too is the operator's decision and is not made by this file.
 
 ## Obligation
 

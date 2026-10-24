@@ -1,5 +1,9 @@
 # Security assessment: the Backblaze B2 credential path
 
+> **Historical.** burrow no longer uses Backblaze ([ADR-0006](../adr/0006-local-store-encrypted-offsite-backup.md)):
+> the VPS disk is the store of record and the offsite copy is an encrypted backup on Azure. Kept because its
+> reasoning about scoped keys, separate buckets and encrypting before upload carried over to the new design.
+
 Status: assessment, 2026-09-23. Scope: how burrow's B2 application key is
 scoped, stored, and served from, now that ADR-0002 (#23) makes B2
 EU-Central the canonical tier for user-uploaded files and the local disk

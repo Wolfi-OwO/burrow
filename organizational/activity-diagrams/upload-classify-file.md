@@ -9,10 +9,10 @@ FR IDs reference `organizational/requirements/functional-requirements.md`.
 ```mermaid
 flowchart TD
     A[Client uploads file to apps/api] --> B[apps/api hashes content — FR-016]
-    B --> C{Hash already exists\nin B2 / local cache?}
+    B --> C{Hash already exists\nin the local store?}
 
     C -- "yes: dedup hit" --> D["⚠ New file-metadata row only,\nno new blob write — FR-016.\nMost likely step to implement wrong:\nauthorize/act on the file row,\nnever the blob hash\n(see b2-credential-security.md)"]
-    C -- "no: new content" --> E[Write blob to local cache\nand upload to B2 — ADR-0002]
+    C -- "no: new content" --> E[Write blob to the local store\n(ADR-0002 layout, ADR-0006)]
 
     D --> F[File row created, state = unsorted]
     E --> F

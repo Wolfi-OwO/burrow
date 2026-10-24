@@ -10,7 +10,8 @@
 #   * `burrow-vision` joins ONLY `vision-net` and `burrow-db` ONLY `db-net`, both internal. The vision service
 #     holds no user data and must have no route to the internet or to the database (ADR-0001); `burrow` is the
 #     only service on all three networks.
-#   * Uploads are stored in Backblaze B2 (ADR-0002); /data is only the local cache, so the volume is disposable.
+#   * Uploads live in /opt/burrow/data on the host, bind-mounted at /data: that directory is the store of record
+#     (ADR-0006), copied off the box every night by backup.sh. It must be owned by uid 1000, the image's `node` user.
 #   * Not blue-green: one owner, one instance, and a restart of a few seconds is acceptable. deploy.sh gates on
 #     /readyz and rolls back to the previous tag if the new one never becomes ready (see ADR-0005).
 
@@ -30,9 +31,9 @@ services:
       PORT: '8080'
       DATABASE_URL: postgresql://burrow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@burrow-db:5432/burrow
       VISION_SERVICE_URL: http://burrow-vision:8000
-      BLOB_CACHE_DIR: /data
+      BLOB_DIR: /data
     volumes:
-      - burrow-cache:/data
+      - /opt/burrow/data:/data
     networks: [edge-net, vision-net, db-net]
     mem_limit: 512m
     read_only: true
@@ -94,5 +95,4 @@ networks:
     internal: true
 
 volumes:
-  burrow-cache:
   burrow-db-data:

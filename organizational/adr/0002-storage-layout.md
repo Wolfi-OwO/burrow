@@ -2,6 +2,9 @@
 
 ## Status
 
+**Superseded in part by [ADR-0006](0006-local-store-encrypted-offsite-backup.md)**: the object-key layout and
+hash-before-write dedup below still hold; the Backblaze B2 tier does not. The original text follows.
+
 Accepted
 
 ## Context

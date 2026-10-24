@@ -16,21 +16,22 @@ import { config } from '../config/index.ts';
 import { logger } from './logger.ts';
 
 /**
- * Content-addressed blob storage, ADR-0002: Backblaze B2 is the store of record and the
- * local disk is a cache that mirrors the same key shape. With no B2 credentials (development,
- * tests) the local disk is the only tier.
+ * Content-addressed blob storage. The local directory is the store of record (ADR-0006), laid out as
+ * `blobs/<aa>/<bb>/<sha256>` (ADR-0002). If S3_* is configured, every blob is also written to that bucket under the
+ * same key, and a blob missing locally is fetched back from it; without it the local directory is the only live copy
+ * and the nightly backup is the second.
  */
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 let s3: S3Client | undefined;
 
 function remote(): { client: S3Client; bucket: string } | null {
-    const { endpoint, bucket, keyId, applicationKey, region } = config.storage.b2;
-    if (!endpoint || !bucket || !keyId || !applicationKey) return null;
+    const { endpoint, bucket, accessKeyId, secretAccessKey, region } = config.storage.s3;
+    if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) return null;
     s3 ??= new S3Client({
         endpoint,
         region,
-        credentials: { accessKeyId: keyId, secretAccessKey: applicationKey },
+        credentials: { accessKeyId, secretAccessKey },
     });
     return { client: s3, bucket };
 }
@@ -47,7 +48,7 @@ export function blobKey(sha256: string): string {
 
 /** @returns Where the blob lives (or would live) in the local cache. */
 export function localBlobPath(sha256: string): string {
-    return join(config.storage.cacheDir, blobKey(sha256));
+    return join(config.storage.dir, blobKey(sha256));
 }
 
 async function existsLocal(sha256: string): Promise<boolean> {

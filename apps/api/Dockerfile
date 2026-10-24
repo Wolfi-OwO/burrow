@@ -24,7 +24,7 @@ COPY --from=build /repo/apps/frontend/dist public
 ARG APP_VERSION=dev
 ARG APP_REVISION=
 ARG APP_BUILD_DATE=
-ENV APP_VERSION=$APP_VERSION APP_REVISION=$APP_REVISION APP_BUILD_DATE=$APP_BUILD_DATE BLOB_CACHE_DIR=/data
+ENV APP_VERSION=$APP_VERSION APP_REVISION=$APP_REVISION APP_BUILD_DATE=$APP_BUILD_DATE BLOB_DIR=/data
 LABEL org.opencontainers.image.source="https://github.com/Wolfi-OwO/burrow" org.opencontainers.image.revision=$APP_REVISION
 RUN mkdir /data && chown node:node /data
 USER node

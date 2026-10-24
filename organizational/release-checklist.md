@@ -19,18 +19,16 @@ intended. Items marked **operator** need an account or a secret that the reposit
 
 - [x] The legal documents are complete: `grep -n TODO IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md` prints nothing, and
       the app serves them at `/impressum`, `/privacy` and `/terms` (issue #59).
-- [ ] **operator** Re-check the Data Privacy Framework status of Backblaze, GitHub, Microsoft and Google
+- [ ] **operator** Re-check the Data Privacy Framework status of GitHub, Microsoft and Google
       (<https://www.dataprivacyframework.gov/list>), and update the dated line in `PRIVACY.md` § 5.
-- [ ] **operator** Accept Backblaze's data processing addendum in the Backblaze account settings, and confirm the
-      Contabo data processing agreement is accepted in the Contabo customer account (`PRIVACY.md` § 5).
+- [ ] **operator** Confirm the Contabo data processing agreement is accepted in the Contabo customer account
+      (`PRIVACY.md` § 5). The Azure backup holds encrypted data only; Microsoft's standard online services terms
+      apply to the account you already have.
 - [ ] **operator** Have a Rechtsanwalt look at `IMPRESSUM.md` (street address question) and at the age-verification
       finding in `WEB_APP_COMPLIANCE_CHECKLIST.md`; get Contabo's position on private NSFW storage in writing, or
       plan the fallback host that checklist describes.
-- [ ] **operator** The Backblaze AUP and AVV re-verification gate in `WEB_APP_COMPLIANCE_CHECKLIST.md` is closed
-      (the NSFW category is stored in B2).
-- [ ] **operator** Create a Backblaze account (a contract in your name, so it is not something an assistant should
-      sign up for), then sign in; the buckets, lifecycle rules, three scoped keys and the DPA step can be done from
-      `deploy/b2-credential-security.md`, and the four `B2_*` values go into `/opt/burrow/.env`.
+- [x] The offsite backup target exists (`burrow-rg`, private Cool container, soft delete, lifecycle) and the VPS has
+      `rclone`, the public GPG key and `backup.env` (ADR-0006); `deploy/README.md`, "Backups".
 - [ ] **operator** Google sign-in: in the Google Cloud console, project `burrow-512617`, open Google Auth Platform,
       create the branding (app name `burrow`, your support and contact email, audience External), add yourself as a
       test user, then create an OAuth client of type Web application with the redirect URIs

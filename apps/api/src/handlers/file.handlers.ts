@@ -66,7 +66,7 @@ export const thumbnail = asyncHandler(async (req, res) => {
         'Content-Length': String(size),
         'Cache-Control': 'private, max-age=86400',
     });
-    // sendFile needs an absolute path; BLOB_CACHE_DIR may be relative (./data).
+    // sendFile needs an absolute path; BLOB_DIR may be relative (./data).
     res.sendFile(resolve(path));
 });
 

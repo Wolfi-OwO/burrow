@@ -43,15 +43,21 @@ export const config = {
     maxAvatarBytes: 2 * MEBIBYTE,
 
     storage: {
-        /** Local blob cache root (ADR-0002); also where multer stages an upload. */
-        cacheDir: process.env.BLOB_CACHE_DIR ?? './data',
-        /** Durable tier. Unset → local disk is the only tier (development, tests). */
-        b2: {
-            endpoint: process.env.B2_ENDPOINT,
-            region: process.env.B2_REGION ?? 'eu-central-003',
-            bucket: process.env.B2_BUCKET,
-            keyId: process.env.B2_KEY_ID,
-            applicationKey: process.env.B2_APPLICATION_KEY,
+        /**
+         * The store of record (ADR-0006): content-addressed blobs live here, and multer stages uploads under it.
+         * In production this is a bind-mounted directory that the nightly backup copies off the box.
+         */
+        dir: process.env.BLOB_DIR ?? './data',
+        /**
+         * Optional second copy of every blob on an S3-compatible store. Unset (the default) means the local
+         * directory is the only live copy. Nothing in burrow requires it.
+         */
+        s3: {
+            endpoint: process.env.S3_ENDPOINT,
+            region: process.env.S3_REGION ?? 'eu-central-1',
+            bucket: process.env.S3_BUCKET,
+            accessKeyId: process.env.S3_ACCESS_KEY_ID,
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
         },
     },
 
@@ -134,16 +140,13 @@ export function validateConfig(): void {
             'METRICS_TOKEN is not set. GET /metrics would be fully public in production.',
         );
     }
-    const { b2 } = config.storage;
-    const b2Set = [b2.endpoint, b2.bucket, b2.keyId, b2.applicationKey].filter(Boolean).length;
-    if (b2Set !== 0 && b2Set !== 4) {
+    const { s3 } = config.storage;
+    const s3Set = [s3.endpoint, s3.bucket, s3.accessKeyId, s3.secretAccessKey].filter(
+        Boolean,
+    ).length;
+    if (s3Set !== 0 && s3Set !== 4) {
         throw new Error(
-            'B2_ENDPOINT, B2_BUCKET, B2_KEY_ID and B2_APPLICATION_KEY must be set together or not at all.',
-        );
-    }
-    if (config.nodeEnv === 'production' && b2Set === 0) {
-        throw new Error(
-            'The B2 credentials are not set. In production local disk is only a cache (ADR-0002), never the store of record.',
+            'S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be set together or not at all.',
         );
     }
 }

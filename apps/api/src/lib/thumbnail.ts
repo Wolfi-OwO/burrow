@@ -16,7 +16,7 @@ const THUMB_SIZE = 320;
  * @returns The path of a WebP thumbnail, or null when the blob is not an image sharp can read.
  */
 export async function thumbnailPath(sha256: string): Promise<string | null> {
-    const target = join(config.storage.cacheDir, 'thumbs', sha256.slice(0, 2), `${sha256}.webp`);
+    const target = join(config.storage.dir, 'thumbs', sha256.slice(0, 2), `${sha256}.webp`);
     try {
         await stat(target);
         return target;

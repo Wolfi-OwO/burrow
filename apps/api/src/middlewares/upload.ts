@@ -6,7 +6,7 @@ import multer from 'multer';
 
 import { config } from '../config/index.ts';
 
-const stagingDir = join(config.storage.cacheDir, 'tmp');
+const stagingDir = join(config.storage.dir, 'tmp');
 mkdirSync(stagingDir, { recursive: true });
 
 /** Multipart overhead (boundaries, field headers) allowed on top of the file cap. */

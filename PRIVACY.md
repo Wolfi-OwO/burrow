@@ -97,7 +97,7 @@ exist; that is a rule for the operator, not an aspiration.
 | Username, Argon2id password hash, linked provider ids and the email the provider confirmed | PostgreSQL on the VPS | Art 6(1)(b): needed to give the account holder the service they asked for |
 | Active sessions: user agent, creation and expiry time | PostgreSQL | Art 6(1)(f): keeping the account secure and letting a user end a session |
 | Profile: display name, bio, avatar | PostgreSQL, avatar in the blob store | Art 6(1)(b) |
-| Uploaded files and the category tree | Metadata in PostgreSQL, bytes on Backblaze B2 with a local cache on the VPS | Art 6(1)(b) |
+| Uploaded files and the category tree | Metadata in PostgreSQL, bytes in `/opt/burrow/data` on the VPS, plus an encrypted copy in an Azure container (§ 5) | Art 6(1)(b) |
 | Per-file sorter output: suggested category, confidence, NSFW score, a 512-number image embedding | PostgreSQL, in the same row as the file | Art 6(1)(b), and see § 4 for the Art 9 question |
 | Server logs: request line, status, correlation id; no request bodies, no passwords | The container log, rotated at 3 x 10 MB | Art 6(1)(f) |
 
@@ -139,47 +139,25 @@ private; Art 9 attaches to the nature of the data, not to audience size.
   third-party or cloud vision API — this was an explicit design constraint
   (see README.md), and it means no Chapter V third-country transfer
   question arises for the classification step itself.
-- **User-uploaded file storage: Backblaze B2, EU-Central region, via its
-  S3-compatible API, is the canonical durable tier for every uploaded file
-  blob — not a backup copy.** The local Contabo VPS disk holds only a
-  bounded ~50GB cache of recently-accessed blobs (GitHub issue #30,
-  ADR-0002); a blob evicted from that cache exists only on B2 until
-  re-fetched. **This means uploaded files — including files that land in
-  the NSFW-classified branch (§ 4) — leave the VPS and are held by
-  Backblaze, a sub-processor. This document must not be read as saying
-  uploads stay on the VPS; since the blob-store change (issue #30) they do
-  not.**
-  - **Region.** EU-Central is Backblaze's own designated EU region; per
-    Backblaze's published regional documentation this keeps blob data
-    physically within the EU at rest, which is why this deployment uses it
-    and not a US-region bucket — the same reasoning `mona/PRIVACY.md` § 5
-    applies to its own (not yet provisioned) Backblaze target.
-  - **Backblaze Inc. is a US-headquartered company**, unlike Contabo GmbH
-    (EU-established; see `mona/PRIVACY.md` § 5 for the equivalent
-    reasoning there). Physical data residency in the EU does not by itself
-    close the Chapter V DSGVO question if Backblaze's US entity retains
-    remote administrative or support access to EU-Central data from
-    outside the EEA — under EDPB post-Schrems-II guidance, remote access
-    from a third country can itself constitute a transfer, independent of
-    where the bytes are stored at rest.
+- **User-uploaded file storage is the VPS disk** (`/opt/burrow/data` on the Contabo server), the same place as the
+  database. Uploads are not sent to any third-party storage service while they are in use.
+- **Offsite backup: Microsoft Azure Blob Storage, West Europe (Netherlands), Standard LRS.** Every night the database
+  dump (GPG-encrypted to a public key whose private half is not on the server) and any new blobs (encrypted
+  with rclone `crypt`, which encrypts both contents and file names) are copied to a private container. Microsoft
+  therefore stores opaque data it cannot read or classify, which is also why the content of an NSFW category does not
+  depend on Microsoft's content policy.
   - **Transfer mechanism, checked live on 2026-10-24** against the U.S. Department of Commerce's Data Privacy
-    Framework list (<https://www.dataprivacyframework.gov/list>): Backblaze, San Francisco, is an **active**
-    participant in the EU-U.S. Data Privacy Framework (non-HR data), and also in the Swiss-U.S. framework and the
-    UK extension. That is the current Art 45 adequacy basis for the access question above. It is a snapshot, not a
-    guarantee: certification can lapse, so this line is re-checked at each release (see
-    `organizational/release-checklist.md`).
-  - **Art 28 agreement with Backblaze:** the operator accepts Backblaze's data processing addendum in the
-    Backblaze account settings when creating the production account keys; until that is done, Backblaze is a
-    named processor without a signed agreement and no personal data of anyone else may be stored there. The
-    release checklist carries this as a gate.
-  - **Sub-processor disclosure.** Backblaze B2 is named here as a
-    sub-processor of user-uploaded file content for every account —
-    operator and family members alike. This disclosure is made regardless
-    of how § 1's household-exemption question ultimately resolves: family
-    members' accounts are the slice least likely to fall inside any Art
-    2(2)(c) exemption in the first place, and even if the exemption were
-    to hold in full, this document still has to say where uploads actually
-    live rather than where an earlier draft assumed they lived.
+    Framework list (<https://www.dataprivacyframework.gov/list>): Microsoft Corporation, Redmond, is an **active**
+    participant in the EU-U.S. Data Privacy Framework, which covers the access question for a US-headquartered
+    provider. The data is in an EU region, and encryption with keys that Microsoft does not hold is the additional
+    safeguard. It is a snapshot, not a guarantee: re-checked at each release (`organizational/release-checklist.md`).
+  - **Art 28:** the backup is stored under the operator's existing Azure account, on Microsoft's standard online
+    services terms, which include its data protection addendum.
+  - **Protection against loss and tampering:** the backup credential is a container-scoped SAS token that can read,
+    add, create, write and list but **cannot delete**; blob soft delete and versioning (30 days) are on; database dumps
+    are expired by a lifecycle rule after 30 days.
+  - **Sub-processor disclosure.** Azure is named here as a sub-processor of backup copies for every account, whatever
+    § 1's household-exemption question ends up concluding.
 - **OIDC login (GitHub, Microsoft, Google)** is a third-party data flow: the
   chosen provider receives the OAuth handshake and, depending on scopes,
   identity/profile fields. These are US-headquartered providers. All three are offered as options and each is
@@ -198,17 +176,18 @@ private; Art 9 attaches to the nature of the data, not to audience size.
 ## 6. Retention
 
 - **Files and their sorter output** stay until the account holder deletes them. Deleting a file removes its
-  database row (and with it the category, scores and embedding), and removes the stored bytes from the local cache
-  and from Backblaze once no other file uses the same content. Identical uploads share one stored copy, so the
+  database row (and with it the category, scores and embedding), and removes the stored bytes from the VPS disk once
+  no other file uses the same content. Identical uploads share one stored copy, so the
   bytes are only removed with the last file that references them.
-- **Bucket versions:** the Backblaze buckets keep prior versions of an object for a limited, configured period
-  (see `organizational/deploy/b2-credential-security.md`) as protection against accidental deletion. A deleted
-  file's bytes therefore exist in B2 for that period after deletion, and in the backup bucket (below).
-- **Backups:** a nightly encrypted database dump is kept for 30 days; blob copies in the backup bucket are
-  content-addressed and are not deleted by the backup job.
+- **Backups:** a nightly encrypted database dump is kept for 30 days (a lifecycle rule deletes older ones); blob copies
+  in the backup container are content-addressed and are not deleted by the backup job. The container keeps deleted
+  and overwritten versions for 30 days (soft delete and versioning) as protection against mistakes. A deleted file's
+  encrypted bytes therefore remain in the backup container, unreadable without the operator's keys, until the container
+  is purged; erasure from the backups means deleting those blobs from the container, which the operator can do from the
+  Azure portal.
 - **Sessions:** a session row is deleted 7 days after it expired or was revoked.
 - **Logs:** the container log keeps three files of 10 MB and overwrites the oldest.
-- **The local cache** (about 50 GB) evicts by capacity, not by data-protection rules; it only holds copies.
+- **Thumbnails** are derived data in `/opt/burrow/data/thumbs`; they can be deleted at any time.
 
 ## 7. Rights
 
@@ -227,8 +206,8 @@ If DSGVO applies, Art 33 (72-hour notification to the Datenschutzbehörde
 where risk is likely) and Art 34 (direct notification to affected data
 subjects where risk is high) apply. Procedure, written for a single operator: (1) contain it: end all sessions
 (`UPDATE sessions SET revoked_at = now()`), rotate `JWT_SECRET` and any key that may be exposed, and
-take the service offline if needed; (2) establish what was reachable, using the container log and the Backblaze
-access log; (3) if personal data of a person other than the operator was affected and a risk to them is likely,
+take the service offline if needed; (2) establish what was reachable, using the container log and the Azure
+storage account's activity log; (3) if personal data of a person other than the operator was affected and a risk to them is likely,
 notify the Datenschutzbehörde within 72 hours of becoming aware, and the affected people directly if the risk is
 high; (4) write down what happened, what was done and when, whether or not notification was required.
 

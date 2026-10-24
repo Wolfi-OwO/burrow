@@ -1,15 +1,16 @@
 # Deploying burrow to the VPS
 
-burrow runs as three containers (`burrow`, `burrow-vision`, `burrow-db`) next to the other stacks on the
-shared VPS, behind the one Caddy that owns ports 80 and 443. Images are built in GitHub Actions and pulled on the
-box, never built there. The decisions behind this shape are in [ADR-0005](../adr/0005-deployment-shape.md); the
-B2 credential design is in [b2-credential-security.md](b2-credential-security.md).
+burrow runs as three containers (`burrow`, `burrow-vision`, `burrow-db`) next to the other stacks on the shared VPS,
+behind the one Caddy that owns ports 80 and 443. Images are built in GitHub Actions and pulled on the box, never built
+there. The decisions behind this shape are in [ADR-0005](../adr/0005-deployment-shape.md) (one instance, readiness-gated
+rollout) and [ADR-0006](../adr/0006-local-store-encrypted-offsite-backup.md) (the VPS disk is the store of record, with an
+encrypted nightly backup on Azure).
 
 | File | Purpose |
 | - | - |
 | [`vps/deploy.sh`](vps/deploy.sh) | Forced-command deploy: one validated tag in, readiness-gated rollout or rollback out |
 | [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet) | The vhost to add to the shared Caddyfile |
-| [`vps/backup.sh`](vps/backup.sh), [`burrow-backup.service`](vps/burrow-backup.service), [`burrow-backup.timer`](vps/burrow-backup.timer) | Nightly database dump and blob copy |
+| [`vps/backup.sh`](vps/backup.sh), [`burrow-backup.service`](vps/burrow-backup.service), [`burrow-backup.timer`](vps/burrow-backup.timer) | Nightly encrypted database dump and blob copy |
 | [`vps/restore-drill.sh`](vps/restore-drill.sh) | Proves a backup restores, on a scratch machine |
 | [`../../docker-compose.prod.yml`](../../docker-compose.prod.yml) | The production stack |
 
@@ -17,101 +18,111 @@ B2 credential design is in [b2-credential-security.md](b2-credential-security.md
 
 | Step | State |
 | - | - |
-| GitHub OAuth app | Registered; callback URLs for production and `localhost:8080`; id and secret in the VPS `.env` |
+| GitHub OAuth app | Registered; callbacks for production and `localhost:8080`; id and secret in the VPS `.env` |
 | Microsoft app registration | Registered (personal and work accounts, token version 2); 2-year secret in the VPS `.env`, **expires 2028-10-24, rotate before then** |
 | Google OAuth client | **Open**: Google blocked automated access to its console, so this one is done by hand (steps in the release checklist) |
-| Backblaze buckets, keys, DPA | **Open**: needs a Backblaze account |
-| `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS; the compose file validates there |
+| Azure backup account | Created (`burrow-rg`, private Cool-tier container, soft delete and versioning, lifecycle rule) |
+| `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS |
 | Forced-command CI key | Installed; refuses any command that is not a release tag (tested) |
 | GitHub `VPS_SSH_KEY` secret and `VPS_HOST` variable | Set |
-| Metrion key and collector route | Done ([metrion-onboarding.md](metrion-onboarding.md)) |
-| Caddy vhost, DNS record, first release, backup timer | Waiting for the file store, so the first deploy has somewhere to put files |
+| metrion key and collector route | Done ([metrion-onboarding.md](metrion-onboarding.md)) |
+| Backup credentials on the VPS, `rclone`, GPG key | See "Backups" below |
+| Caddy vhost, DNS record, first release | Go-live, see "Releasing" |
 
-## One-time setup (the full procedure)
+## Setup (the full procedure)
 
-These steps need accounts and secrets that must not pass through the repository or CI logs.
-
-1. **Backblaze B2** (issue #52, follow the checklist in `b2-credential-security.md`): create the private buckets
-   `burrow-blobs` and `burrow-backups`, enable versioning with the lifecycle rules described there, and mint three
-   bucket-scoped application keys: read/write on `burrow-blobs` (for the API), read-only on `burrow-blobs`, and
-   read/write on `burrow-backups` (both for the backup job). The master key never leaves the operator's machine.
-2. **DNS** (issue #53): at GoDaddy, add an `A` record `burrow` in `woofi-developments.at` pointing at the VPS (the
-   same address the other hostnames use, TTL 600). Do this after step 5, so Caddy has a site to answer the ACME
-   challenge for. Check with `dig +short burrow.woofi-developments.at`.
-3. **Registry**: CI pushes `burrow-api` and `burrow-vision` to GitHub's container registry
-   (`ghcr.io/wolfi-owo/...`) with the workflow's own token, so no registry secret exists. After the first push, set
-   both packages to **public** (package settings, "Danger zone", change visibility) so the VPS can pull without a
-   login. Add the repository variable `VPS_HOST` and the secret `VPS_SSH_KEY` (a new key used only for burrow, see
-   step 4).
-4. **Forced-command CI key** on the VPS, in `~deploy/.ssh/authorized_keys`:
+1. **DNS**: at GoDaddy add an `A` record `burrow` in `woofi-developments.at` pointing at the VPS (same address as the
+   other hostnames, TTL 600). Check with `dig +short burrow.woofi-developments.at`.
+2. **Registry**: CI pushes `burrow-api` and `burrow-vision` to GitHub's container registry (`ghcr.io/wolfi-owo/...`)
+   with the workflow's own token, so no registry secret exists. After the first push, set both packages to **public**
+   (package settings, "Danger zone", change visibility) so the VPS can pull without a login.
+3. **Forced-command CI key** on the VPS, in `~deploy/.ssh/authorized_keys`, plus the GitHub secret `VPS_SSH_KEY` and
+   variable `VPS_HOST`:
 
    ```text
    command="/opt/burrow/deploy.sh",restrict ssh-ed25519 AAAA... burrow-ci
    ```
 
-5. **Stack directory**, as the `deploy` user:
+4. **Stack directory**, as the `deploy` user. The data directory must belong to uid 1000, the image's `node` user:
 
    ```sh
    sudo install -d -o deploy -g deploy -m 755 /opt/burrow
-   cd /opt/burrow
-   # from a checkout of this repository
-   cp organizational/deploy/vps/deploy.sh organizational/deploy/vps/backup.sh .
-   cp docker-compose.prod.yml .
-   (umask 077; cat > .env) <<'ENV'   # mode 600, never committed
+   sudo install -d -o 1000 -g 1000 -m 750 /opt/burrow/data
+   cd /opt/burrow     # copy docker-compose.prod.yml, deploy.sh, backup.sh from this repository
+   (umask 077; cat > .env) <<'ENV'      # mode 600, never committed
    REGISTRY=ghcr.io/wolfi-owo
-   IMAGE_TAG=v0.1.0
-   POSTGRES_PASSWORD=<openssl rand -base64 32>
+   IMAGE_TAG=
+   POSTGRES_PASSWORD=<openssl rand -base64 36>
    JWT_SECRET=<openssl rand -base64 48>
-   METRICS_TOKEN=<openssl rand -base64 32>
-   INTERNAL_SERVICE_TOKEN=<openssl rand -base64 32>
+   METRICS_TOKEN=<openssl rand -base64 36>
+   INTERNAL_SERVICE_TOKEN=<openssl rand -base64 36>
    CORS_ALLOWED_ORIGINS=https://burrow.woofi-developments.at
    OAUTH_FRONTEND_BASE_URL=https://burrow.woofi-developments.at
-   B2_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
-   B2_REGION=eu-central-003
-   B2_BUCKET=burrow-blobs
-   B2_KEY_ID=<read/write key id for burrow-blobs>
-   B2_APPLICATION_KEY=<its secret>
-   VISION_SERVICE_URL=http://burrow-vision:8000
+   REGISTRATION_OPEN=false
+   GITHUB_CLIENT_ID=...    GITHUB_CLIENT_SECRET=...
+   MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=...
+   GOOGLE_CLIENT_ID=...    GOOGLE_CLIENT_SECRET=...      # optional until the Google client exists
    ENV
    ```
 
-   Then add the snippet in [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet) to `/opt/portfolio/Caddyfile` and reload
-   Caddy with the shared `/opt/caddy-reload.sh` (never `docker exec caddy reload`; the script exists because a bind
-   mount of a single file follows the inode, not the path).
-6. **Backups** (issue #56): install `rclone` and `gpg`, import the *public* backup key only, write
-   `/opt/burrow/backup.env` (mode 600) with the two rclone remotes and `BACKUP_GPG_RECIPIENT`, copy the two systemd
-   units to `/etc/systemd/system/`, then `sudo systemctl enable --now burrow-backup.timer`. Run
+   Then add [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet) to `/opt/portfolio/Caddyfile` and reload Caddy with the
+   shared `/opt/caddy-reload.sh` (never `docker exec caddy reload`; the script exists because a bind mount of a single
+   file follows the inode, not the path).
+5. **Metrics**: see [metrion-onboarding.md](metrion-onboarding.md).
+
+## Backups
+
+Everything that leaves the box is encrypted (ADR-0006). On the VPS:
+
+1. `sudo apt-get install -y rclone` (the Ubuntu package supports the `azureblob` and `crypt` backends this needs).
+2. Import the **public** GPG key for database dumps (`gpg --import burrow-backup-public.asc`). The private key stays
+   on the operator's machine.
+3. Write `/opt/burrow/backup.env` (mode 600, `deploy`-owned):
+
+   ```text
+   RCLONE_CONFIG_AZ_TYPE=azureblob
+   RCLONE_CONFIG_AZ_SAS_URL=https://<account>.blob.core.windows.net/burrow-backups?<sas>
+   RCLONE_CONFIG_BLOBS_TYPE=crypt
+   RCLONE_CONFIG_BLOBS_REMOTE=az:blobs
+   RCLONE_CONFIG_BLOBS_PASSWORD=<output of: rclone obscure '<password>'>
+   RCLONE_CONFIG_BLOBS_PASSWORD2=<output of: rclone obscure '<salt>'>
+   BACKUP_GPG_RECIPIENT=<fingerprint of the public key>
+   ```
+
+   The SAS allows read, add, create, write and list, and deliberately not delete; it expires after a year, so renew it
+   (`az storage container generate-sas ...`) before then. Keep the crypt password and salt in the operator's password
+   store too: without them the backed-up blobs cannot be read.
+4. Copy the two units to `/etc/systemd/system/`, `sudo systemctl enable --now burrow-backup.timer`, then run
    `sudo systemctl start burrow-backup.service` once and read `journalctl -u burrow-backup`.
-7. **Metrics** (issue #55): see [metrion-onboarding.md](metrion-onboarding.md).
+5. Prove it restores: `vps/restore-drill.sh <object>` on a scratch machine, and compare the counts.
 
 ## Releasing
 
 A published GitHub Release runs `.github/workflows/release.yml`: it builds both images, pushes them tagged with the
-release tag, then connects with the forced-command key and sends the tag. `deploy.sh` rewrites `IMAGE_TAG`,
-pulls, restarts, and waits for `/readyz` to answer three times in a row. If it never does, it restores the previous
-tag and exits non-zero, so the workflow fails loudly and the old version keeps serving.
+release tag, then connects with the forced-command key and sends the tag. `deploy.sh` rewrites `IMAGE_TAG`, pulls,
+restarts, and waits for `/readyz` to answer three times in a row. If it never does, it restores the previous tag and
+exits non-zero, so the workflow fails loudly and the old version keeps serving.
 
 Rolling back by hand: re-run the release workflow for the older tag (`workflow_dispatch`), or on the box run
-`sudo -u deploy /opt/burrow/deploy.sh v0.1.0` with the tag you want.
+`/opt/burrow/deploy.sh v0.1.0` with the tag you want.
 
-The first start applies the schema (`scripts/run-migrations.mjs` runs before the server). Take a backup first
-whenever a release contains a new migration.
+The first start applies the schema (`scripts/run-migrations.mjs` runs before the server). Take a backup first whenever a
+release contains a new migration.
 
 ## First account
 
-Registration is closed once an account exists. Open `https://burrow.woofi-developments.at`, choose "Create the
-owner account" and register: the first account becomes the admin. Nothing is reachable without signing in.
+Registration is closed once an account exists. Open `https://burrow.woofi-developments.at`, choose "First time here?
+Create the owner account" and register: the first account becomes the admin. Nothing is reachable without signing in.
 
 ## Restoring
 
 1. On a scratch machine run `vps/restore-drill.sh <object>` and check the row counts against production.
-2. For a real restore, stop the stack, `pg_restore --clean --if-exists --no-owner` the decrypted dump into
-   `burrow-db`, start it again. Blobs need no restore step: the API reads them from `burrow-blobs`, and
-   `rclone copy backup:burrow-backups/blobs blobs:burrow-blobs/blobs` refills the bucket if it was lost.
+2. For a real restore, stop the stack, `pg_restore --clean --if-exists --no-owner` the decrypted dump into `burrow-db`,
+   `rclone copy blobs: /opt/burrow/data/blobs`, then start the stack again. The recovery point is the last nightly run.
 
 ## Verified before shipping
 
-The compose file validates (`docker compose config`), the dump of the real schema restores into a clean Postgres with
-ltree paths and pgvector embeddings intact (row counts compared), and the smoke suite in `e2e/` passes against the
-built images. Not verified here: the Caddy vhost, the DNS record and the B2/rclone path, because they need the
-credentials above.
+The compose file validates (`docker compose config`, on the VPS too), the dump of the real schema restores into a clean
+Postgres with ltree paths and pgvector embeddings intact (row counts compared), and the smoke suite in `e2e/` passes
+against the built images, both locally and in CI. The deploy key was shown to refuse any command that is not a release
+tag. Verified at go-live and not before: the Caddy vhost, the DNS record, and the encrypted Azure path end to end.

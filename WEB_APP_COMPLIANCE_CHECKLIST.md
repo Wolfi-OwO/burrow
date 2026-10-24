@@ -113,6 +113,10 @@ holders.**
 
 ## Finding 3: Does Backblaze's acceptable-use policy permit storing private adult (NSFW) material in B2?
 
+> **Historical (2026-10-24).** burrow no longer stores content at Backblaze: the VPS disk is the store of record and the
+> offsite copy is an encrypted backup on Azure ([ADR-0006](organizational/adr/0006-local-store-encrypted-offsite-backup.md)).
+> The finding is kept as the reasoning behind keeping adult content out of the clear at any provider.
+
 **Conclusion: More permissive than Contabo on its face, but "not prohibited"
 is not the same claim as "affirmatively permitted" — and because B2 is now
 burrow's canonical blob store rather than a backup target, a takedown here

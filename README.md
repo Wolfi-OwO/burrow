@@ -7,7 +7,7 @@ mine. I upload anything, and a scheduled AI job sorts it into a category tree
 I define myself (`Furry/SFW/WOLF`, `Furry/NSFW`, `Nature`, ...), instead of
 filing it by hand. It runs: the API, the web client and the vision service
 are built and tested end to end, with real model inference. What is not done
-is the deployment (it needs my Backblaze, DNS and registry credentials) and
+is the first deployment (it needs the DNS record and a Google OAuth client) and
 the legal documents (they need my address and decisions only I can make) — see
 [the release checklist](organizational/release-checklist.md).
 
@@ -102,9 +102,9 @@ apps/frontend/                Web client (React, Vite, TypeScript)
 e2e/                          End-to-end smoke test against a running stack
 prototype/                    The early walkthrough plan; the real client replaced it
 packages/shared/              Reserved for types shared between api and client; unused so far
-organizational/adr/           Architecture decision records (ADR-0001 to 0005)
+organizational/adr/           Architecture decision records (ADR-0001 to 0006)
 organizational/requirements/  Functional requirements, FR-001 onwards
-organizational/deploy/        VPS runbook, deploy and backup scripts, B2 security design
+organizational/deploy/        VPS runbook, deploy and backup scripts
 docs/, scripts/, todo/        General docs, repo maintenance, scratch notes
 ```
 

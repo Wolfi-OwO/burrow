@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# Nightly backup, run by burrow-backup.timer as the `deploy` user.
+# Nightly backup, run by burrow-backup.timer as the `deploy` user. Everything leaves the box encrypted.
 #
-#   1. pg_dump of the database, GPG-encrypted to the backup recipient, into the backup bucket.
-#   2. The blob store is copied to the backup bucket with `rclone copy --immutable`.
+#   1. pg_dump of the database, GPG-encrypted to a public key whose private half is NOT on this host.
+#   2. New blobs from /opt/burrow/data/blobs, copied through an rclone `crypt` remote (contents and file names
+#      encrypted) into the Azure container.
 #
-# Why copy, not sync: blobs are content-addressed (ADR-0002), so a key's bytes never change. `copy` never
-# deletes on the destination, which means an accidental delete in burrow-blobs cannot propagate to the backup,
-# and --immutable makes any attempt to overwrite an existing key a loud error instead of a silent change.
+# Why copy, not sync: blobs are content-addressed (ADR-0002), so a key's bytes never change. `copy` never deletes
+# on the destination, so an accidental delete here cannot propagate, and --immutable turns an attempted overwrite
+# of an existing key into a loud error. The SAS token in use has no delete permission at all, so even a
+# compromised host cannot erase backups; old database dumps are expired by the container's lifecycle rule (30 days).
 #
-# Why rclone and not restic: restic would back up the LOCAL cache, which is only a bounded slice of the data
-# (ADR-0002); the store of record is B2, so the backup has to read from B2.
+# Why the blobs are encrypted with a symmetric key that lives here: it hides the content from the storage provider
+# (the point of the exercise: an adult-content category must not depend on a provider's content policy). It does not
+# protect against someone who already owns this host, who could read the live data anyway.
 #
 # Configuration, from /opt/burrow/backup.env (mode 600, deploy-owned, never in git):
-#   RCLONE_CONFIG_BLOBS_*   the read-only application key for burrow-blobs
-#   RCLONE_CONFIG_BACKUP_*  the read/write application key for burrow-backups
-#   BACKUP_GPG_RECIPIENT    a public key that is NOT stored on this host
+#   RCLONE_CONFIG_AZ_*      the container-scoped SAS (see deploy/README.md)
+#   RCLONE_CONFIG_BLOBS_*   the crypt remote layered on az:blobs
+#   BACKUP_GPG_RECIPIENT    the public key for database dumps
 set -euo pipefail
 
 cd /opt/burrow
@@ -32,12 +35,11 @@ docker compose -f docker-compose.prod.yml --env-file .env exec -T burrow-db \
     pg_dump -U burrow -d burrow --format=custom --no-owner \
     | gpg --batch --yes --trust-model always --encrypt --recipient "$BACKUP_GPG_RECIPIENT" --output "$WORK/db.dump.gpg"
 [ -s "$WORK/db.dump.gpg" ] || { echo "empty database dump, aborting" >&2; exit 1; }
-rclone copyto "$WORK/db.dump.gpg" "backup:burrow-backups/db/${STAMP}.dump.gpg"
+rclone copyto "$WORK/db.dump.gpg" "az:db/${STAMP}.dump.gpg"
 
 echo "[$STAMP] copying new blobs"
-rclone copy --immutable --transfers 4 "blobs:burrow-blobs/blobs" "backup:burrow-backups/blobs"
-
-# Keep 30 days of database dumps. Blobs are never pruned here (bucket lifecycle owns that).
-rclone delete --min-age 30d "backup:burrow-backups/db" || true
+if [ -d /opt/burrow/data/blobs ]; then
+    rclone copy --immutable --transfers 4 /opt/burrow/data/blobs "blobs:"
+fi
 
 echo "[$STAMP] backup finished"

@@ -8,6 +8,8 @@ COPY scripts/export_models.py scripts/export_models.py
 RUN python scripts/export_models.py --out /export/models
 
 FROM python:3.11-slim AS runtime
+# Links the package to the repository, so it inherits the repository's access rules on ghcr.io.
+LABEL org.opencontainers.image.source="https://github.com/Wolfi-OwO/burrow"
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODELS_DIR=/app/models
 WORKDIR /app
 COPY requirements.txt .

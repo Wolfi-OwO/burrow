@@ -71,7 +71,7 @@ jobs:
       DATABASE_URL: postgresql://burrow:burrow@127.0.0.1:5432/burrow
       JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
       CORS_ALLOWED_ORIGINS: http://localhost:5173
-      BLOB_CACHE_DIR: ./data-test
+      BLOB_DIR: ./data-test
       LOG_LEVEL: silent
       NODE_ENV: test
       MAX_UPLOAD_MB: "1"
