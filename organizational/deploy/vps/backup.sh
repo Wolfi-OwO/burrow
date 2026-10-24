@@ -16,7 +16,7 @@
 #
 # Configuration, from /opt/burrow/backup.env (mode 600, deploy-owned, never in git):
 #   RCLONE_CONFIG_AZ_*      the container-scoped SAS (see deploy/README.md)
-#   RCLONE_CONFIG_BLOBS_*   the crypt remote layered on az:blobs
+#   RCLONE_CONFIG_BLOBS_*   the crypt remote layered on az:burrow-backups/blobs
 #   BACKUP_GPG_RECIPIENT    the public key for database dumps
 set -euo pipefail
 
@@ -35,7 +35,7 @@ docker compose -f docker-compose.prod.yml --env-file .env exec -T burrow-db \
     pg_dump -U burrow -d burrow --format=custom --no-owner \
     | gpg --batch --yes --trust-model always --encrypt --recipient "$BACKUP_GPG_RECIPIENT" --output "$WORK/db.dump.gpg"
 [ -s "$WORK/db.dump.gpg" ] || { echo "empty database dump, aborting" >&2; exit 1; }
-rclone copyto "$WORK/db.dump.gpg" "az:db/${STAMP}.dump.gpg"
+rclone copyto "$WORK/db.dump.gpg" "az:burrow-backups/db/${STAMP}.dump.gpg"
 
 echo "[$STAMP] copying new blobs"
 if [ -d /opt/burrow/data/blobs ]; then

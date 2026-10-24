@@ -80,16 +80,16 @@ Everything that leaves the box is encrypted (ADR-0006). On the VPS:
 3. Write `/opt/burrow/backup.env` (mode 600, `deploy`-owned):
 
    ```text
-   RCLONE_CONFIG_AZ_TYPE=azureblob
-   RCLONE_CONFIG_AZ_SAS_URL=https://<account>.blob.core.windows.net/burrow-backups?<sas>
-   RCLONE_CONFIG_BLOBS_TYPE=crypt
-   RCLONE_CONFIG_BLOBS_REMOTE=az:blobs
-   RCLONE_CONFIG_BLOBS_PASSWORD=<output of: rclone obscure '<password>'>
-   RCLONE_CONFIG_BLOBS_PASSWORD2=<output of: rclone obscure '<salt>'>
-   BACKUP_GPG_RECIPIENT=<fingerprint of the public key>
+   RCLONE_CONFIG_AZ_TYPE='azureblob'
+   RCLONE_CONFIG_AZ_SAS_URL='https://<account>.blob.core.windows.net/burrow-backups?<sas>'
+   RCLONE_CONFIG_BLOBS_TYPE='crypt'
+   RCLONE_CONFIG_BLOBS_REMOTE='az:burrow-backups/blobs'
+   RCLONE_CONFIG_BLOBS_PASSWORD='<output of: rclone obscure "<password>">'
+   RCLONE_CONFIG_BLOBS_PASSWORD2='<output of: rclone obscure "<salt>">'
+   BACKUP_GPG_RECIPIENT='<fingerprint of the public key>'
    ```
 
-   The SAS allows read, add, create, write and list, and deliberately not delete; it expires after a year, so renew it
+   Every value is single-quoted because the file is sourced by a shell and a SAS token contains `&`. The SAS allows read, add, create, write and list, and deliberately not delete; it expires after a year, so renew it
    (`az storage container generate-sas ...`) before then. Keep the crypt password and salt in the operator's password
    store too: without them the backed-up blobs cannot be read.
 4. Copy the two units to `/etc/systemd/system/`, `sudo systemctl enable --now burrow-backup.timer`, then run

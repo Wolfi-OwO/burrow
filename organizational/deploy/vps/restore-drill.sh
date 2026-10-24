@@ -17,7 +17,7 @@ set -a
 source "${BACKUP_ENV:-/opt/burrow/backup.env}"
 set +a
 
-rclone copyto "az:db/${OBJECT}" "$WORK/db.dump.gpg"
+rclone copyto "az:burrow-backups/db/${OBJECT}" "$WORK/db.dump.gpg"
 gpg --batch --decrypt --output "$WORK/db.dump" "$WORK/db.dump.gpg"
 
 docker run -d --name burrow-restore-drill -e POSTGRES_PASSWORD=drill pgvector/pgvector:pg16 >/dev/null
