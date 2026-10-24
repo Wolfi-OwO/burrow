@@ -28,7 +28,15 @@ intended. Items marked **operator** need an account or a secret that the reposit
       plan the fallback host that checklist describes.
 - [ ] **operator** The Backblaze AUP and AVV re-verification gate in `WEB_APP_COMPLIANCE_CHECKLIST.md` is closed
       (the NSFW category is stored in B2).
-- [ ] **operator** B2 buckets, lifecycle rules and the three scoped keys exist (`deploy/b2-credential-security.md`).
+- [ ] **operator** Create a Backblaze account (a contract in your name, so it is not something an assistant should
+      sign up for), then sign in; the buckets, lifecycle rules, three scoped keys and the DPA step can be done from
+      `deploy/b2-credential-security.md`, and the four `B2_*` values go into `/opt/burrow/.env`.
+- [ ] **operator** Google sign-in: in the Google Cloud console, project `burrow-512617`, open Google Auth Platform,
+      create the branding (app name `burrow`, your support and contact email, audience External), add yourself as a
+      test user, then create an OAuth client of type Web application with the redirect URIs
+      `https://burrow.woofi-developments.at/api/auth/google/callback` and
+      `http://localhost:8080/api/auth/google/callback`. Put the client id and secret into `/opt/burrow/.env` as
+      `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Until then Google is simply not offered on the login page.
 - [ ] **operator** The DNS record exists and `dig +short burrow.woofi-developments.at` answers.
 - [ ] **operator** Repository variables and secrets for the release workflow are set (`deploy/README.md`, step 3).
 - [ ] **operator** The VPS stack directory, `.env`, Caddy vhost, forced-command key and backup timer are in place.

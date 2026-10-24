@@ -20,18 +20,20 @@ Request counts and B2 bytes therefore need new collectors in metrion; they are n
 
 ## Steps
 
-1. In metrion, create a project `burrow` and copy its API key.
-2. On the VPS add the key to `/etc/vps-container-metrics/routing.env` (mode 600):
+Done on 2026-10-24; kept here so it can be repeated or audited.
 
-   ```text
-   BURROW_API_KEY=<the key>
-   ```
-
-3. Add one line to the `ROUTES` array in `/opt/vps-container-metrics/collect.sh`:
+1. In metrion, API keys belong to the group (here "Server 01"), not to an application: the application name comes
+   from the `resource` field of each payload. So burrow does not get a metrion "project"; it gets its own key
+   (Group, Settings, "Create key"), which makes it revocable without touching the other apps.
+2. On the VPS the key went into `/etc/vps-container-metrics/routing.env` (mode 600) as `BURROW_API_KEY`.
+3. One line was added to the `ROUTES` array in `/opt/vps-container-metrics/collect.sh`, after the portfolio entry
+   (the originals were copied to `*.bak-burrow-20261024` first):
 
    ```text
    "burrow-|burrow|BURROW_API_KEY"
    ```
 
-4. Wait one minute (the timer runs every minute) and confirm the three containers appear in the burrow project.
-5. `/metrics` on the API needs `METRICS_TOKEN` as a bearer token; scrape it from inside `edge-net` only, never through Caddy.
+4. The route is inert until the containers exist. From the first deploy, within a minute the three containers
+   report CPU and RAM under the application name `burrow`.
+5. `/metrics` on the API needs `METRICS_TOKEN` as a bearer token; scrape it from inside `edge-net` only, never
+   through Caddy.

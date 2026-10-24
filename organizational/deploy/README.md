@@ -13,7 +13,21 @@ B2 credential design is in [b2-credential-security.md](b2-credential-security.md
 | [`vps/restore-drill.sh`](vps/restore-drill.sh) | Proves a backup restores, on a scratch machine |
 | [`../../docker-compose.prod.yml`](../../docker-compose.prod.yml) | The production stack |
 
-## One-time setup (needs the operator)
+## Status of the one-time setup (2026-10-24)
+
+| Step | State |
+| - | - |
+| GitHub OAuth app | Registered; callback URLs for production and `localhost:8080`; id and secret in the VPS `.env` |
+| Microsoft app registration | Registered (personal and work accounts, token version 2); 2-year secret in the VPS `.env`, **expires 2028-10-24, rotate before then** |
+| Google OAuth client | **Open**: Google blocked automated access to its console, so this one is done by hand (steps in the release checklist) |
+| Backblaze buckets, keys, DPA | **Open**: needs a Backblaze account |
+| `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS; the compose file validates there |
+| Forced-command CI key | Installed; refuses any command that is not a release tag (tested) |
+| GitHub `VPS_SSH_KEY` secret and `VPS_HOST` variable | Set |
+| Metrion key and collector route | Done ([metrion-onboarding.md](metrion-onboarding.md)) |
+| Caddy vhost, DNS record, first release, backup timer | Waiting for the file store, so the first deploy has somewhere to put files |
+
+## One-time setup (the full procedure)
 
 These steps need accounts and secrets that must not pass through the repository or CI logs.
 
@@ -24,9 +38,11 @@ These steps need accounts and secrets that must not pass through the repository 
 2. **DNS** (issue #53): at GoDaddy, add an `A` record `burrow` in `woofi-developments.at` pointing at the VPS (the
    same address the other hostnames use, TTL 600). Do this after step 5, so Caddy has a site to answer the ACME
    challenge for. Check with `dig +short burrow.woofi-developments.at`.
-3. **Registry**: CI pushes `burrow-api` and `burrow-vision` to the same private registry the other stacks use. Add the
-   repository variables `REGISTRY` and `VPS_HOST` and the secrets `REGISTRY_USERNAME`, `REGISTRY_PASSWORD` and
-   `VPS_SSH_KEY` (a new key used only for burrow, see step 4).
+3. **Registry**: CI pushes `burrow-api` and `burrow-vision` to GitHub's container registry
+   (`ghcr.io/wolfi-owo/...`) with the workflow's own token, so no registry secret exists. After the first push, set
+   both packages to **public** (package settings, "Danger zone", change visibility) so the VPS can pull without a
+   login. Add the repository variable `VPS_HOST` and the secret `VPS_SSH_KEY` (a new key used only for burrow, see
+   step 4).
 4. **Forced-command CI key** on the VPS, in `~deploy/.ssh/authorized_keys`:
 
    ```text
@@ -42,7 +58,7 @@ These steps need accounts and secrets that must not pass through the repository 
    cp organizational/deploy/vps/deploy.sh organizational/deploy/vps/backup.sh .
    cp docker-compose.prod.yml .
    (umask 077; cat > .env) <<'ENV'   # mode 600, never committed
-   REGISTRY=<the registry host>
+   REGISTRY=ghcr.io/wolfi-owo
    IMAGE_TAG=v0.1.0
    POSTGRES_PASSWORD=<openssl rand -base64 32>
    JWT_SECRET=<openssl rand -base64 48>
