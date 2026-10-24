@@ -1,0 +1,5 @@
+# Exported by scripts/export_models.py; ~630 MB, rebuilt by the Dockerfile, never committed.
+models/
+__pycache__/
+.pytest_cache/
+.venv/

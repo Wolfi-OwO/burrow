@@ -48,22 +48,44 @@ everything it runs**, not 1GiB per model.
   concurrently within it is a real constraint on model selection for
   #48, not a detail to defer.
 
-**No benchmark has been run yet.** This ADR records the reasoning and
-the measured host specs it rests on — it does not record a measured
-inference time, and no latency or throughput figure quoted anywhere in
-this repository today should be read as a measurement. Issue #46's
-first implementation task is to actually time a real inference of
-ViT-B/32 on this hardware and amend this ADR with the real number once
-it exists. Inventing an estimate here, or anywhere else in this repo, to
-fill that gap would wrongly seed the scheduling math in #46 and #50 with
-a number nobody measured.
+**Measured 2026-10-24 (`apps/vision/scripts/benchmark.py`).** One developer machine
+with the process pinned to 4 cores (`taskset -c 0-3`) as an approximation of the
+4 vCPU host — a stand-in, not the VPS itself, so the numbers below are an upper
+bound on what to expect there until the benchmark is rerun on the real host.
+Input: a 12 MP (4000x3000) JPEG, 30 runs after one warm-up, ONNX Runtime CPU, fp32.
+
+| Step | p50 | p95 |
+| - | - | - |
+| Decode the 12 MP JPEG | 72 ms | 74 ms |
+| OpenCLIP ViT-B/32 image embedding | 82 ms | 85 ms |
+| Text embeddings for 8 new labels (cached afterwards) | 138 ms | 214 ms |
+| Zero-shot scoring with cached labels | under 1 ms | under 1 ms |
+| NSFW classifier | 94 ms | 128 ms |
+| **One file, whole pipeline** | **334 ms** | **374 ms** |
+
+That is about 3 files per second per core group, so a 500-file backlog clears in
+roughly three minutes of inference — the scheduler's batch size (`SCHEDULER_BATCH_SIZE`,
+default 100) is therefore a ~35 second run, comfortably inside one request timeout budget
+per file and far below the 10 to 30 runs a day of #50.
+
+**Memory: 1,072 MB peak RSS with both models loaded** (CLIP visual 352 MB, text 254 MB and
+NSFW 23 MB of weights, plus the runtime). That is slightly above the "~1 GiB" this ADR
+planned, so `mem_limit` is set to 1280 MB, which still leaves about 0.4 GiB of the ~1.7 GiB
+that remains on the host. Shrinking the models was tried and rejected, by measurement:
+dynamic int8 quantisation of the text tower (per-tensor and per-channel) drops the cosine
+similarity of label embeddings to the fp32 original to ~0.78 (an unusable zero-shot
+classifier), and fp16 weights crash ONNX Runtime's CPU provider. fp32 stays.
+
+**The NSFW classifier (#48) is `Marqo/nsfw-image-detection-384`** (Apache-2.0, a tiny ViT,
+23 MB exported): small enough to share the budget, and run as its own pass beside CLIP
+(FR-036). It is a binary NSFW/SFW detector with no SFW sub-labels, which is all the gate
+in FR-037 needs. Evaluating it against a labelled sample of the user's own content remains
+open: no such set is in the repository, and one must not be committed.
 
 ## Consequences
 
-- Every downstream latency-dependent decision (batch sizing in #46, run
-  frequency in #50) is provisional until the benchmark in #46 lands —
-  this ADR should be revisited with the real number once it exists,
-  rather than treated as settled on the estimate-free reasoning alone.
+- The latency figures above come from a 4-core stand-in; batch sizing and run
+  frequency (#50) should be revisited once the benchmark has been run on the real host.
 - `apps/vision`'s `docker-compose.yml` `mem_limit` (~1GiB, per #45/#46)
   is a hard ceiling for both models combined; a straightforward
   "one model, one container, one `mem_limit`" mental model does not

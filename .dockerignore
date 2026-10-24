@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/models
+**/data
+**/data-test
+.git
+.env*
+organizational
