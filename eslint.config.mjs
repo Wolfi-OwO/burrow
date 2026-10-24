@@ -58,6 +58,11 @@ export default tseslint.config(
         rules: {
             '@typescript-eslint/no-floating-promises': 'off',
             'no-console': 'off',
+            // Replies from the HTTP API under test are parsed JSON of a shape the test is asserting.
+            '@typescript-eslint/no-unsafe-member-access': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
+            '@typescript-eslint/no-unsafe-call': 'off',
+            '@typescript-eslint/no-unsafe-argument': 'off',
         },
     },
     {

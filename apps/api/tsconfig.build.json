@@ -1,0 +1,9 @@
+{
+  "//": "Build config: emits the runnable application from src only.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"]
+}
