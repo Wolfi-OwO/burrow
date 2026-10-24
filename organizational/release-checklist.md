@@ -17,8 +17,15 @@ intended. Items marked **operator** need an account or a secret that the reposit
 
 ## Blockers only the operator can clear
 
-- [ ] **operator** The legal documents are complete: `IMPRESSUM.md`, `PRIVACY.md`, `TERMS_OF_USE.md` have no `TODO`
-      left (issue #59). `grep -n TODO IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md` must print nothing.
+- [x] The legal documents are complete: `grep -n TODO IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md` prints nothing, and
+      the app serves them at `/impressum`, `/privacy` and `/terms` (issue #59).
+- [ ] **operator** Re-check the Data Privacy Framework status of Backblaze, GitHub, Microsoft and Google
+      (<https://www.dataprivacyframework.gov/list>), and update the dated line in `PRIVACY.md` § 5.
+- [ ] **operator** Accept Backblaze's data processing addendum in the Backblaze account settings, and confirm the
+      Contabo data processing agreement is accepted in the Contabo customer account (`PRIVACY.md` § 5).
+- [ ] **operator** Have a Rechtsanwalt look at `IMPRESSUM.md` (street address question) and at the age-verification
+      finding in `WEB_APP_COMPLIANCE_CHECKLIST.md`; get Contabo's position on private NSFW storage in writing, or
+      plan the fallback host that checklist describes.
 - [ ] **operator** The Backblaze AUP and AVV re-verification gate in `WEB_APP_COMPLIANCE_CHECKLIST.md` is closed
       (the NSFW category is stored in B2).
 - [ ] **operator** B2 buckets, lifecycle rules and the three scoped keys exist (`deploy/b2-credential-security.md`).

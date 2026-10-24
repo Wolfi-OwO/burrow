@@ -23,7 +23,7 @@ the legal documents (they need my address and decisions only I can make) — see
 
 ![CI](https://img.shields.io/badge/CI-not_set_up_yet-lightgrey)
 ![Security](https://img.shields.io/badge/security_scan-not_set_up_yet-lightgrey)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-%E2%89%A522-339933?logo=node.js&logoColor=white)
@@ -123,17 +123,14 @@ docs/, scripts/, todo/        General docs, repo maintenance, scratch notes
 - [CONTRIBUTING.md](CONTRIBUTING.md) — ground rules and commit-message
   convention. Single-contributor project for now — no PR workflow or CI to
   gate on yet
-- **Legal** — burrow is personal, single-tenant software: I am the only
-  user, running it on my own infrastructure. No public license has been
-  chosen yet and none is needed while nothing is published; this entry will
-  state the terms before any code here is shared or self-hosted by anyone
-  else. Because a stated goal of this app is sorting NSFW content, that
-  content is mine, stored on infrastructure I control, and never processed
-  by a third-party service — see
-  [Why it is built this way](#why-it-is-built-this-way)
+- **Legal** — burrow is personal, single-tenant software: I am the only user,
+  running it on my own infrastructure. Because a stated goal of this app is
+  sorting NSFW content, that content is mine, stored on infrastructure I
+  control, and never processed by a third-party service — see
+  [Why it is built this way](#why-it-is-built-this-way). The
+  [Impressum](IMPRESSUM.md), [privacy policy](PRIVACY.md) and
+  [terms of use](TERMS_OF_USE.md) are also served by the app itself.
 
 ## License
 
-Private — all rights reserved for now. No `LICENSE` file exists yet because
-nothing here is published; this section will be updated if and when that
-changes.
+MIT, see [LICENSE](LICENSE). The licence covers the source code only; uploaded files stay with whoever uploaded them.

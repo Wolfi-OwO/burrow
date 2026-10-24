@@ -89,7 +89,17 @@ describe('burrow smoke', { concurrency: false }, () => {
     it('serves the app shell and the version', async () => {
         const page = await fetch(`${BASE}/`);
         assert.equal(page.status, 200);
-        assert.match(await page.text(), /<div id="root">/);
+        const html = await page.text();
+        assert.match(html, /<div id="root">/);
+        // The CSP forbids inline scripts, so one in the shell would silently never run in production.
+        assert.doesNotMatch(
+            html,
+            /<script(?![^>]*\bsrc=)[^>]*>/,
+            'index.html must not contain an inline script',
+        );
+        const csp = page.headers.get('content-security-policy') ?? '';
+        assert.match(csp, /script-src 'self'/);
+        assert.match(csp, /frame-ancestors 'none'/);
         assert.equal((await call('GET', '/api/version', { auth: false })).status, 200);
     });
 

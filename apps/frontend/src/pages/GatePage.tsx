@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { Mark } from '../components/Shell.tsx';
+import { LegalLinks } from './LegalPage.tsx';
 import { Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
@@ -134,6 +135,7 @@ export function GatePage(): ReactNode {
                         ? 'First time here? Create the owner account'
                         : 'I already have an account'}
                 </button>
+                <LegalLinks />
             </div>
         </div>
     );

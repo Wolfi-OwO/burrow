@@ -2,7 +2,7 @@
 # Build context is the repository root (npm workspaces share one lockfile).
 FROM node:24-slim AS build
 WORKDIR /repo
-COPY package.json package-lock.json tsconfig.base.json ./
+COPY package.json package-lock.json tsconfig.base.json IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md ./
 COPY apps/api/package.json apps/api/
 COPY apps/frontend/package.json apps/frontend/
 RUN npm ci --ignore-scripts --workspace apps/api --workspace apps/frontend --include-workspace-root

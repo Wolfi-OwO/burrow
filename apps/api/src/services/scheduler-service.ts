@@ -2,11 +2,15 @@ import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { logger } from '../lib/logger.ts';
 import { fileRepository } from '../repository/file.repository.ts';
+import { sessionRepository } from '../repository/session.repository.ts';
 import { schedulerRepository } from '../repository/scheduler.repository.ts';
 import { classificationService } from './classification-service.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TICK_MS = 60 * 1000;
+/** Ended sessions are kept this long (for investigating a suspicious login), then deleted. */
+export const SESSION_RETENTION_DAYS = 7;
+const PURGE_EVERY_TICKS = 60;
 
 /**
  * FR-040: runs per day grow linearly with the backlog, from the minimum (an idle drive) to the maximum
@@ -74,7 +78,14 @@ export const schedulerService = {
             logger.info('scheduler disabled on this instance');
             return () => undefined;
         }
+        let ticks = 0;
         const timer = setInterval(() => {
+            ticks += 1;
+            if (ticks % PURGE_EVERY_TICKS === 0) {
+                sessionRepository.purgeEnded(SESSION_RETENTION_DAYS).catch((error: unknown) => {
+                    logger.error({ err: error }, 'session purge failed');
+                });
+            }
             schedulerService.tick().then(
                 (n) => {
                     if (n !== null) logger.info({ decided: n }, 'scheduler run finished');

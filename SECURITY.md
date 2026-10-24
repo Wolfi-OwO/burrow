@@ -25,17 +25,18 @@ Instead, report privately via GitHub's
 - steps to reproduce or a proof of concept,
 - any suggested remediation.
 
-**TODO** — no formal response-time SLA committed yet (this is a
-single-maintainer personal project, not a team with an on-call rotation);
-expect a best-effort response, not a guaranteed window, until this is
-revisited.
+This is a single-maintainer personal project, not a team with an on-call
+rotation: there is no formal response-time guarantee. Expect a best-effort
+reply, aiming for an acknowledgement within a week.
 
 ## Automated Scanning
 
-**TODO** — no CI/security tooling configured yet (see README.md badges:
-"CI: not set up yet", "security scan: not set up yet"). This is scaffolding
-only; secret scanning (gitleaks, GitHub push protection), dependency
-scanning, and static analysis are expected in a later pass, not yet present.
+Every push and pull request runs the Security workflow: gitleaks over the
+working tree, a Trivy filesystem scan that fails the build on HIGH or CRITICAL
+findings, and CodeQL for JavaScript/TypeScript and Python. Dependabot opens one
+grouped update per ecosystem each month. The CI workflow adds lint, type
+checks, 64 API tests against a real Postgres, the vision tests and an
+end-to-end smoke test against the built containers.
 
 ## Handling of Sensitive Data
 

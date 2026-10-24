@@ -10,9 +10,10 @@ import {
     resetDatabase,
 } from '../helpers.ts';
 
+after(closeServer);
+
 describe('auth', () => {
     beforeEach(resetDatabase);
-    after(closeServer);
 
     it('registers the owner as admin and never returns a hash or the refresh token in the body', async () => {
         const reply = await api('POST', '/api/auth/register', {
@@ -137,6 +138,33 @@ describe('auth', () => {
                 })
             ).status,
             200,
+        );
+    });
+});
+
+describe('session retention', () => {
+    beforeEach(resetDatabase);
+
+    it('deletes sessions that ended more than the retention period ago and keeps everything else', async () => {
+        const { getPool } = await import('../../src/database/connection.ts');
+        const { sessionRepository } = await import('../../src/repository/session.repository.ts');
+        const { id } = await registerOwner();
+        const db = getPool();
+        const add = (expires: string, revoked: string): Promise<unknown> =>
+            db.query(
+                `INSERT INTO sessions (user_id, refresh_hash, expires_at, revoked_at)
+                 VALUES ($1, md5(random()::text)::char(32) || md5(random()::text)::char(32), ${expires}, ${revoked})`,
+                [id],
+            );
+        await add("now() - interval '30 days'", 'NULL'); // long expired: removed
+        await add("now() + interval '5 days'", "now() - interval '30 days'"); // revoked long ago: removed
+        await add("now() + interval '5 days'", "now() - interval '1 day'"); // revoked yesterday: kept
+        await add("now() - interval '1 day'", 'NULL'); // expired yesterday: kept
+        const before = Number((await db.query('SELECT count(*) AS n FROM sessions')).rows[0]?.n);
+        assert.equal(await sessionRepository.purgeEnded(7), 2);
+        assert.equal(
+            Number((await db.query('SELECT count(*) AS n FROM sessions')).rows[0]?.n),
+            before - 2,
         );
     });
 });

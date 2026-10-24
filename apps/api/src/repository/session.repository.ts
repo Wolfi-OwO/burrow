@@ -91,6 +91,22 @@ export const sessionRepository = {
         );
     },
 
+    /**
+     * Deletes sessions that expired or were revoked more than `days` ago. Nothing needs them any more, and
+     * keeping a login record (with its user agent) forever is retention nobody asked for.
+     *
+     * @returns How many rows were removed.
+     */
+    async purgeEnded(days: number, db: Queryable = getPool()): Promise<number> {
+        const { rowCount } = await db.query(
+            `DELETE FROM sessions
+             WHERE expires_at < now() - make_interval(days => $1)
+                OR revoked_at < now() - make_interval(days => $1)`,
+            [days],
+        );
+        return rowCount ?? 0;
+    },
+
     /** Ends every session of a user. */
     async revokeAll(userId: string, db: Queryable = getPool()): Promise<void> {
         await db.query(

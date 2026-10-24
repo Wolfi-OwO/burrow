@@ -7,19 +7,7 @@
         <title>burrow</title>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="stylesheet" href="/appearance.css" />
-        <script>
-            // First visit: a warm, light, low-contrast look. The colour panel (appearance.js) saves later changes.
-            try {
-                if (!localStorage.getItem('pal')) {
-                    localStorage.setItem('pal', 'solar');
-                    localStorage.setItem(
-                        'thm',
-                        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-                    );
-                    localStorage.setItem('ctr', 'low');
-                }
-            } catch {}
-        </script>
+        <script src="/first-visit.js"></script>
     </head>
     <body>
         <div id="root"></div>

@@ -1,9 +1,8 @@
 # Privacy Policy — burrow
 
-Scoped stub, not a finished policy. Every unresolved point below is marked
-`TODO`. Nothing in this file asserts DSGVO compliance has been established —
-it names the obligations that apply and the open questions that block that
-claim.
+Published in the app at `/privacy`. Last reviewed 2026-10-24. This file states
+what the system does today and what applies if its shape changes; it does not
+claim a legal review has taken place.
 
 > Compliance draft, not legal advice. Not reviewed by a Rechtsanwalt.
 
@@ -83,22 +82,27 @@ re-trigger it.
 Every person with a burrow account is a data subject under DSGVO — the
 operator and every family member alike. This is stated explicitly because
 it's easy to treat a private/family app as having only one real user; it
-does not. **TODO** — list actual account holders and their relationship to
-the controller once accounts exist, for the real (non-stub) version of this
-document.
+does not.
+
+**Account holders today:** exactly one, the operator. Registration is closed
+after the first account (`REGISTRATION_OPEN=false`), so no other person's data
+can enter the system without the operator changing that setting on purpose.
+Before doing so, the self-service export and erasure paths in § 7 have to
+exist; that is a rule for the operator, not an aspiration.
 
 ## 3. What Is Collected
 
-| Data | Likely legal basis (if DSGVO applies, see § 1) | Notes |
+| Data | Where it lives | Legal basis if DSGVO applies (see § 1) |
 | - | - | - |
-| Login credentials / OIDC identity (GitHub, Microsoft, Google) | Art 6(1)(b) or Art 6(1)(f), pending § 1 | Third-party IdP — see § 5 |
-| Profile (avatar, name, bio) | Art 6(1)(b)/(f), pending § 1 | |
-| Uploaded files and the user-defined category tree | Art 6(1)(b)/(f), pending § 1 | Canonical copy stored off-VPS on Backblaze B2 — see § 5 |
-| AI-generated category assignment per file (including the NSFW branch) | See § 4 | Inference output, not raw upload |
+| Username, Argon2id password hash, linked provider ids and the email the provider confirmed | PostgreSQL on the VPS | Art 6(1)(b): needed to give the account holder the service they asked for |
+| Active sessions: user agent, creation and expiry time | PostgreSQL | Art 6(1)(f): keeping the account secure and letting a user end a session |
+| Profile: display name, bio, avatar | PostgreSQL, avatar in the blob store | Art 6(1)(b) |
+| Uploaded files and the category tree | Metadata in PostgreSQL, bytes on Backblaze B2 with a local cache on the VPS | Art 6(1)(b) |
+| Per-file sorter output: suggested category, confidence, NSFW score, a 512-number image embedding | PostgreSQL, in the same row as the file | Art 6(1)(b), and see § 4 for the Art 9 question |
+| Server logs: request line, status, correlation id; no request bodies, no passwords | The container log, rotated at 3 x 10 MB | Art 6(1)(f) |
 
-**TODO** — finalize legal basis per row once § 1 is resolved; a purely
-household-exempt system may not need an Art 6 basis at all, a non-exempt one
-does.
+While the household exemption in § 1 holds, none of these rows needs a legal
+basis. The column says what would be relied on the moment it stops holding.
 
 ## 4. Special-Category Data Risk (Art 9 DSGVO)
 
@@ -111,20 +115,19 @@ depending on the model's feature representation, arguably biometric data
 processed to analyse characteristics of a natural person. This is flagged as
 a real Art 9 risk, not dismissed as "just a filename tag."
 
-**TODO — unresolved:**
+**How this is handled:**
 
-- Whether Art 9(2)(a) explicit consent (separate from account signup, per
-  the pattern used elsewhere in this account's projects) is required before
-  a photo of a given person is run through NSFW classification, and how
-  consent is captured for a photo that depicts a family member other than
-  the account holder (e.g. a shared album).
-- Whether the § 1 household exemption, if it holds, also covers this
-  specific processing, or whether AI-driven classification of another
-  person's likeness is exactly the kind of activity that falls outside
-  "purely personal."
-- What happens to the classification result itself (stored as metadata?
-  retained after reclassification? deletable independently of the source
-  file?) — not yet decided, not yet built.
+- **Today** the operator uploads only their own files to their own account, and the household exemption in § 1
+  holds. Art 9 only attaches to processing that DSGVO covers in the first place.
+- **Rule for any second account:** the NSFW pass must not run on a second person's files without that person's
+  explicit consent under Art 9(2)(a), given separately from signing up. The software cannot enforce that today
+  (there is no per-account switch), which is one more reason registration stays closed. Building that switch is
+  the precondition for opening it.
+- **What is stored:** the classification result is not a separate record. A category, a confidence, an NSFW
+  probability and an image embedding live as columns of the file's own row. Deleting the file deletes all of
+  them with it, and they cannot outlive it. The NSFW probability is used for one purpose: keeping a file out of
+  any category marked as possibly publicly previewable. Nothing is sent to anyone.
+- **Models:** both run on the VPS (`apps/vision`) and the service keeps no upload and no result after answering.
 
 This category of risk does not resolve itself by keeping the deployment
 private; Art 9 attaches to the nature of the data, not to audience size.
@@ -159,17 +162,16 @@ private; Art 9 attaches to the nature of the data, not to audience size.
     outside the EEA — under EDPB post-Schrems-II guidance, remote access
     from a third country can itself constitute a transfer, independent of
     where the bytes are stored at rest.
-  - **TODO — unresolved:** confirm (a) whether Backblaze's EU-Central
-    offering is covered by executed Standard Contractual Clauses or a
-    current EU-US Data Privacy Framework certification specific to
-    Backblaze Inc. (DPF status must be checked live against Backblaze's
-    current certification list, not assumed from general knowledge — the
-    same caveat § 5 already states for the OIDC providers below), and (b)
-    whether an Art 28 Auftragsverarbeitervertrag with Backblaze has been
-    reviewed and executed for this account. Until both are confirmed,
-    treat Backblaze as a **named-but-unconfirmed processor**, not a
-    documented one — the same posture `mona/PRIVACY.md` § 5 takes with
-    Contabo's own open DPA point.
+  - **Transfer mechanism, checked live on 2026-10-24** against the U.S. Department of Commerce's Data Privacy
+    Framework list (<https://www.dataprivacyframework.gov/list>): Backblaze, San Francisco, is an **active**
+    participant in the EU-U.S. Data Privacy Framework (non-HR data), and also in the Swiss-U.S. framework and the
+    UK extension. That is the current Art 45 adequacy basis for the access question above. It is a snapshot, not a
+    guarantee: certification can lapse, so this line is re-checked at each release (see
+    `organizational/release-checklist.md`).
+  - **Art 28 agreement with Backblaze:** the operator accepts Backblaze's data processing addendum in the
+    Backblaze account settings when creating the production account keys; until that is done, Backblaze is a
+    named processor without a signed agreement and no personal data of anyone else may be stored there. The
+    release checklist carries this as a gate.
   - **Sub-processor disclosure.** Backblaze B2 is named here as a
     sub-processor of user-uploaded file content for every account —
     operator and family members alike. This disclosure is made regardless
@@ -180,48 +182,57 @@ private; Art 9 attaches to the nature of the data, not to audience size.
     live rather than where an earlier draft assumed they lived.
 - **OIDC login (GitHub, Microsoft, Google)** is a third-party data flow: the
   chosen provider receives the OAuth handshake and, depending on scopes,
-  identity/profile fields. These are US-headquartered providers.
-  **TODO** — confirm which providers are actually used at launch, and for
-  each one, whether the current transfer mechanism (EU-US Data Privacy
-  Framework certification, or SCCs) is in force at that time; DPF status is
-  not static and needs checking against the provider's current
-  certification, not assumed from general knowledge.
-- **TODO** — Contabo (hosting) is itself a processor for anything it can
-  technically access (the VPS host). An Art 28 Auftragsverarbeitervertrag
-  with Contabo has not been reviewed for this project; confirm Contabo's
-  standard DPA terms before treating hosting as settled.
-- No other third party is designed to receive data. No public API, no
-  analytics vendor, no error-tracking SaaS decided yet — **TODO** flag any
-  of those the moment they're added; each one needs its own AVV entry here.
+  identity/profile fields. These are US-headquartered providers. All three are offered as options and each is
+  switched on only when the operator registers an app with it. **Checked live on 2026-10-24** on the Data
+  Privacy Framework list: GitHub (San Francisco), Microsoft Corporation (Redmond) and Google LLC (Mountain View)
+  are each an **active** EU-U.S. Data Privacy Framework participant. Same caveat as above: a snapshot that is
+  re-checked at each release. burrow reads only the provider user id, the display name, the profile picture URL
+  and the email address with its verified flag, and stores the id and the verified email.
+- **Contabo** (hosting) is a processor for anything it can technically access on the VPS host. Contabo GmbH is an
+  EU-established company, so no third-country transfer question arises for the hosting itself. Its standard
+  data processing agreement is accepted in the customer account; the operator confirms that acceptance before
+  the first production deploy (a gate in the release checklist).
+- No other third party receives data. There is no analytics vendor, no error-tracking service, no advertising and
+  no public API. Adding any of those means adding it here, with its own processor entry, in the same change.
 
 ## 6. Retention
 
-**TODO** — not decided. No automated deletion policy exists yet; this is
-scaffolding, not a built feature. Retention now has to be decided for two
-tiers, not one: the ~50GB local cache (evicts on its own capacity policy,
-not a data-protection one) and the Backblaze B2 canonical copy (no
-deletion job exists yet — deleting a file record does not yet imply
-deleting the underlying B2 object). A DSAR erasure request is not fully
-answerable until a delete path reaches B2 as well as the local cache and
-the database row; do not treat "removed from the app" as "removed from
-B2" until that path is built.
+- **Files and their sorter output** stay until the account holder deletes them. Deleting a file removes its
+  database row (and with it the category, scores and embedding), and removes the stored bytes from the local cache
+  and from Backblaze once no other file uses the same content. Identical uploads share one stored copy, so the
+  bytes are only removed with the last file that references them.
+- **Bucket versions:** the Backblaze buckets keep prior versions of an object for a limited, configured period
+  (see `organizational/deploy/b2-credential-security.md`) as protection against accidental deletion. A deleted
+  file's bytes therefore exist in B2 for that period after deletion, and in the backup bucket (below).
+- **Backups:** a nightly encrypted database dump is kept for 30 days; blob copies in the backup bucket are
+  content-addressed and are not deleted by the backup job.
+- **Sessions:** a session row is deleted 7 days after it expired or was revoked.
+- **Logs:** the container log keeps three files of 10 MB and overwrites the oldest.
+- **The local cache** (about 50 GB) evicts by capacity, not by data-protection rules; it only holds copies.
 
 ## 7. Rights
 
 If DSGVO applies (see § 1), each data subject has the rights under Art
-15–21 (access, rectification, erasure, portability, objection). **TODO** —
-no self-service export/delete endpoint exists yet; until one does, rights
-requests would have to be handled manually by the operator, which is not a
-durable answer for a system with multiple real users. Build this before
-onboarding any account beyond the operator's own.
+15–21 (access, rectification, erasure, portability, objection). There is no
+self-service account export or account deletion screen yet: the operator
+handles such requests by hand, directly in the database and the bucket. That is
+a workable answer for one account and not for several, so the rule from § 2
+stands: build self-service export and erasure before onboarding any account
+beyond the operator's own. Individual files can already be downloaded and
+deleted by their owner at any time.
 
 ## 8. Breach Notification
 
 If DSGVO applies, Art 33 (72-hour notification to the Datenschutzbehörde
 where risk is likely) and Art 34 (direct notification to affected data
-subjects where risk is high) apply. **TODO** — no incident-response process
-exists yet for this project.
+subjects where risk is high) apply. Procedure, written for a single operator: (1) contain it: end all sessions
+(`UPDATE sessions SET revoked_at = now()`), rotate `JWT_SECRET` and any key that may be exposed, and
+take the service offline if needed; (2) establish what was reachable, using the container log and the Backblaze
+access log; (3) if personal data of a person other than the operator was affected and a risk to them is likely,
+notify the Datenschutzbehörde within 72 hours of becoming aware, and the affected people directly if the risk is
+high; (4) write down what happened, what was done and when, whether or not notification was required.
 
 ## 9. Contact
 
-**TODO** — see IMPRESSUM.md; contact address not yet finalized.
+Phillip Kofler, <KoflerPhillip@outlook.com>. Operator details are in `IMPRESSUM.md`.
+Complaints can also go to the Österreichische Datenschutzbehörde (<https://www.dsb.gv.at>).

@@ -1,80 +1,58 @@
 # Impressum — burrow
 
-Scoped stub. This is not a finished Impressum page — it names the obligation
-and marks what's unresolved. Do not treat this file as published/compliant
-until every `TODO` below is closed.
+Information pursuant to § 5 ECG and § 25 MedienG. Published in the app at `/impressum`.
 
-## Obligation
-
-Austria: **§ 5 ECG** (E-Commerce-Gesetz) requires an operator of a "Dienst
-der Informationsgesellschaft" to publish a set of identifying and contact
-details, easily accessible, permanently available, directly reachable. Where
-the service also functions as a periodic online medium, **§ 25 MedienG**
-additionally requires an *Offenlegung* (media ownership disclosure).
-
-**TODO — threshold question, unresolved:** burrow is planned as a private,
-single-tenant deployment (household accounts, no public registration, no
-public content). It is genuinely open whether § 5 ECG attaches at all to a
-service with no public-facing offering — ECG targets services "normally
-provided for remuneration, at a distance, by electronic means, at the
-individual request of a recipient," and case law/commentary is not settled
-on where a closed, non-commercial, family-use system sits relative to that
-definition. Publishing this Impressum anyway (defensive posture, since the
-repository and domain are public even though the app itself is not) is the
-safer default, but the underlying legal question of whether it is *required*
-is not resolved here. This needs a proper check before the domain goes live,
-not an assumption either way.
+> Compliance draft, not legal advice. Not reviewed by a Rechtsanwalt.
 
 ## Diensteanbieter
 
 Phillip Kofler
+Software Developer | Fullstack Developer
+Villach, Carinthia, Austria
 
-**TODO** — full geographic address (street + house number, not a PO box, per
-§ 5 Abs 1 Z 1 ECG service-of-process requirement). Not yet decided whether
-to publish a home address for a private, non-commercial project; needs a
-decision before this file is considered complete.
+Contact: <KoflerPhillip@outlook.com>
 
-## Kontakt
+The scope and wording deliberately mirror the Impressum of `woofi-developments.at`, so every site operated under
+this domain shows the same operator details.
 
-**TODO** — publish an email address. Do not reuse the personal address
-verbatim without a decision on that; a dedicated address (e.g.
-`security@` or `contact@` on `woofi-developments.at`) is worth considering
-once the domain is provisioned.
+**Decision on the street address (owner, 2026-10-24):** the street address is not published, the same as on
+`woofi-developments.at`. § 5 Abs 1 Z 1 ECG lists a geographic address among the details a provider has to make
+available. Whether that obligation attaches to a private, login-only service at all is not settled (see
+"Obligation" below), and whether a town and a working email address are enough for the sites that do fall under it
+is a question for a Rechtsanwalt, not something this file answers. Add the street address here and on the
+other site together if that advice says so.
+
+## Obligation
+
+§ 5 ECG applies to a "Dienst der Informationsgesellschaft" normally provided for remuneration. burrow is a private,
+single-tenant file drive: no public registration, no public content, no payment. Publishing an Impressum anyway is
+the defensive choice, since the domain and the repository are public even though the app is not.
+
+§ 25 MedienG (Offenlegung) applies to a periodic online medium. burrow has no editorial content, so it does not
+apply.
 
 ## Domain
 
-Candidate: `burrow.woofi-developments.at` (registrar: GoDaddy). **TODO** —
-not yet provisioned; update this file once DNS/Caddy routing is live and the
-subdomain is final.
+`burrow.woofi-developments.at`. Registrar: GoDaddy.
 
 ## Unternehmensangaben
 
-- Rechtsform: natural person, no registered business entity for this
-  project. No Firmenbuchnummer, no UID-Nummer — do not invent these.
-- Gewerbe: not applicable unless a Gewerbe is held for this activity —
-  **TODO** confirm this stays true (no commercial offering, no revenue).
+- Rechtsform: natural person, no registered business entity for this project. No Firmenbuchnummer and no
+  UID-Nummer.
+- Gewerbe: not applicable to burrow, which has no commercial offering and no revenue. If that changes, this file and
+  `TERMS_OF_USE.md` need a rewrite.
 - WKO-Mitgliedschaft: not applicable.
 
 ## Aufsichtsbehörde
 
-Österreichische Datenschutzbehörde, Barichgasse 40–42, 1030 Wien —
-<https://www.dsb.gv.at>
-
-## Für den Inhalt verantwortlich (§ 25 MedienG)
-
-**TODO** — burrow has no editorial/media content (it is a private file
-drive, not a blog or publication), so § 25 MedienG likely does not apply.
-Flagging this as a TODO rather than asserting it, since the project scope
-could change.
+Österreichische Datenschutzbehörde, Barichgasse 40–42, 1030 Wien — <https://www.dsb.gv.at>
 
 ## Zweck des Angebots
 
-A private, self-hosted, single-tenant file drive with AI-driven category
-sorting, operated for personal/household use. Not offered to the public.
+A private, self-hosted, single-tenant file drive with AI-driven category sorting, operated for personal use. Not
+offered to the public.
 
 ## Streitbeilegung
 
-EU-Plattform zur Online-Streitbeilegung: <https://ec.europa.eu/consumers/odr/>.
-**TODO** — likely not relevant given no consumer contract exists (nothing is
-sold, see TERMS_OF_USE.md), but noted here for completeness pending the
-threshold question above.
+burrow concludes no consumer contract and sells nothing (see `TERMS_OF_USE.md`), so the EU online dispute resolution
+platform (<https://ec.europa.eu/consumers/odr/>) does not apply; it is named here for completeness.
