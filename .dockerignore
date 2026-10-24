@@ -1,6 +1,6 @@
 **/node_modules
 **/dist
-**/models
+apps/vision/models
 **/data
 **/data-test
 .git
