@@ -8,11 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
-## [0.1.4] - 2026-10-25
+## [0.1.5] - 2026-10-25
 
 ### Changed
 
-- Sign-in page always fits the screen, at any size; the colour panel button is gone from the app.
+- Sign-in page always fits the screen, at any size.
+- The colour panel is removed everywhere; a light and dark mode toggle replaces it (sidebar and sign-in page), following the system setting until chosen.
 - GitHub, Microsoft and Google icons are always shown; a provider that is not set up yet is dimmed.
 
 ## [0.1.3] - 2026-10-25
