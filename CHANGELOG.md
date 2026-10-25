@@ -8,11 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-25
+
 - Built `apps/api`: credential and OIDC login, revocable sessions, the ltree category tree with atomic subtree
   moves, content-addressed uploads with dedup, ranked name search, the review queue and the scheduler.
 - Built `apps/vision`: OpenCLIP ViT-B/32 embeddings and zero-shot scoring plus a dedicated NSFW classifier on
   ONNX Runtime; measured latency and memory are recorded in ADR-0004.
 - Built `apps/frontend`: drive, search, review, profile and the colour panel.
+- Uploads live on the VPS disk with an encrypted nightly backup to Azure Blob Storage (ADR-0006), instead of Backblaze.
+- Completed the Impressum, privacy policy and terms and serve them in the app at `/impressum`, `/privacy` and `/terms`.
 - Added the production compose file, the forced-command deploy script, the Caddy vhost, the nightly backup
   timer and the restore drill, the release workflow, and an end-to-end smoke test.
 
