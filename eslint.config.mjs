@@ -12,6 +12,8 @@ export default tseslint.config(
         // files. Linted independently, not by this root config.
         ignores: [
             '**/dist/**',
+            'mockups/**',
+            'wireframes/**',
             'apps/api/public/**',
             '**/build/**',
             '**/coverage/**',
