@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>burrow wireframe: Sign in</title><style>
+*{box-sizing:border-box} body{margin:0;font:15px/1.45 system-ui,sans-serif;color:#222;background:#fff}
+.page{max-width:1280px;margin:0 auto;padding:24px}
+.note{font-size:12px;color:#666;border-left:3px solid #999;padding:4px 10px;margin:0 0 16px}
+.box{border:2px solid #444;padding:12px;background:#fff} .dash{border:2px dashed #888;padding:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .col{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1;min-width:0} h1,h2,h3{margin:0 0 8px} h1{font-size:26px}h2{font-size:19px}h3{font-size:15px}
+.btn{display:inline-block;border:2px solid #444;padding:8px 14px;font-weight:600;background:#eee}
+.ghost{background:#fff} .in{border:2px solid #444;padding:10px;min-height:40px;color:#777;background:#fff}
+.tile{border:2px solid #444;aspect-ratio:1;display:grid;place-items:center;color:#777;background:repeating-linear-gradient(45deg,#fff,#fff 8px,#eee 8px,#eee 9px)}
+.shell{display:grid;grid-template-columns:260px 1fr;gap:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chip{border:1.5px solid #444;border-radius:99px;padding:2px 10px;font-size:12px} .muted{color:#777;font-size:13px}
+.ind{padding-left:16px;border-left:2px dotted #888} .bar{height:8px;border:1.5px solid #444} .bar i{display:block;height:100%;background:#444}
+.circle{width:48px;height:48px;border:2px solid #444;border-radius:50%;display:grid;place-items:center;font-size:11px}
+nav.wf{font-size:13px;margin-bottom:16px;color:#555} nav.wf a{margin-right:12px}
+</style></head>
+<body><div class="page"><nav class="wf"><a href="index.html">Index</a><a href="gate.html">Sign in</a><a href="drive.html">Drive</a><a href="drive-empty.html">Drive (empty)</a><a href="drive-details.html">Drive (details)</a><a href="search.html">Search</a><a href="review.html">Review</a><a href="profile.html">Profile</a><a href="legal.html">Impressum</a><a href="signing-in.html">Signing in</a></nav>
+<p class="note"><b>Sign in</b>. Route /login. Split layout: an illustration of the burrow on one side, the sign-in card on the other. Provider sign-in is icon buttons (no text); the password form is the fallback. Three variants of the provider block are explored in the mockups.</p>
+<div class="row" style="align-items:stretch;gap:24px">
+  <div class="dash grow" style="min-height:420px;display:grid;place-items:center">[illustration: cross-section of a burrow, rooms joined by tunnels, files drifting in]</div>
+  <div class="box col" style="width:420px">
+    <div>[logo]</div><h1>Welcome back</h1><div class="muted">One line of what burrow is</div>
+    <div class="col"><div class="muted">Username</div><div class="in">&nbsp;</div><div class="muted">Password</div><div class="in">&nbsp;</div></div>
+    <div class="btn" style="text-align:center">Sign in</div>
+    <div class="muted" style="text-align:center">&mdash; or &mdash;</div>
+    <div class="row" style="justify-content:center"><div class="circle">[GitHub]</div><div class="circle">[Microsoft]</div><div class="circle">[Google]</div></div>
+    <div class="muted" style="text-align:center">First time here? Create the owner account</div>
+    <div class="muted" style="text-align:center">Impressum · Privacy · Terms</div>
+  </div></div>
+</div></body></html>

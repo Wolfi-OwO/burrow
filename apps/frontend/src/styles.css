@@ -916,3 +916,5 @@ textarea.input {
 .rail .legal-links {
     padding: 0 4px;
 }
+
+a.btn { text-decoration: none; }

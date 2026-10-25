@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>burrow wireframe: Review</title><style>
+*{box-sizing:border-box} body{margin:0;font:15px/1.45 system-ui,sans-serif;color:#222;background:#fff}
+.page{max-width:1280px;margin:0 auto;padding:24px}
+.note{font-size:12px;color:#666;border-left:3px solid #999;padding:4px 10px;margin:0 0 16px}
+.box{border:2px solid #444;padding:12px;background:#fff} .dash{border:2px dashed #888;padding:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .col{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1;min-width:0} h1,h2,h3{margin:0 0 8px} h1{font-size:26px}h2{font-size:19px}h3{font-size:15px}
+.btn{display:inline-block;border:2px solid #444;padding:8px 14px;font-weight:600;background:#eee}
+.ghost{background:#fff} .in{border:2px solid #444;padding:10px;min-height:40px;color:#777;background:#fff}
+.tile{border:2px solid #444;aspect-ratio:1;display:grid;place-items:center;color:#777;background:repeating-linear-gradient(45deg,#fff,#fff 8px,#eee 8px,#eee 9px)}
+.shell{display:grid;grid-template-columns:260px 1fr;gap:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chip{border:1.5px solid #444;border-radius:99px;padding:2px 10px;font-size:12px} .muted{color:#777;font-size:13px}
+.ind{padding-left:16px;border-left:2px dotted #888} .bar{height:8px;border:1.5px solid #444} .bar i{display:block;height:100%;background:#444}
+.circle{width:48px;height:48px;border:2px solid #444;border-radius:50%;display:grid;place-items:center;font-size:11px}
+nav.wf{font-size:13px;margin-bottom:16px;color:#555} nav.wf a{margin-right:12px}
+</style></head>
+<body><div class="page"><nav class="wf"><a href="index.html">Index</a><a href="gate.html">Sign in</a><a href="drive.html">Drive</a><a href="drive-empty.html">Drive (empty)</a><a href="drive-details.html">Drive (details)</a><a href="search.html">Search</a><a href="review.html">Review</a><a href="profile.html">Profile</a><a href="legal.html">Impressum</a><a href="signing-in.html">Signing in</a></nav>
+<p class="note"><b>Review</b>. Route /review. A triage view: the sorter status on top, then one file at a time with a large preview and ranked suggestions, and a filmstrip of what is still waiting.</p>
+<div class="shell"><aside class="box col">
+  <div><b>[logo] burrow</b></div>
+  <div class="col"><div class="box">[icon] Drive</div><div>[icon] Review <span class="chip">3</span></div><div>[icon] Profile</div></div>
+  <div class="btn">+ New category</div>
+  <div class="col muted"><b>Everything</b><span>Unsorted</span><span>Furry</span><span class="ind">SFW</span><span class="ind" style="margin-left:16px">WOLF</span><span>Nature</span><span>Screenshots</span></div>
+  <div class="row"><div class="circle">avatar</div><div class="grow"><b>Display name</b><div class="muted">@username</div></div><span>[sign out]</span></div>
+</aside><main class="col">
+  <div class="box row"><b>The sorter</b><span class="chip">vision healthy</span><span class="muted grow">12 waiting &middot; 10 runs a day &middot; last run 2 h ago &middot; files itself at 60%</span><span class="btn">[play] Sort now</span></div>
+  <div class="row" style="align-items:stretch">
+    <div class="tile grow" style="aspect-ratio:4/3;min-height:340px">large preview</div>
+    <div class="box col" style="width:380px"><h2>Best guesses</h2>
+      <div class="col"><div class="row"><b class="grow">1. Furry</b><span>41%</span></div><div class="bar"><i style="width:41%"></i></div><div class="btn" style="text-align:center">File here</div></div>
+      <div class="col"><div class="row"><b class="grow">2. Nature</b><span>22%</span></div><div class="bar"><i style="width:22%"></i></div><div class="btn ghost" style="text-align:center">File here</div></div>
+      <div class="in">Another category... [v]</div><div class="btn ghost" style="text-align:center">[undo] Leave unsorted</div>
+      <div class="muted">Keys: 1, 2, 3 file under a guess &middot; U leave unsorted</div>
+    </div></div>
+  <div class="row"><div class="tile" style="width:90px;outline:4px solid #444">1</div><div class="tile" style="width:90px">2</div><div class="tile" style="width:90px">3</div><span class="muted">Filmstrip: the queue</span></div>
+  <div class="dash" style="text-align:center">Empty state: Nothing to review</div>
+</main></div>
+</div></body></html>

@@ -1,0 +1,67 @@
+/* Palette, contrast and fine-tune layer: palettes declare raw --c-* colours, this maps them onto the tokens the site already uses. Only active once the layout sets data-palette. */
+html:root[data-palette][data-theme]{--bg:var(--c-bg);--surface:var(--c-surface);--surface-2:var(--c-surface-2);--text:var(--c-text);--muted:var(--c-muted);--line:var(--c-line);--accent:var(--c-accent);--on-accent:var(--c-on);--live:var(--c-live);--glass:color-mix(in srgb,var(--c-bg) 86%,transparent);--boot-bg:var(--c-bg)}
+/* 3. popover controls */
+.palpop{max-height:calc(100vh - 150px);overflow:auto}
+.pp-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 8px}
+.pp-row .seg{margin:0}.sw3 i{width:18px}
+/* ---- round 11: contrast steps (soft · low · medium · med-high · high), palette chips ---- */
+html:root[data-palette][data-theme][data-contrast=soft]{--text:color-mix(in srgb,var(--c-text) 80%,var(--c-bg));--muted:color-mix(in srgb,var(--c-muted) 70%,var(--c-bg));--line:color-mix(in srgb,var(--c-text) 8%,transparent);--accent:color-mix(in srgb,var(--c-accent) 88%,var(--c-bg))}
+html:root[data-palette][data-theme][data-contrast=low]{--text:color-mix(in srgb,var(--c-text) 91%,var(--c-bg));--muted:color-mix(in srgb,var(--c-muted) 85%,var(--c-bg));--line:color-mix(in srgb,var(--c-text) 11%,transparent)}
+html:root[data-palette][data-theme][data-contrast=medhigh]{--muted:color-mix(in srgb,var(--c-muted) 68%,var(--c-text));--line:color-mix(in srgb,var(--c-text) 22%,transparent)}
+html:root[data-palette][data-theme=dark][data-contrast=high]{--text:color-mix(in srgb,var(--c-text) 62%,#fff);--muted:color-mix(in srgb,var(--c-muted) 45%,var(--c-text));--line:color-mix(in srgb,var(--c-text) 30%,transparent)}
+html:root[data-palette][data-theme=light][data-contrast=high]{--text:color-mix(in srgb,var(--c-text) 62%,#000);--muted:color-mix(in srgb,var(--c-muted) 45%,var(--c-text));--line:color-mix(in srgb,var(--c-text) 30%,transparent)}
+html:root[data-contrast=high] :focus-visible,html:root[data-contrast=medhigh] :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+html:root[data-contrast=high] a:not(.btn):not(.brand):hover{text-decoration:underline}
+.palpop{width:min(392px,calc(100% - 28px));gap:12px;padding:16px}
+.pgrp{display:flex;flex-direction:column;gap:8px}.pgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pchip{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 2px;border-radius:14px;border:1px solid transparent;background:none;cursor:pointer;color:var(--muted);transition:.2s}
+.pchip em{font-style:normal;font:500 .62rem Manrope;line-height:1.1;text-align:center;max-width:64px}
+.pchip:hover{background:var(--surface-2);color:var(--text)}.pchip.on{border-color:var(--accent);color:var(--text)}
+.pdot{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--b) 0 50%,var(--a) 50% 100%);border:1px solid color-mix(in srgb,var(--text) 22%,transparent);transition:.2s}.pchip:hover .pdot{transform:scale(1.12)}
+.pnote{margin:0;padding:10px 12px;border-radius:14px;background:var(--surface-2);font-size:.78rem;line-height:1.45;color:var(--muted)}.pnote b{color:var(--text)}
+.pp-row{flex-wrap:wrap}#pp-ctr{flex-wrap:nowrap}#pp-ctr button{padding:5px 8px;font-size:.68rem}
+/* old heatmap tooltip is replaced by the shared tooltip */
+.tip{display:none!important}
+/* popover buttons: undo the old row layout */
+.palpop .pchip{display:flex;grid-template-columns:none;flex-direction:column;align-items:center;gap:6px;padding:8px 2px;text-align:center}
+.palpop .seg button{display:inline-block;padding:6px 12px;border-radius:999px;border:0;background:none;font-size:.72rem;cursor:pointer}
+.palpop .seg button.on{background:var(--accent);color:var(--on-accent)}
+.palpop .seg{padding:3px}
+/* ---- round 12: Appearance drawer ---- */
+.palpop{display:none!important}
+.drawer{position:fixed;top:68px;right:10px;bottom:67px;width:min(400px,calc(100% - 20px));z-index:45;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--float);transform:translateX(calc(100% + 24px));opacity:0;visibility:hidden;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .2s,visibility 0s .38s}
+.drawer.open{transform:none;opacity:1;visibility:visible;transition-delay:0s}
+.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px}.dh b{font-size:1rem;letter-spacing:-.01em}
+.dtabs{display:flex;gap:4px;margin:6px 16px 0;padding:3px;border:1px solid var(--line);border-radius:999px}
+.dtabs button{flex:1;padding:8px 10px;border:0;background:none;border-radius:999px;font:600 .8rem Manrope;color:var(--muted);cursor:pointer;transition:.2s}.dtabs button.on{background:var(--accent);color:var(--on-accent)}
+.db{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin}
+.df{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);justify-content:flex-end;flex-wrap:wrap}
+.drawer .pgrid{grid-template-columns:repeat(5,1fr)}
+.drawer .pgrp{display:flex;flex-direction:column;gap:6px}
+.srow{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;font-size:.8rem}.srow span{color:var(--text);font-weight:500}.srow output{font:500 .72rem 'JetBrains Mono';color:var(--muted)}
+.srow input{grid-column:1 / -1}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;padding:0;border:0;border-radius:99px;background:linear-gradient(to right,var(--accent) var(--p,50%),var(--surface-2) var(--p,50%));outline:0;cursor:pointer;box-shadow:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--text);border:3px solid var(--accent);box-shadow:0 2px 8px rgb(0 0 0/.4);transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--text);border:3px solid var(--accent)}
+input[type=range]:focus-visible{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 30%,transparent)}
+.hexrow{flex-direction:row;align-items:center;gap:10px}.hexrow input[type=color]{width:44px;height:36px;padding:2px;border-radius:12px;border:1px solid var(--line);background:var(--bg);cursor:pointer}.hexrow span{flex:1}
+.drawer .switch{margin-top:2px}
+/* the things the fine-tune controls drive */
+.btn:not(.ghost){box-shadow:0 10px 30px -10px color-mix(in srgb,var(--accent) var(--glow,0%),transparent)}
+html[data-motion=off] *,html[data-motion=off] *::before,html[data-motion=off] *::after{animation:none!important;transition-duration:.01ms!important}
+html[data-motion=off] [data-r]{opacity:1!important;transform:none!important}
+.palfab{right:16px}
+@media(max-width:760px){.drawer{top:60px;bottom:60px;right:6px}.drawer .pgrid{grid-template-columns:repeat(4,1fr)}}
+.palfab{position:fixed;right:16px;bottom:73px;z-index:35;display:inline-flex;align-items:center;gap:10px;height:42px;padding:0 16px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--text);font:600 .78rem Manrope;cursor:pointer;box-shadow:var(--float);transition:.2s}
+.palfab:hover{border-color:var(--accent)}.palfab small{font:500 .62rem 'JetBrains Mono';color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.switch{flex-direction:row;align-items:center;gap:12px;font-weight:500;cursor:pointer}.switch input{display:none}.switch i{width:44px;height:26px;border-radius:999px;background:var(--surface-2);position:relative;flex:none;transition:.2s}.switch i::after{content:'';position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}.switch input:checked+i{background:var(--accent)}.switch input:checked+i::after{left:21px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap;font-size:.74rem}.seg button,.chips button{background:none;border:0;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--muted)}.seg .on,.chips .on{background:var(--accent);color:var(--on-accent)}
+/* the few shared controls the drawer uses; the rest of the site styles buttons with Tailwind */
+.drawer .btn,.drawer .tool{font:600 .74rem 'JetBrains Mono',monospace;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:6px 12px;cursor:pointer}
+.drawer .btn:not(.ghost){background:var(--accent);color:var(--on-accent,#fff);border-color:var(--accent)}
+.drawer .tool{width:32px;padding:6px 0}.drawer .dh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px}
+.drawer .db{overflow:auto;flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:14px}.drawer .df{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
+.drawer .mono{font-family:'JetBrains Mono',monospace}.drawer .muted{color:var(--muted)}.drawer .small{font-size:.72rem}.drawer .pnote{font-size:.78rem;color:var(--muted);margin:0}
+.palfab{border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(10px);color:var(--text);border-radius:999px;padding:8px 14px 8px 10px;font:600 .74rem 'JetBrains Mono',monospace;cursor:pointer;gap:8px;align-items:center}
+.sw3.mini{display:inline-flex;border-radius:99px;overflow:hidden}.sw3.mini i{width:8px;height:14px}
