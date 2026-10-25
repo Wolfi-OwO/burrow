@@ -20,13 +20,15 @@ export function GatePage(): ReactNode {
     const { login, register } = useAuth();
     const [params] = useSearchParams();
     const [mode, setMode] = useState<'login' | 'register'>('login');
+    const [setupToken, setSetupToken] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(params.get('error'));
     const providers = useQuery({
         queryKey: ['providers'],
-        queryFn: () => api<{ providers: string[] }>('GET', '/api/auth/providers'),
+        queryFn: () =>
+            api<{ providers: string[]; setupRequired: boolean }>('GET', '/api/auth/providers'),
     });
 
     const submit = async (event: FormEvent): Promise<void> => {
@@ -35,7 +37,7 @@ export function GatePage(): ReactNode {
         setError(null);
         try {
             if (mode === 'login') await login(username, password);
-            else await register(username, password, username);
+            else await register(username, password, username, setupToken);
         } catch (e) {
             setError(
                 e instanceof ApiError
@@ -91,6 +93,22 @@ export function GatePage(): ReactNode {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
+                    {mode === 'register' && providers.data?.setupRequired ? (
+                        <div className="field">
+                            <label htmlFor="t">
+                                Setup token (from the server's .env: OWNER_SETUP_TOKEN)
+                            </label>
+                            <input
+                                id="t"
+                                className="input"
+                                type="password"
+                                autoComplete="off"
+                                required
+                                value={setupToken}
+                                onChange={(e) => setSetupToken(e.target.value)}
+                            />
+                        </div>
+                    ) : null}
                     {error ? (
                         <p className="error" role="alert">
                             {error}
@@ -106,7 +124,9 @@ export function GatePage(): ReactNode {
                         {mode === 'login' ? 'Sign in' : 'Create account'}
                     </button>
                 </form>
-                {providers.data && providers.data.providers.length > 0 ? (
+                {providers.data &&
+                providers.data.providers.length > 0 &&
+                !providers.data.setupRequired ? (
                     <>
                         <div className="divider">or</div>
                         <div className="oauth-row">

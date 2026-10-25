@@ -59,6 +59,7 @@ encrypted nightly backup on Azure).
    CORS_ALLOWED_ORIGINS=https://burrow.woofi-developments.at
    OAUTH_FRONTEND_BASE_URL=https://burrow.woofi-developments.at
    REGISTRATION_OPEN=false
+   OWNER_SETUP_TOKEN=<openssl rand -base64 30>     # the first account must present this; see "First account"
    GITHUB_CLIENT_ID=...    GITHUB_CLIENT_SECRET=...
    MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=...
    GOOGLE_CLIENT_ID=...    GOOGLE_CLIENT_SECRET=...      # optional until the Google client exists
@@ -111,8 +112,13 @@ release contains a new migration.
 
 ## First account
 
-Registration is closed once an account exists. Open `https://burrow.woofi-developments.at`, choose "First time here?
-Create the owner account" and register: the first account becomes the admin. Nothing is reachable without signing in.
+The first account becomes the admin, and a new hostname is public the moment its certificate is issued (certificate
+logs are scanned within minutes), so the first registration has to present `OWNER_SETUP_TOKEN` from the server `.env`;
+without it the request is refused, and a provider login cannot create the first account either. Open
+`https://burrow.woofi-developments.at`, choose "First time here? Create the owner account", enter a username, a
+password of 12 or more characters and the token, and register. Registration is then closed for good
+(`REGISTRATION_OPEN=false`). Link GitHub or Microsoft from the Profile page afterwards. Nothing is reachable without
+signing in.
 
 ## Restoring
 

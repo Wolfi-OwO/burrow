@@ -9,7 +9,12 @@ interface AuthState {
     /** undefined while the first session check runs, null when signed out. */
     user: Account | null | undefined;
     login: (username: string, password: string) => Promise<void>;
-    register: (username: string, password: string, displayName: string) => Promise<void>;
+    register: (
+        username: string,
+        password: string,
+        displayName: string,
+        setupToken?: string,
+    ) => Promise<void>;
     logout: () => Promise<void>;
     setUser: (user: Account) => void;
     reload: () => Promise<void>;
@@ -54,8 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
             login: async (username, password) => {
                 enter(await api('POST', '/api/auth/login', { username, password }));
             },
-            register: async (username, password, displayName) => {
-                enter(await api('POST', '/api/auth/register', { username, password, displayName }));
+            register: async (username, password, displayName, setupToken) => {
+                enter(
+                    await api('POST', '/api/auth/register', {
+                        username,
+                        password,
+                        displayName,
+                        ...(setupToken ? { setupToken } : {}),
+                    }),
+                );
             },
             logout: async () => {
                 try {

@@ -10,7 +10,12 @@ const username = z
 const password = z.string().min(12, 'Use at least 12 characters.').max(128);
 
 export const registerSchema = z
-    .object({ username, password, displayName: z.string().trim().min(1).max(60).optional() })
+    .object({
+        username,
+        password,
+        displayName: z.string().trim().min(1).max(60).optional(),
+        setupToken: z.string().max(200).optional(),
+    })
     .strict();
 export const loginSchema = z
     .object({ username: z.string().trim().min(1).max(64), password: z.string().min(1).max(128) })

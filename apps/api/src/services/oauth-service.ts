@@ -71,6 +71,13 @@ export const oauthService = {
         const accounts = await userRepository.count();
         if (accounts > 0 && !config.registrationOpen)
             throw new ForbiddenError('Registration is closed.');
+        // A provider login cannot carry the setup token, so while the site is unclaimed the owner has to be created with
+        // the token and a password first; providers are linked to that account afterwards.
+        if (accounts === 0 && config.ownerSetupToken) {
+            throw new ForbiddenError(
+                'Create the first account with the setup token and a password; link this provider afterwards.',
+            );
+        }
 
         return getPool().transaction(async (tx) => {
             const user = await userRepository.create(

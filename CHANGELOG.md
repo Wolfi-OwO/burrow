@@ -8,6 +8,11 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-25
+
+- The first account now needs a setup token (`OWNER_SETUP_TOKEN`), and a provider login cannot create it: a new
+  public hostname must not let a stranger become the owner. The sign-up page shows the field when it is needed.
+
 ## [0.1.0] - 2026-10-25
 
 - Built `apps/api`: credential and OIDC login, revocable sessions, the ltree category tree with atomic subtree
