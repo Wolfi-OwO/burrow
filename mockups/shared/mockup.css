@@ -105,3 +105,5 @@
 @media (prefers-reduced-motion: reduce) { .drift, .tunnel-loader .dot { animation: none; } }
 
 a.btn { text-decoration: none; }
+
+.mock-theme { position: fixed; top: 14px; right: 14px; z-index: 50; }

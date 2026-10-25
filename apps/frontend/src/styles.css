@@ -2,15 +2,15 @@
 @import '@fontsource-variable/figtree';
 
 /* Soft tactile: low-contrast surfaces dug into the page, large radii, inner shadows, one warm accent.
-   Every colour below is a token; the colour panel (appearance.js) swaps them, so nothing hard-codes a hue. */
+   Every colour below is a token; the light and dark looks swap them, so nothing hard-codes a hue. */
 :root {
     --bg: #f4ecdf;
     --surface: #fbf5ea;
     --surface-2: #ece1cf;
     --text: #2f2415;
-    --muted: #7a6a52;
+    --muted: #65553c;
     --line: #dccfb8;
-    --accent: #c9821f;
+    --accent: #8a5410;
     --on-accent: #fff9ee;
     --live: #4f8a45;
     --danger: #b3412e;
@@ -29,6 +29,15 @@
     color-scheme: light;
 }
 html[data-theme='dark'] {
+    --bg: #17130d;
+    --surface: #211b12;
+    --surface-2: #2b2318;
+    --text: #f1e8d6;
+    --muted: #bcad90;
+    --line: #3a3023;
+    --accent: #e6b422;
+    --on-accent: #1a1405;
+    --live: #7fbf72;
     --danger: #e07a64;
     color-scheme: dark;
 }
@@ -1123,16 +1132,46 @@ a.btn {
     }
 }
 
-/* The colour panel's softer contrast levels leave secondary text near 2.4:1 on the light solar palette; this
-   floor keeps labels and hints readable (WCAG AA) at every level while the panel still drives the hue. */
-html:root[data-palette][data-theme][data-theme][data-palette] {
-    --muted: color-mix(in srgb, var(--c-muted) 20%, var(--c-text));
+.theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    cursor: pointer;
+    color: var(--text);
+    background: var(--surface);
+    box-shadow: var(--raise);
+    transition:
+        transform var(--dur) var(--ease),
+        box-shadow var(--dur) var(--ease);
 }
-html:root[data-palette][data-theme='light'][data-theme][data-palette] {
-    --muted: color-mix(in srgb, color-mix(in srgb, var(--c-muted) 20%, var(--c-text)) 75%, #000);
+.theme-toggle:hover {
+    transform: translateY(-2px);
 }
-
-/* The floating colour panel is not offered in the app; the saved palette still applies. */
-.palfab {
-    display: none !important;
+.theme-toggle:active {
+    box-shadow: var(--inset);
+    transform: none;
+}
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+}
+.theme-toggle .sun,
+html[data-theme='dark'] .theme-toggle .moon {
+    display: none;
+}
+html[data-theme='dark'] .theme-toggle .sun {
+    display: block;
+}
+.gate-theme {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 2;
+}
+.gate-pane {
+    position: relative;
 }

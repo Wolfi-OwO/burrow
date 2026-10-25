@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { ThemeToggle } from './ThemeToggle.tsx';
 import { ClipboardCheck, FolderTree, HardDrive, LogOut, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -110,6 +111,7 @@ export function Shell(): ReactNode {
                         </strong>
                         <span className="muted small">@{user?.username}</span>
                     </span>
+                    <ThemeToggle />
                     <button className="tool" aria-label="Sign out" onClick={() => void logout()}>
                         <LogOut size={17} />
                     </button>

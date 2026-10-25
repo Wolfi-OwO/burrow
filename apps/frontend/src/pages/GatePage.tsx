@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 
 import { BrandIcon } from '../components/BrandIcon.tsx';
 import { GateArt } from '../components/GateArt.tsx';
+import { ThemeToggle } from '../components/ThemeToggle.tsx';
 import { Mark } from '../components/Shell.tsx';
 import { LegalLinks } from './LegalPage.tsx';
 import { Spinner } from '../components/ui.tsx';
@@ -70,6 +71,7 @@ export function GatePage(): ReactNode {
                 </div>
             </div>
             <div className="gate-pane">
+                <ThemeToggle className="gate-theme" />
                 <div className="gate-card2">
                     <div>
                         <h1>{mode === 'login' ? 'Welcome back' : 'Dig the first room'}</h1>
