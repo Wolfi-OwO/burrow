@@ -1119,3 +1119,12 @@ a.btn {
         animation: none;
     }
 }
+
+/* The colour panel's softer contrast levels leave secondary text near 2.4:1 on the light solar palette; this
+   floor keeps labels and hints readable (WCAG AA) at every level while the panel still drives the hue. */
+html:root[data-palette][data-theme][data-theme][data-palette] {
+    --muted: color-mix(in srgb, var(--c-muted) 20%, var(--c-text));
+}
+html:root[data-palette][data-theme='light'][data-theme][data-palette] {
+    --muted: color-mix(in srgb, color-mix(in srgb, var(--c-muted) 20%, var(--c-text)) 75%, #000);
+}

@@ -13,3 +13,4 @@ apps/frontend/public/appearance.*
 # Generated static design stages, not hand-formatted.
 wireframes/
 mockups/
+prototypes/dist/

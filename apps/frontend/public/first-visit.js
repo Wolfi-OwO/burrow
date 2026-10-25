@@ -1,4 +1,4 @@
-// First visit: a warm, low-contrast look (the "solar" palette), light or dark by the system setting.
+// First visit: a warm, soft look at medium contrast so body text stays readable (the "solar" palette), light or dark by the system setting.
 // The colour panel (appearance.js, loaded after this file) saves every later change.
 //
 // An external file on purpose: the API's Content-Security-Policy forbids inline scripts, so the same code in
@@ -10,7 +10,7 @@ try {
             'thm',
             matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
         );
-        localStorage.setItem('ctr', 'low');
+        localStorage.setItem('ctr', 'medium');
     }
 } catch {
     // Storage blocked (private mode): the panel falls back to its own defaults.

@@ -10,7 +10,7 @@ try {
             'thm',
             matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
         );
-        localStorage.setItem('ctr', 'low');
+        localStorage.setItem('ctr', 'medium');
     }
 } catch {
     // Storage blocked (private mode): the panel falls back to its own defaults.

@@ -8,6 +8,14 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-25
+
+### Changed
+
+- Sign-in illustration redrawn: carved tunnels and rooms, works in light and dark.
+- Secondary text keeps at least AA contrast on the light palette; first-visit contrast is medium.
+- Clickable prototype in `prototypes/` that reuses the real screens with example data.
+
 ## [0.1.2] - 2026-10-25
 
 ### Changed

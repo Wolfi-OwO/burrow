@@ -14,6 +14,7 @@ export default tseslint.config(
             '**/dist/**',
             'mockups/**',
             'wireframes/**',
+            'prototypes/**',
             'apps/api/public/**',
             '**/build/**',
             '**/coverage/**',
