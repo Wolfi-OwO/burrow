@@ -33,14 +33,28 @@ export function GateArt(): ReactNode {
             className="cross"
             aria-hidden="true"
             viewBox="0 0 800 720"
-            preserveAspectRatio="xMidYMid slice"
+            preserveAspectRatio="xMidYMid meet"
         >
             <defs>
-                <linearGradient id="gate-sky" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient
+                    id="gate-sky"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="250"
+                >
                     <stop offset="0" stopColor="color-mix(in srgb, var(--accent) 30%, var(--bg))" />
                     <stop offset="1" stopColor="color-mix(in srgb, var(--accent) 12%, var(--bg))" />
                 </linearGradient>
-                <linearGradient id="gate-soil" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient
+                    id="gate-soil"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="250"
+                    x2="0"
+                    y2="720"
+                >
                     <stop
                         offset="0"
                         stopColor="color-mix(in srgb, var(--text) 9%, var(--surface-2))"
@@ -60,15 +74,15 @@ export function GateArt(): ReactNode {
                     />
                 </filter>
             </defs>
-            <rect width="800" height="720" fill="url(#gate-sky)" />
+            <rect x="-3000" y="-3000" width="6800" height="3250" fill="url(#gate-sky)" />
             <circle cx="640" cy="120" r="40" fill="var(--accent)" opacity=".4" />
             <circle cx="640" cy="120" r="70" fill="var(--accent)" opacity=".14" />
             <path
-                d="M-20 250 C120 228 250 262 400 250 S650 232 820 250 V740 H-20 Z"
+                d="M-3000 250 H-20 C120 228 250 262 400 250 S650 232 820 250 H3800 V3000 H-3000 Z"
                 fill="url(#gate-soil)"
             />
             <path
-                d="M-20 250 C120 228 250 262 400 250 S650 232 820 250"
+                d="M-3000 250 H-20 C120 228 250 262 400 250 S650 232 820 250 H3800"
                 fill="none"
                 stroke="color-mix(in srgb, var(--accent) 55%, var(--surface-2))"
                 strokeWidth="6"

@@ -924,6 +924,7 @@ a.btn {
 /* ---- sign-in, split layout ---- */
 .gate-split {
     min-height: 100vh;
+    height: 100dvh;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(360px, 480px);
 }
@@ -953,6 +954,7 @@ a.btn {
     margin-top: 8px;
 }
 .gate-pane {
+    overflow-y: auto;
     display: grid;
     place-items: center;
     padding: 28px;
@@ -1108,6 +1110,7 @@ a.btn {
 }
 @media (max-width: 860px) {
     .gate-split {
+        height: auto;
         grid-template-columns: 1fr;
     }
     .gate-art {
@@ -1127,4 +1130,9 @@ html:root[data-palette][data-theme][data-theme][data-palette] {
 }
 html:root[data-palette][data-theme='light'][data-theme][data-palette] {
     --muted: color-mix(in srgb, color-mix(in srgb, var(--c-muted) 20%, var(--c-text)) 75%, #000);
+}
+
+/* The floating colour panel is not offered in the app; the saved palette still applies. */
+.palfab {
+    display: none !important;
 }

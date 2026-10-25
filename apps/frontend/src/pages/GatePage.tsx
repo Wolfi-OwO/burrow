@@ -17,6 +17,8 @@ const LABELS: Record<string, string> = {
     google: 'Google',
 };
 
+const PROVIDERS = ['github', 'microsoft', 'google'];
+
 /** Sign in, or create the owner account on a fresh install. */
 export function GatePage(): ReactNode {
     const { login, register } = useAuth();
@@ -141,23 +143,38 @@ export function GatePage(): ReactNode {
                             {mode === 'login' ? 'Sign in' : 'Create account'}
                         </button>
                     </form>
-                    {providers.data &&
-                    providers.data.providers.length > 0 &&
-                    !providers.data.setupRequired ? (
+                    {providers.data ? (
                         <>
                             <div className="divider">or continue with</div>
                             <div className="provider-row">
-                                {providers.data.providers.map((p) => (
-                                    <a
-                                        key={p}
-                                        className="provider"
-                                        href={`/api/auth/${p}`}
-                                        aria-label={`Continue with ${LABELS[p] ?? p}`}
-                                        data-tip={`Continue with ${LABELS[p] ?? p}`}
-                                    >
-                                        <BrandIcon provider={p} />
-                                    </a>
-                                ))}
+                                {PROVIDERS.map((p) => {
+                                    const label = `Continue with ${LABELS[p] ?? p}`;
+                                    const ready = providers.data.providers.includes(p);
+                                    // Shown even before setup: the server itself refuses a provider login that would create the first account.
+                                    return ready ? (
+                                        <a
+                                            key={p}
+                                            className="provider"
+                                            href={`/api/auth/${p}`}
+                                            aria-label={label}
+                                            data-tip={label}
+                                        >
+                                            <BrandIcon provider={p} />
+                                        </a>
+                                    ) : (
+                                        <span
+                                            key={p}
+                                            className="provider"
+                                            role="img"
+                                            aria-disabled="true"
+                                            aria-label={`${LABELS[p] ?? p} is not set up on this server`}
+                                            data-tip={`${LABELS[p] ?? p}: not set up yet`}
+                                            tabIndex={0}
+                                        >
+                                            <BrandIcon provider={p} />
+                                        </span>
+                                    );
+                                })}
                             </div>
                         </>
                     ) : null}

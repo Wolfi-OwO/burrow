@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-25
+
+### Changed
+
+- Sign-in page always fits the screen, at any size; the colour panel button is gone from the app.
+- GitHub, Microsoft and Google icons are always shown; a provider that is not set up yet is dimmed.
+
 ## [0.1.3] - 2026-10-25
 
 ### Changed
