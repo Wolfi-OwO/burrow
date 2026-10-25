@@ -9,3 +9,7 @@ node_modules/
 
 # Vendored colour panel, kept byte-identical to the reference implementation.
 apps/frontend/public/appearance.*
+
+# Generated static design stages, not hand-formatted.
+wireframes/
+mockups/
