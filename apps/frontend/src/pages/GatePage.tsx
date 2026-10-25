@@ -3,6 +3,8 @@ import type { FormEvent, ReactNode } from 'react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { BrandIcon } from '../components/BrandIcon.tsx';
+import { GateArt } from '../components/GateArt.tsx';
 import { Mark } from '../components/Shell.tsx';
 import { LegalLinks } from './LegalPage.tsx';
 import { Spinner } from '../components/ui.tsx';
@@ -50,112 +52,129 @@ export function GatePage(): ReactNode {
     };
 
     return (
-        <div className="gate">
-            <div className="gate-card">
-                <div>
-                    <div className="mark">
-                        <Mark size={64} />
+        <div className="gate-split">
+            <div className="gate-art">
+                <GateArt />
+                <div className="claim">
+                    <div className="row" style={{ gap: 10 }}>
+                        <Mark size={40} />
+                        <strong className="claim-name">burrow</strong>
                     </div>
-                    <h1 style={{ marginTop: 14 }}>
-                        {mode === 'login' ? 'Welcome back' : 'Dig the first room'}
-                    </h1>
-                    <p className="muted" style={{ marginTop: 6 }}>
-                        {mode === 'login'
-                            ? 'Your private drive, sorted while you were away.'
-                            : 'Create the owner account for this burrow.'}
+                    <h2 style={{ marginTop: 18 }}>Your files, sorted while you sleep.</h2>
+                    <p>
+                        A private drive. You dig the rooms, an AI model on your own server files
+                        things into them.
                     </p>
                 </div>
-                <form onSubmit={(event) => void submit(event)} style={{ display: 'grid', gap: 14 }}>
-                    <div className="field">
-                        <label htmlFor="u">Username</label>
-                        <input
-                            id="u"
-                            className="input"
-                            autoComplete="username"
-                            required
-                            minLength={3}
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                        />
+            </div>
+            <div className="gate-pane">
+                <div className="gate-card2">
+                    <div>
+                        <h1>{mode === 'login' ? 'Welcome back' : 'Dig the first room'}</h1>
+                        <p className="muted" style={{ marginTop: 6 }}>
+                            {mode === 'login'
+                                ? 'Sign in to your burrow.'
+                                : 'Create the owner account for this burrow.'}
+                        </p>
                     </div>
-                    <div className="field">
-                        <label htmlFor="p">
-                            Password{mode === 'register' ? ' (12 characters or more)' : ''}
-                        </label>
-                        <input
-                            id="p"
-                            className="input"
-                            type="password"
-                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                            required
-                            minLength={mode === 'register' ? 12 : 1}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
-                    </div>
-                    {mode === 'register' && providers.data?.setupRequired ? (
+                    <form
+                        onSubmit={(event) => void submit(event)}
+                        style={{ display: 'grid', gap: 14 }}
+                    >
                         <div className="field">
-                            <label htmlFor="t">
-                                Setup token (from the server's .env: OWNER_SETUP_TOKEN)
-                            </label>
+                            <label htmlFor="u">Username</label>
                             <input
-                                id="t"
+                                id="u"
                                 className="input"
-                                type="password"
-                                autoComplete="off"
+                                autoComplete="username"
                                 required
-                                value={setupToken}
-                                onChange={(e) => setSetupToken(e.target.value)}
+                                minLength={3}
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
                             />
                         </div>
-                    ) : null}
-                    {error ? (
-                        <p className="error" role="alert">
-                            {error}
-                        </p>
+                        <div className="field">
+                            <label htmlFor="p">
+                                Password{mode === 'register' ? ' (12 characters or more)' : ''}
+                            </label>
+                            <input
+                                id="p"
+                                className="input"
+                                type="password"
+                                autoComplete={
+                                    mode === 'login' ? 'current-password' : 'new-password'
+                                }
+                                required
+                                minLength={mode === 'register' ? 12 : 1}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                        </div>
+                        {mode === 'register' && providers.data?.setupRequired ? (
+                            <div className="field">
+                                <label htmlFor="t">
+                                    Setup token (from the server's .env: OWNER_SETUP_TOKEN)
+                                </label>
+                                <input
+                                    id="t"
+                                    className="input"
+                                    type="password"
+                                    autoComplete="off"
+                                    required
+                                    value={setupToken}
+                                    onChange={(e) => setSetupToken(e.target.value)}
+                                />
+                            </div>
+                        ) : null}
+                        {error ? (
+                            <p className="error" role="alert">
+                                {error}
+                            </p>
+                        ) : null}
+                        <button
+                            className="btn"
+                            type="submit"
+                            disabled={busy}
+                            style={{ justifyContent: 'center' }}
+                        >
+                            {busy ? <Spinner /> : null}
+                            {mode === 'login' ? 'Sign in' : 'Create account'}
+                        </button>
+                    </form>
+                    {providers.data &&
+                    providers.data.providers.length > 0 &&
+                    !providers.data.setupRequired ? (
+                        <>
+                            <div className="divider">or continue with</div>
+                            <div className="provider-row">
+                                {providers.data.providers.map((p) => (
+                                    <a
+                                        key={p}
+                                        className="provider"
+                                        href={`/api/auth/${p}`}
+                                        aria-label={`Continue with ${LABELS[p] ?? p}`}
+                                        data-tip={`Continue with ${LABELS[p] ?? p}`}
+                                    >
+                                        <BrandIcon provider={p} />
+                                    </a>
+                                ))}
+                            </div>
+                        </>
                     ) : null}
                     <button
-                        className="btn"
-                        type="submit"
-                        disabled={busy}
-                        style={{ justifyContent: 'center' }}
+                        className="btn ghost sm"
+                        style={{ justifySelf: 'center' }}
+                        onClick={() => {
+                            setMode(mode === 'login' ? 'register' : 'login');
+                            setError(null);
+                        }}
                     >
-                        {busy ? <Spinner /> : null}
-                        {mode === 'login' ? 'Sign in' : 'Create account'}
+                        {mode === 'login'
+                            ? 'First time here? Create the owner account'
+                            : 'I already have an account'}
                     </button>
-                </form>
-                {providers.data &&
-                providers.data.providers.length > 0 &&
-                !providers.data.setupRequired ? (
-                    <>
-                        <div className="divider">or</div>
-                        <div className="oauth-row">
-                            {providers.data.providers.map((p) => (
-                                <a
-                                    key={p}
-                                    className="btn ghost"
-                                    style={{ justifyContent: 'center' }}
-                                    href={`/api/auth/${p}`}
-                                >
-                                    Continue with {LABELS[p] ?? p}
-                                </a>
-                            ))}
-                        </div>
-                    </>
-                ) : null}
-                <button
-                    className="btn ghost sm"
-                    style={{ justifySelf: 'center' }}
-                    onClick={() => {
-                        setMode(mode === 'login' ? 'register' : 'login');
-                        setError(null);
-                    }}
-                >
-                    {mode === 'login'
-                        ? 'First time here? Create the owner account'
-                        : 'I already have an account'}
-                </button>
-                <LegalLinks />
+                    <LegalLinks />
+                </div>
             </div>
         </div>
     );
