@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-25
+
+### Changed
+
+- Sign-in page redesigned: burrow cross-section illustration, GitHub, Microsoft and Google as icon buttons with tooltips instead of text.
+- Neutral example room names in the illustration.
+
 ## [0.1.1] - 2026-10-25
 
 - The first account now needs a setup token (`OWNER_SETUP_TOKEN`), and a provider login cannot create it: a new
