@@ -44,7 +44,7 @@ export function GateArt(): ReactNode {
                         strokeWidth="3"
                     />
                     <text x="300" y="342" fontSize="22" fill="var(--text)">
-                        Furry
+                        Photos
                     </text>
                     <ellipse
                         cx="565"
