@@ -36,8 +36,14 @@ updates:
     directory: /apps/vision
     multi-ecosystem-group: monthly
     patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directory: /apps/api
     multi-ecosystem-group: monthly
     patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
