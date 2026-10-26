@@ -1,13 +1,13 @@
 # Only for scripts/export_models.py, which runs once on a developer machine to produce models/*.onnx.
 # Never installed in the image: the service itself needs none of torch.
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.14.1
+torch==2.14.1+cpu
 open_clip_torch==3.3.0
 timm==1.0.30
 onnx==1.23.2
-onnxscript==0.7.0
+onnxscript==0.7.2
 onnxruntime==1.31.0
-huggingface_hub==0.36.0
+huggingface_hub==0.36.2
 pillow==13.0.0
-numpy==2.4.6
+numpy==2.5.4
 tokenizers==0.23.3
