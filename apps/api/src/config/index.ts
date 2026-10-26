@@ -44,6 +44,8 @@ export const config = {
     loginRateLimitMax: Number(process.env.LOGIN_RATE_LIMIT_MAX) || 10,
     /** Uploads per IP per 15 minutes. Generous on purpose: dropping a folder of photos is one request per file. */
     uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX) || 3000,
+    /** Cosine distance under which two different files count as the same picture (0.03 is about 97 % alike). */
+    duplicateMaxDistance: Number(process.env.DUPLICATE_MAX_DISTANCE) || 0.03,
     zip: {
         maxEntries: Number(process.env.ZIP_MAX_ENTRIES) || 5000,
         /** Everything one archive may unpack to, however small the zip itself is. */
@@ -83,6 +85,8 @@ export const config = {
 
     sorting: {
         /** FR-035: below this confidence a file goes to the review queue instead of being auto-filed. */
+        /** Below this a best guess is not even offered for review; the file stays in Unsorted. */
+        reviewFloor: Number(process.env.REVIEW_FLOOR) || 0.3,
         autoFileThreshold: Number(process.env.AUTO_FILE_THRESHOLD) || 0.6,
         /** FR-037: files scored at or above this count as NSFW for the preview gate. */
         nsfwThreshold: Number(process.env.NSFW_THRESHOLD) || 0.5,

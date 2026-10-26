@@ -79,3 +79,9 @@ export interface Share {
 export function shareUrl(token: string): string {
     return `${window.location.origin}/s/${token}`;
 }
+
+export interface DuplicateGroup {
+    id: string;
+    keepId: string;
+    files: FileItem[];
+}

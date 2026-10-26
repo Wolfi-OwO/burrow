@@ -6,6 +6,7 @@ import { Shell } from './components/Shell.tsx';
 import { Spinner } from './components/ui.tsx';
 import { useAuth } from './lib/auth.tsx';
 import { DrivePage } from './pages/DrivePage.tsx';
+import { DuplicatesPage } from './pages/DuplicatesPage.tsx';
 import { GatePage } from './pages/GatePage.tsx';
 import { LegalPage } from './pages/LegalPage.tsx';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage.tsx';
@@ -50,6 +51,7 @@ function Session(): ReactNode {
                     <Route index element={<DrivePage />} />
                     <Route path="search" element={<SearchPage />} />
                     <Route path="review" element={<ReviewPage />} />
+                    <Route path="duplicates" element={<DuplicatesPage />} />
                     <Route path="shared" element={<SharesPage />} />
                     <Route path="profile" element={<ProfilePage />} />
                 </Route>

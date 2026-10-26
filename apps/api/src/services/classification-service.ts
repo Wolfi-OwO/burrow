@@ -1,14 +1,32 @@
 import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
+import { ratingOf } from '../lib/rating.ts';
 import { visionClient } from '../lib/vision-client.ts';
 import type { Category } from '../models/category.model.ts';
 import type { FileRecord } from '../models/file.model.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 
-/** The competitor label at every level, so a single category cannot win just by being the only one (probabilities sum to 1). */
-const NONE_OF_THESE = 'something else';
+/**
+ * Competitor labels at every level, so a category cannot win just by being one of the few the user has made
+ * (probabilities sum to 1): a thermometer must not become "Furry" because nothing else was on offer. A competitor
+ * whose wording contains one of the user's own category names is left out, so "Food" is not outvoted by "food".
+ */
+const COMPETITORS = [
+    'something else',
+    'an everyday object',
+    'a person',
+    'a screenshot',
+    'a text document',
+    'food',
+    'a room or building',
+];
+
+function competitorsFor(candidates: Category[]): string[] {
+    const names = candidates.map((c) => c.name.toLowerCase().replace(/s$/, ''));
+    return COMPETITORS.filter((label) => !names.some((n) => n.length > 2 && label.includes(n)));
+}
 
 /** What the descent decided for one file. */
 export interface Decision {
@@ -27,11 +45,16 @@ export interface Decision {
  * @param children - Returns the direct children of a node (null = top level).
  * @param score - Returns each label's probability for the file.
  * @param threshold - The named auto-file threshold (FR-035).
+ * @param nsfw - The NSFW classifier's probability. A level whose children are all ratings (SFW / NSFW) is decided by
+ *   it, not by the zero-shot labels; a score in the grey zone between the two goes to review instead of being guessed.
+ * @param reviewFloor - A best guess below this is not worth a review item: the file simply stays unsorted.
  */
 export async function descend(
     children: (parentId: number | null) => Promise<Category[]>,
     score: (labels: string[]) => Promise<{ label: string; score: number }[]>,
     threshold: number,
+    nsfw: number | null = null,
+    reviewFloor = 0.3,
 ): Promise<Decision> {
     let current: Category | null = null;
     let confidence: number | null = null;
@@ -41,7 +64,28 @@ export async function descend(
         const candidates = await children(parentId);
         if (candidates.length === 0) break;
 
-        const scores = await score([...candidates.map((c) => c.name), NONE_OF_THESE]);
+        if (nsfw !== null && candidates.every((c) => ratingOf(c.name) !== null)) {
+            const wanted = nsfw >= 0.5 ? 'explicit' : 'safe';
+            const match = candidates.find((c) => ratingOf(c.name) === wanted);
+            const sure = wanted === 'explicit' ? nsfw : 1 - nsfw;
+            // No category for this rating (only "SFW" exists, the file is explicit): stop here rather than mis-file it.
+            if (!match) break;
+            if (sure < threshold) {
+                if (current === null)
+                    return { status: 'review', category: match, confidence: sure };
+                break;
+            }
+            // The rating is settled; anything below it (SFW > Wolves) is still decided by the labels.
+            current = match;
+            confidence = sure;
+            parentId = match.id;
+            continue;
+        }
+
+        const scores = await score([
+            ...candidates.map((c) => c.name),
+            ...competitorsFor(candidates),
+        ]);
         const best = candidates
             .map((c) => ({
                 category: c,
@@ -51,7 +95,8 @@ export async function descend(
         if (!best) break;
 
         if (best.score < threshold) {
-            if (current === null)
+            // Close enough to be worth a look: review. Far off, nothing the user made fits: it stays in Unsorted.
+            if (current === null && best.score >= reviewFloor)
                 return { status: 'review', category: best.category, confidence: best.score };
             break;
         }
@@ -96,6 +141,8 @@ export const classificationService = {
                 (parentId) => categoryRepository.listChildren(file.userId, parentId),
                 (labels) => visionClient.classify(path, labels),
                 config.sorting.autoFileThreshold,
+                nsfw,
+                config.sorting.reviewFloor,
             );
 
             // FR-037: an NSFW file never auto-files into a category that may sit behind a preview link.

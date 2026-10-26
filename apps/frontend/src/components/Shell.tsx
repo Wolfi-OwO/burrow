@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { ThemeToggle } from './ThemeToggle.tsx';
-import { ClipboardCheck, FolderTree, HardDrive, LogOut, Share2, UserRound } from 'lucide-react';
+import {
+    ClipboardCheck,
+    Copy,
+    FolderTree,
+    HardDrive,
+    LogOut,
+    Share2,
+    UserRound,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate, useSearchParams } from 'react-router';
@@ -64,6 +72,10 @@ export function Shell(): ReactNode {
                                 {waiting}
                             </span>
                         ) : null}
+                    </NavLink>
+                    <NavLink to="/duplicates">
+                        <Copy size={18} />
+                        Duplicates
                     </NavLink>
                     <NavLink to="/shared">
                         <Share2 size={18} />

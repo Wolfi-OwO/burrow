@@ -26,6 +26,40 @@ const children = (parentId: number | null): Promise<Category[]> =>
 const scorer = (known: Record<string, number>) => (labels: string[]) =>
     Promise.resolve(labels.map((label) => ({ label, score: known[label] ?? 0 })));
 
+describe('rating levels (SFW / NSFW) follow the NSFW score, not the labels', () => {
+    it('files an explicit picture under NSFW even when the labels prefer SFW', async () => {
+        const d = await descend(children, scorer({ Furry: 0.9, SFW: 0.95, NSFW: 0.05 }), 0.6, 0.93);
+        assert.equal(d.category?.name, 'NSFW');
+        assert.equal(d.status, 'sorted');
+    });
+
+    it('files a clean picture under SFW and still descends below it', async () => {
+        const d = await descend(children, scorer({ Furry: 0.9, WOLF: 0.8 }), 0.6, 0.03);
+        assert.equal(d.category?.name, 'WOLF');
+    });
+
+    it('sends the grey zone to review instead of guessing a side', async () => {
+        const d = await descend(children, scorer({ Furry: 0.9 }), 0.6, 0.5);
+        assert.equal(d.status, 'sorted');
+        assert.equal(
+            d.category?.name,
+            'Furry',
+            'stays at the subject level; the rating is not decided',
+        );
+    });
+
+    it('does not mis-file an explicit picture when there is only a SFW category', async () => {
+        const only = [cat(1, 'Furry', null), cat(3, 'SFW', 1)];
+        const d = await descend(
+            (id) => Promise.resolve(only.filter((c) => c.parentId === id)),
+            scorer({ Furry: 0.9 }),
+            0.6,
+            0.97,
+        );
+        assert.equal(d.category?.name, 'Furry');
+    });
+});
+
 describe('descent (FR-038, FR-039)', () => {
     it('descends to the most specific leaf that clears the threshold', async () => {
         const d = await descend(children, scorer({ Furry: 0.9, SFW: 0.8, WOLF: 0.7 }), 0.6);

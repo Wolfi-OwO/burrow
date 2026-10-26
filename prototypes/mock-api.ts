@@ -20,6 +20,8 @@ const owner: Account = {
 };
 
 let signedIn = false;
+let dupesGone = false;
+let ratingsFixed = false;
 let nextCategory = 10;
 let categories: CategoryNode[] = [
     {
@@ -363,6 +365,24 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
         }
         return json({ share: shareView(s), files: covered });
     }
+    if (p === '/api/duplicates') {
+        const mode = url.searchParams.get('mode');
+        const pick = mode === 'similar' ? ['f1', 'f4', 'f9'] : ['f2', 'f11'];
+        const group = view().filter((f) => pick.includes(f.id));
+        return json({ groups: dupesGone ? [] : [{ id: pick[0], keepId: pick[0], files: group }] });
+    }
+    if (p === '/api/duplicates/resolve' || p === '/api/duplicates/clean') {
+        dupesGone = true;
+        return json({ removed: 2 });
+    }
+    if (p === '/api/sorting/ratings' && method === 'POST') ratingsFixed = true;
+    if (p === '/api/sorting/ratings')
+        return json(
+            method === 'POST'
+                ? { toExplicit: 3, toSafe: 0 }
+                : { toExplicit: ratingsFixed ? 0 : 3, toSafe: 0 },
+        );
+    if (p === '/api/sorting/resort') return json({ queued: 4 });
     if (p === '/api/review') return json({ files: view().filter((f) => f.status === 'review') });
     const review = /^\/api\/review\/(f\d+)$/.exec(p);
     if (review) {

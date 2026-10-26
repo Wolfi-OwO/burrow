@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FolderInput, Play, Undo2 } from 'lucide-react';
+import { Check, FolderInput, Play, ShieldCheck, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -7,6 +7,44 @@ import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 import { ago } from '../lib/format.ts';
 import type { CategoryNode, FileItem, SortingStatus } from '../lib/types.ts';
+
+/** SFW / NSFW folders that hold pictures the NSFW classifier disagrees with, and a one-click fix. */
+function RatingCheck(): ReactNode {
+    const client = useQueryClient();
+    const toast = useToast();
+    const ratings = useQuery({
+        queryKey: ['ratings'],
+        queryFn: () => api<{ toExplicit: number; toSafe: number }>('GET', '/api/sorting/ratings'),
+    });
+    const fix = useMutation({
+        mutationFn: () =>
+            api<{ toExplicit: number; toSafe: number }>('POST', '/api/sorting/ratings'),
+        onSuccess: (r) => {
+            for (const key of ['ratings', 'tree', 'files', 'review'])
+                void client.invalidateQueries({ queryKey: [key] });
+            toast.say(`Moved ${String(r.toExplicit)} to NSFW and ${String(r.toSafe)} to SFW.`);
+        },
+        onError: (e: Error) => toast.say(e.message),
+    });
+    if (!ratings.data) return null;
+    const total = ratings.data.toExplicit + ratings.data.toSafe;
+    return (
+        <div className="rating-check">
+            <ShieldCheck size={18} aria-hidden="true" />
+            <span className="grow">
+                {total === 0
+                    ? 'SFW and NSFW folders match what the classifier sees.'
+                    : `${String(ratings.data.toExplicit)} in SFW look explicit and ${String(ratings.data.toSafe)} in NSFW look clean.`}
+            </span>
+            {total > 0 ? (
+                <button className="btn sm" disabled={fix.isPending} onClick={() => fix.mutate()}>
+                    {fix.isPending ? <Spinner /> : null}
+                    Move {total} file{total === 1 ? '' : 's'}
+                </button>
+            ) : null}
+        </div>
+    );
+}
 
 export function ReviewPage(): ReactNode {
     const client = useQueryClient();
@@ -103,6 +141,7 @@ export function ReviewPage(): ReactNode {
                 ) : (
                     <Spinner />
                 )}
+                <RatingCheck />
                 {status.data && status.data.categories === 0 ? (
                     <p className="muted">
                         Create a few categories first; the sorter files into the tree you build.

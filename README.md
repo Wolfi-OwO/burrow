@@ -20,6 +20,7 @@ the legal documents (they need my address and decisions only I can make) — see
 - Name search, ranked, with each hit's place in the tree
 - AI sorting: OpenCLIP zero-shot against my own category names, a dedicated NSFW model, a confidence
   threshold, and a review queue for what it is unsure of
+- Duplicate finder (identical and near-identical pictures) with one-click clean-up
 - Thumbnails, a profile, a light and a dark look
 
 ![CI](https://img.shields.io/badge/CI-not_set_up_yet-lightgrey)

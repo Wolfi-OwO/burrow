@@ -1,5 +1,6 @@
 import type { DatabaseRow, Queryable } from '../database/connection.ts';
 import { getPool } from '../database/connection.ts';
+import { EXPLICIT_SQL, SAFE_SQL } from '../lib/rating.ts';
 import type { FileRecord, FileStatus, FileView } from '../models/file.model.ts';
 
 const COLUMNS = `f.id, f.user_id, f.blob_sha256, f.name, f.mime, f.size, f.category_id, f.status,
@@ -256,5 +257,92 @@ export const fileRepository = {
             ...toView(row),
             suggestedName: row.suggested_name as string | null,
         }));
+    },
+    /** Several of one user's files by id, with their category paths. */
+    async byIds(userId: string, ids: string[], db: Queryable = getPool()): Promise<FileView[]> {
+        if (ids.length === 0) return [];
+        const { rows } = await db.query(
+            `SELECT ${COLUMNS}, ${CATEGORY_PATH} FROM files f LEFT JOIN categories c ON c.id = f.category_id
+             WHERE f.user_id = $1 AND f.id = ANY($2::uuid[]) ORDER BY f.created_at, f.id`,
+            [userId, ids],
+        );
+        return rows.map(toView);
+    },
+
+    /** Files that share a blob (byte-identical content) with at least one other of the user's files. */
+    async exactDuplicateIds(userId: string, db: Queryable = getPool()): Promise<string[][]> {
+        const { rows } = await db.query(
+            `SELECT array_agg(id ORDER BY created_at, id) AS ids FROM files WHERE user_id = $1
+             GROUP BY blob_sha256 HAVING count(*) > 1`,
+            [userId],
+        );
+        return rows.map((r) => r.ids as string[]);
+    },
+
+    /**
+     * Pairs of different files whose picture embeddings are nearly the same: a resized, recompressed or re-saved
+     * copy. Cosine distance, each file's few nearest neighbours only, so the cost stays linear in the drive.
+     */
+    async similarPairs(
+        userId: string,
+        maxDistance: number,
+        db: Queryable = getPool(),
+    ): Promise<[string, string][]> {
+        const { rows } = await db.query(
+            `SELECT a.id AS a_id, n.id AS b_id FROM files a
+             CROSS JOIN LATERAL (
+                 SELECT b.id, b.embedding <=> a.embedding AS d FROM files b
+                 WHERE b.user_id = a.user_id AND b.id <> a.id AND b.blob_sha256 <> a.blob_sha256
+                   AND b.embedding IS NOT NULL
+                 ORDER BY b.embedding <=> a.embedding LIMIT 6
+             ) n
+             WHERE a.user_id = $1 AND a.embedding IS NOT NULL AND n.d < $2`,
+            [userId, maxDistance],
+        );
+        return rows.map((r) => [r.a_id as string, r.b_id as string]);
+    },
+
+    /**
+     * Files filed under a rating category that the NSFW score contradicts, with the sibling rating category they
+     * belong in. Explicit pictures leave SFW at 0.5; a clean picture only leaves NSFW below 0.3, so a doubtful
+     * one is never promoted to "safe".
+     */
+    async ratingMisfiles(
+        userId: string,
+        db: Queryable = getPool(),
+    ): Promise<{ id: string; toCategoryId: number; toExplicit: boolean }[]> {
+        const { rows } = await db.query(
+            `SELECT f.id, s.id AS to_id, (c.name ~* $2) AS from_explicit
+             FROM files f JOIN categories c ON c.id = f.category_id
+             JOIN categories s ON s.user_id = c.user_id AND s.parent_id IS NOT DISTINCT FROM c.parent_id
+                              AND ((c.name ~* $3 AND s.name ~* $2) OR (c.name ~* $2 AND s.name ~* $3))
+             WHERE f.user_id = $1 AND f.nsfw_score IS NOT NULL
+               AND ((c.name ~* $3 AND f.nsfw_score >= 0.5) OR (c.name ~* $2 AND f.nsfw_score < 0.3))`,
+            [userId, EXPLICIT_SQL, SAFE_SQL],
+        );
+        return rows.map((r) => ({
+            id: r.id as string,
+            toCategoryId: Number(r.to_id),
+            toExplicit: r.from_explicit !== true,
+        }));
+    },
+    /**
+     * Sends every file in a category (and below it) back to the sorter: unfiled, unclassified, so the next run
+     * decides again with the current categories. @returns How many files were queued.
+     */
+    async requeueCategory(
+        userId: string,
+        categoryId: number,
+        db: Queryable = getPool(),
+    ): Promise<number> {
+        const { rowCount } = await db.query(
+            `UPDATE files SET category_id = NULL, status = 'unsorted', suggested_category_id = NULL,
+                    confidence = NULL, classified_at = NULL
+             WHERE user_id = $1 AND category_id IN (
+                 SELECT id FROM categories WHERE user_id = $1
+                   AND path <@ (SELECT path FROM categories WHERE id = $2 AND user_id = $1))`,
+            [userId, categoryId],
+        );
+        return rowCount ?? 0;
     },
 };

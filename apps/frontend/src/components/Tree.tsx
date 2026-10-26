@@ -6,6 +6,7 @@ import {
     Inbox,
     Pencil,
     Plus,
+    RotateCcw,
     Share2,
     Trash2,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ type Modal =
     | { kind: 'rename'; node: CategoryNode }
     | { kind: 'delete'; node: CategoryNode }
     | { kind: 'share'; node: CategoryNode }
+    | { kind: 'resort'; node: CategoryNode }
     | { kind: 'move'; node: CategoryNode };
 
 /** The category tree, rendered straight from the server's path order (FR-013): a parent always precedes its children. */
@@ -76,6 +78,17 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
             api('PATCH', `/api/categories/${String(v.id)}`, { name: v.name }),
         onSuccess: refresh,
         onError: fail,
+    });
+    const resort = useMutation({
+        mutationFn: (n: CategoryNode) =>
+            api<{ queued: number }>('POST', '/api/sorting/resort', { categoryId: n.id }),
+        onSuccess: (r) => {
+            refresh();
+            toast.say(
+                `${String(r.queued)} file${r.queued === 1 ? '' : 's'} sent back. Open Unsorted and press Sort all now.`,
+            );
+        },
+        onError: (e: Error) => toast.say(e.message),
     });
     const move = useMutation({
         mutationFn: (v: { id: number; parentId: number | null }) =>
@@ -223,6 +236,13 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                 </button>
                                 <button
                                     className="tool"
+                                    aria-label={`Re-sort ${node.name}`}
+                                    onClick={() => setModal({ kind: 'resort', node })}
+                                >
+                                    <RotateCcw size={14} />
+                                </button>
+                                <button
+                                    className="tool"
                                     aria-label={`Share ${node.name}`}
                                     onClick={() => setModal({ kind: 'share', node })}
                                 >
@@ -242,6 +262,29 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                 ))}
             </nav>
 
+            {modal?.kind === 'resort' ? (
+                <Dialog title={`Re-sort "${modal.node.name}"?`} onClose={() => setModal(null)}>
+                    <p>
+                        Every file in this folder and below it goes back to Unsorted and the sorter
+                        decides again with your current folders. Pictures that fit nowhere stay in
+                        Unsorted.
+                    </p>
+                    <div className="row" style={{ justifyContent: 'flex-end' }}>
+                        <button className="btn ghost" onClick={() => setModal(null)}>
+                            Cancel
+                        </button>
+                        <button
+                            className="btn"
+                            onClick={() => {
+                                resort.mutate(modal.node);
+                                setModal(null);
+                            }}
+                        >
+                            Send back to the sorter
+                        </button>
+                    </div>
+                </Dialog>
+            ) : null}
             {modal?.kind === 'share' ? (
                 <ShareDialog
                     target={{ kind: 'category', id: modal.node.id, name: modal.node.name }}

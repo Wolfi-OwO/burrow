@@ -8,6 +8,19 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
+### Added
+
+- Duplicates page: byte-identical files and near-identical pictures (same picture saved at another size or quality, found from the sorter's picture embeddings), keep the best copy, remove the rest one group at a time or all at once.
+- Rating check on the Review page: moves pictures that the NSFW classifier puts on the other side of an SFW / NSFW folder pair.
+- "Re-sort" on a folder sends its files back to the sorter.
+
+### Changed
+
+- Folders named SFW / NSFW (and safe, explicit, adult ...) are decided by the NSFW classifier instead of the zero-shot labels, which cannot read those words from a picture; the grey zone goes to review.
+- Pictures that fit none of your folders stay in Unsorted instead of being forced into the closest one: competing labels for everyday objects, people, screenshots, documents, food and rooms, and a review floor under which no guess is offered.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added
