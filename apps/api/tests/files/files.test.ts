@@ -107,10 +107,10 @@ describe('files', () => {
         await upload(token, 'notes.txt', new Blob(['hello'], { type: 'text/plain' }));
         await upload(token, 'sheet.xlsx', new Blob(['x'], { type: 'application/octet-stream' }));
         await upload(token, 'weird.bin', new Blob(['x'], { type: 'application/octet-stream' }));
-        const names = async (type: string): Promise<string[]> =>
-            (await api('GET', `/api/files?type=${type}&limit=50`, { token })).json.files.map(
-                (f: { name: string }) => f.name,
-            );
+        const names = async (type: string): Promise<string[]> => {
+            const reply = await api('GET', `/api/files?type=${type}&limit=50`, { token });
+            return (reply.json.files as { name: string }[]).map((f) => f.name);
+        };
         assert.deepEqual(await names('image'), ['p.png']);
         assert.deepEqual(await names('document'), ['notes.txt']);
         assert.deepEqual(await names('spreadsheet'), ['sheet.xlsx']);
