@@ -13,6 +13,7 @@ import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../
 let vision: Server;
 let behaviour = { nsfw: 0.01, scores: {} as Record<string, number> };
 let embedCalls = 0;
+let seenToken: string | undefined;
 
 before(() => {
     vision = createServer((req, res) => {
@@ -24,6 +25,7 @@ before(() => {
             if (req.url === '/health') return void res.end('{"status":"ok"}');
             if (req.url === '/embed') {
                 embedCalls += 1;
+                seenToken = req.headers['x-internal-service-token'] as string | undefined;
                 return void res.end(
                     JSON.stringify({
                         embedding: Array.from({ length: 512 }, (_, i) => (i === 0 ? 1 : 0)),
@@ -101,6 +103,36 @@ describe('sorting', () => {
         const second = await api('POST', '/api/sorting/run', { token });
         assert.equal(second.json.decided, 0);
         assert.equal(embedCalls, callsAfterFirst);
+    });
+
+    it('sends the internal service token to the vision service', async () => {
+        const { token } = await registerOwner();
+        await category(token, 'Furry');
+        behaviour.scores = { Furry: 0.95 };
+        config.vision.serviceToken = 'service-token-for-tests';
+        try {
+            await upload(token, 'a.png', await png(3));
+            await api('POST', '/api/sorting/run', { token });
+            assert.equal(seenToken, 'service-token-for-tests');
+        } finally {
+            config.vision.serviceToken = undefined;
+        }
+    });
+
+    it('"Sort now" works through the whole backlog, not one batch', async () => {
+        const { token } = await registerOwner();
+        await category(token, 'Furry');
+        behaviour.scores = { Furry: 0.95 };
+        const before = config.sorting.batchSize;
+        config.sorting.batchSize = 2;
+        try {
+            for (let i = 0; i < 5; i++) await upload(token, `g${String(i)}.png`, await png(40 + i));
+            const run = await api('POST', '/api/sorting/run', { token });
+            assert.equal(run.json.decided, 5);
+            assert.equal(run.json.remaining, 0);
+        } finally {
+            config.sorting.batchSize = before;
+        }
     });
 
     it('two scheduler steps at once never double-run the backlog: exactly one process holds the lock (FR-042)', async () => {

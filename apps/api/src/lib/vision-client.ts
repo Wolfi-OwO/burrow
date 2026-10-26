@@ -9,6 +9,13 @@ export interface LabelScore {
     score: number;
 }
 
+/** The shared secret between the two services; without it a vision service that has a token answers 401. */
+function serviceHeaders(): Record<string, string> {
+    return config.vision.serviceToken
+        ? { 'X-Internal-Service-Token': config.vision.serviceToken }
+        : {};
+}
+
 async function post<T>(
     path: string,
     file: string,
@@ -22,6 +29,7 @@ async function post<T>(
     const response = await fetch(new URL(path, config.vision.url), {
         method: 'POST',
         body: form,
+        headers: serviceHeaders(),
         signal: AbortSignal.timeout(config.vision.timeoutMs),
     });
     if (!response.ok) throw new Error(`vision ${path} answered ${String(response.status)}`);

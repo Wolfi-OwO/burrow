@@ -40,9 +40,15 @@ export const config = {
     registrationOpen: (process.env.REGISTRATION_OPEN ?? 'false') === 'true',
 
     /** Per-IP caps (middlewares/rate-limit.ts). */
-    apiRateLimitMax: Number(process.env.API_RATE_LIMIT_MAX) || 300,
+    apiRateLimitMax: Number(process.env.API_RATE_LIMIT_MAX) || 3000,
     loginRateLimitMax: Number(process.env.LOGIN_RATE_LIMIT_MAX) || 10,
-    uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX) || 120,
+    /** Uploads per IP per 15 minutes. Generous on purpose: dropping a folder of photos is one request per file. */
+    uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX) || 3000,
+    zip: {
+        maxEntries: Number(process.env.ZIP_MAX_ENTRIES) || 5000,
+        /** Everything one archive may unpack to, however small the zip itself is. */
+        maxTotalBytes: (Number(process.env.ZIP_MAX_TOTAL_MB) || 4096) * MEBIBYTE,
+    },
 
     /** FR-017: an upload larger than this is rejected before any byte is stored. */
     maxUploadBytes: (Number(process.env.MAX_UPLOAD_MB) || 200) * MEBIBYTE,
@@ -70,6 +76,8 @@ export const config = {
     vision: {
         /** Base URL of apps/vision. Unset → the scheduler stays idle. */
         url: process.env.VISION_SERVICE_URL,
+        /** Sent as X-Internal-Service-Token; apps/vision refuses every request without it once it has one set. */
+        serviceToken: process.env.INTERNAL_SERVICE_TOKEN,
         timeoutMs: Number(process.env.VISION_TIMEOUT_MS) || 30_000,
     },
 

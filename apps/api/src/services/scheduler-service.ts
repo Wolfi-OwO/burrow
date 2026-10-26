@@ -50,7 +50,44 @@ async function runBatch(): Promise<number> {
     return decided;
 }
 
+/** How long "Sort now" keeps working through the backlog before it hands the rest back to the schedule. */
+const SORT_NOW_BUDGET_MS = 4 * 60_000;
+
+/**
+ * Works through the whole backlog batch after batch. A file that failed stays unclassified, so it is skipped for
+ * the rest of this run instead of being fetched again forever.
+ */
+async function runUntilEmpty(): Promise<{ decided: number; remaining: number }> {
+    const deadline = Date.now() + SORT_NOW_BUDGET_MS;
+    const tried: string[] = [];
+    let decided = 0;
+    while (Date.now() < deadline) {
+        const batch = await fileRepository.nextBacklog(config.sorting.batchSize, tried);
+        if (batch.length === 0) break;
+        for (const file of batch) {
+            tried.push(file.id);
+            if (await classificationService.classify(file)) decided += 1;
+        }
+    }
+    return { decided, remaining: await fileRepository.backlogSize() };
+}
+
 export const schedulerService = {
+    /**
+     * "Sort now": classifies everything still waiting, not just one batch.
+     *
+     * @returns The counts, or null when another run holds the lock or no vision service is configured.
+     */
+    async sortAll(): Promise<{ decided: number; remaining: number } | null> {
+        if (!config.vision.url) return null;
+        if ((await fileRepository.backlogSize()) === 0) return { decided: 0, remaining: 0 };
+        return getPool().transaction(async (tx) => {
+            if (!(await schedulerRepository.tryLock(tx))) return null;
+            await schedulerRepository.markRun(tx);
+            return runUntilEmpty();
+        });
+    },
+
     /**
      * One scheduler step. The advisory lock makes this safe with more than one process (FR-042), and the
      * `classified_at` filter makes a second run skip everything the first one decided (FR-041).

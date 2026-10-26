@@ -29,6 +29,16 @@ export const list = asyncHandler(async (req, res) => {
 export const upload = asyncHandler(async (req, res) => {
     const staged = req.file;
     if (!staged) throw new BadRequestError('Send the file as the "file" field.');
+    // A .zip is unpacked into its files. Office formats are zips too, so the extension decides, not the magic bytes.
+    if (/\.zip$/i.test(staged.originalname)) {
+        const archive = await fileService.uploadArchive(uid(req), staged.path);
+        res.status(201).json({
+            files: archive.files,
+            extracted: archive.extracted,
+            skipped: archive.skipped,
+        });
+        return;
+    }
     const result = await fileService.upload(
         uid(req),
         staged.path,

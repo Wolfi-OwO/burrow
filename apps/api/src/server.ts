@@ -20,6 +20,7 @@ import { fileRouter } from './routes/file.routes.ts';
 import { healthRouter } from './routes/health.routes.ts';
 import { metricsRouter } from './routes/metrics.routes.ts';
 import { profileRouter } from './routes/profile.routes.ts';
+import { publicShareRouter, shareRouter } from './routes/share.routes.ts';
 import { versionRouter } from './routes/version.routes.ts';
 import { schedulerService } from './services/scheduler-service.ts';
 
@@ -73,6 +74,8 @@ app.use(apiRateLimiter);
 app.use(versionRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/categories', categoryRouter);
+app.use('/api', publicShareRouter);
+app.use('/api', shareRouter);
 app.use('/api', profileRouter);
 app.use('/api', fileRouter);
 

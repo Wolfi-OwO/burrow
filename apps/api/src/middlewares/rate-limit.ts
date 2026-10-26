@@ -33,8 +33,12 @@ export const apiRateLimiter = rateLimit({
     limit: config.apiRateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
-    // Only API calls count; static assets and SPA page loads must not eat the budget.
-    skip: (req) => !req.path.toLowerCase().startsWith('/api/'),
+    // Only API calls count; static assets and SPA page loads must not eat the budget. Thumbnails and downloads are
+    // one request per image, so a grid of 200 files would otherwise spend the whole window on pictures.
+    skip: (req) => {
+        const path = req.path.toLowerCase();
+        return !path.startsWith('/api/') || /\/(thumbnail|content|avatar)$/.test(path);
+    },
     message: {
         error: 'TooManyRequestsError',
         message: 'Too many requests.',

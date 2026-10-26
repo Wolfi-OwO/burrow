@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 
-import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
+import { api, closeServer, png, registerOwner, resetDatabase, upload, zipOf } from '../helpers.ts';
 
 describe('files', () => {
     beforeEach(resetDatabase);
@@ -15,6 +15,29 @@ describe('files', () => {
         assert.equal(reply.json.file.name, 'wolf.png');
         assert.equal(reply.json.file.mime, 'image/png');
         assert.equal(reply.json.file.status, 'unsorted');
+    });
+
+    it('unpacks a .zip into its files and skips folders, hidden files and resource forks', async () => {
+        const { token } = await registerOwner();
+        const a = Buffer.from(await (await png(5)).arrayBuffer());
+        const b = Buffer.from(await (await png(6)).arrayBuffer());
+        const zip = zipOf([
+            { name: 'trip/', data: Buffer.alloc(0) },
+            { name: 'trip/a.png', data: a },
+            { name: 'trip/deep/b.png', data: b },
+            { name: 'trip/.hidden', data: a },
+            { name: '__MACOSX/trip/._a.png', data: a },
+        ]);
+        const reply = await upload(token, 'photos.zip', zip);
+        assert.equal(reply.status, 201);
+        assert.equal(reply.json.extracted, 2);
+        assert.equal(reply.json.skipped, 3);
+        assert.deepEqual(reply.json.files.map((f: { name: string }) => f.name).sort(), [
+            'a.png',
+            'b.png',
+        ]);
+        const listed = await api('GET', '/api/files?limit=50', { token });
+        assert.equal(listed.json.files.length, 2);
     });
 
     it('stores byte-identical content once, under a new name, and says so (FR-016)', async () => {

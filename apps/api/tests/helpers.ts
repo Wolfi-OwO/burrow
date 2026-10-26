@@ -1,3 +1,4 @@
+import { crc32 } from 'node:zlib';
 import type { AddressInfo } from 'node:net';
 
 import { getPool } from '../src/database/connection.ts';
@@ -110,4 +111,45 @@ export async function upload(token: string, name: string, file: Blob): Promise<R
 export async function closeServer(): Promise<void> {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await getPool().shutdown();
+}
+
+/** A minimal zip (stored, no compression) so archive tests need no zip library. */
+export function zipOf(entries: { name: string; data: Buffer }[]): Blob {
+    const parts: Buffer[] = [];
+    const central: Buffer[] = [];
+    let offset = 0;
+    for (const { name, data } of entries) {
+        const nameBytes = Buffer.from(name);
+        const crc = crc32(data);
+        const local = Buffer.alloc(30);
+        local.writeUInt32LE(0x04034b50, 0);
+        local.writeUInt16LE(20, 4);
+        local.writeUInt32LE(crc, 14);
+        local.writeUInt32LE(data.length, 18);
+        local.writeUInt32LE(data.length, 22);
+        local.writeUInt16LE(nameBytes.length, 26);
+        parts.push(local, nameBytes, data);
+        const entry = Buffer.alloc(46);
+        entry.writeUInt32LE(0x02014b50, 0);
+        entry.writeUInt16LE(20, 4);
+        entry.writeUInt16LE(20, 6);
+        entry.writeUInt32LE(crc, 16);
+        entry.writeUInt32LE(data.length, 20);
+        entry.writeUInt32LE(data.length, 24);
+        entry.writeUInt16LE(nameBytes.length, 28);
+        entry.writeUInt32LE(offset, 42);
+        central.push(entry, nameBytes);
+        offset += local.length + nameBytes.length + data.length;
+    }
+    const centralSize = central.reduce((n, b) => n + b.length, 0);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(entries.length, 8);
+    end.writeUInt16LE(entries.length, 10);
+    end.writeUInt32LE(centralSize, 12);
+    end.writeUInt32LE(offset, 16);
+    return new Blob(
+        [...parts, ...central, end].map((b) => new Uint8Array(b)),
+        { type: 'application/zip' },
+    );
 }

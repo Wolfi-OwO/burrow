@@ -40,10 +40,14 @@ export const reviewResolve = asyncHandler(async (req, res) => {
     res.json(await fileService.get(user, file.id));
 });
 
-/** "Sort now": runs one batch immediately, regardless of the schedule. */
+/** "Sort now": works through everything waiting in unsorted, regardless of the schedule. */
 export const sortNow = asyncHandler(async (_req, res) => {
-    const decided = await schedulerService.tick(true);
-    res.json({ ran: decided !== null, decided: decided ?? 0 });
+    const result = await schedulerService.sortAll();
+    res.json({
+        ran: result !== null,
+        decided: result?.decided ?? 0,
+        remaining: result?.remaining ?? 0,
+    });
 });
 
 export const status = asyncHandler(async (req, res) => {

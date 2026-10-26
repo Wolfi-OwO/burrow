@@ -59,3 +59,16 @@ export function requireRole(...roles: Role[]) {
         next();
     };
 }
+
+/**
+ * For routes open to everyone but richer for a signed-in visitor (share links): sets `req.user` when a valid token
+ * is sent and carries on without it when none is. A token that is sent but wrong is still a 401, so an expired
+ * session is told to sign in again instead of being silently treated as a stranger.
+ */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+    if (!req.header('authorization')) {
+        next();
+        return;
+    }
+    authenticate(req).then(next, next);
+}

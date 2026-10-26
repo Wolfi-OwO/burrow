@@ -1,11 +1,14 @@
 import { rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 import sharp from 'sharp';
 
+import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { NotFoundError } from '../lib/errors.ts';
 import { sha256File } from '../lib/hashing.ts';
+import { extractZip } from '../lib/zip-extract.ts';
 import type { FileRecord, FileView } from '../models/file.model.ts';
 import { blobRepository } from '../repository/blob.repository.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
@@ -43,6 +46,12 @@ async function detectMime(path: string, claimed: string): Promise<string> {
     return /^[\w.+-]+\/[\w.+-]+$/.test(claimed) ? claimed : 'application/octet-stream';
 }
 
+export interface ArchiveResult {
+    files: FileRecord[];
+    extracted: number;
+    skipped: number;
+}
+
 export const fileService = {
     /**
      * Stores an uploaded file: hash it, skip the write when the bytes already exist, and always
@@ -73,6 +82,31 @@ export const fileService = {
                 size,
             });
             return { file, deduplicated: !fresh };
+        } finally {
+            await rm(stagedPath, { force: true });
+        }
+    },
+
+    /**
+     * A .zip is not stored itself: every file inside becomes its own file, exactly as if it had been uploaded one by
+     * one (same dedupe, same classification queue).
+     */
+    async uploadArchive(userId: string, stagedPath: string): Promise<ArchiveResult> {
+        const files: FileRecord[] = [];
+        try {
+            const summary = await extractZip(
+                stagedPath,
+                dirname(stagedPath),
+                {
+                    maxEntries: config.zip.maxEntries,
+                    maxEntryBytes: config.maxUploadBytes,
+                    maxTotalBytes: config.zip.maxTotalBytes,
+                },
+                async (path, size, name) => {
+                    files.push((await fileService.upload(userId, path, size, name, '')).file);
+                },
+            );
+            return { files, ...summary };
         } finally {
             await rm(stagedPath, { force: true });
         }

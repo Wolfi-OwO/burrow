@@ -132,11 +132,15 @@ export const fileRepository = {
     },
 
     /** Files the scheduler has not looked at yet, oldest first (FR-041). */
-    async nextBacklog(limit: number, db: Queryable = getPool()): Promise<FileRecord[]> {
+    async nextBacklog(
+        limit: number,
+        skip: string[] = [],
+        db: Queryable = getPool(),
+    ): Promise<FileRecord[]> {
         const { rows } = await db.query(
             `SELECT ${COLUMNS} FROM files f WHERE f.classified_at IS NULL AND f.status = 'unsorted'
-             ORDER BY f.created_at LIMIT $1`,
-            [limit],
+               AND NOT (f.id = ANY($2::uuid[])) ORDER BY f.created_at LIMIT $1`,
+            [limit, skip],
         );
         return rows.map(toRecord);
     },
