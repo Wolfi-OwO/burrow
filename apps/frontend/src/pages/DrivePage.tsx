@@ -94,7 +94,12 @@ export function DrivePage(): ReactNode {
                     file?: FileItem;
                     deduplicated?: boolean;
                     job?: string;
-                }>('/api/files', file, onProgress);
+                }>(
+                    '/api/files',
+                    file,
+                    onProgress,
+                    typeof category === 'number' ? { categoryId: String(category) } : {},
+                );
                 return {
                     duplicate: result.deduplicated === true,
                     ...(result.file ? { file: result.file } : {}),

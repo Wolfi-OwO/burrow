@@ -2,6 +2,7 @@
  * The prototype has no server: every /api call is answered here from an in-memory copy of example data, so the
  * real screens and flows can be clicked through. Nothing persists across a reload, on purpose.
  */
+import { sampleResponse } from './samples.ts';
 import type {
     Account,
     CategoryNode,
@@ -89,6 +90,12 @@ const names: [string, number | null, FileItem['status'], number | null][] = [
     ['notes.txt', 4, 'sorted', null],
     ['report.pdf', 4, 'sorted', null],
     ['people.csv', 4, 'sorted', null],
+    ['letter.docx', 4, 'sorted', null],
+    ['budget.xlsx', 4, 'sorted', null],
+    ['deck.pptx', 4, 'sorted', null],
+    ['letter.doc', 4, 'sorted', null],
+    ['budget.xls', 4, 'sorted', null],
+    ['deck.ppt', 4, 'sorted', null],
 ];
 const hues = [
     24, 200, 140, 260, 340, 48, 180, 300, 20, 100, 220, 60, 160, 280, 40, 80, 120, 160, 200, 240,
@@ -110,7 +117,7 @@ let files: FileItem[] = names.map(([name, categoryId, status, suggested], i) => 
         ? 'application/pdf'
         : name.endsWith('.txt')
           ? 'text/plain'
-          : /\.csv$/.test(name)
+          : /\.(csv|docx|xlsx|pptx|doc|xls|ppt)$/.test(name)
             ? 'application/octet-stream'
             : 'image/jpeg',
     size: 80_000 + i * 173_000,
@@ -161,8 +168,8 @@ function inside(child: number, ancestor: number): boolean {
     return false;
 }
 
-function fetchSample(name: string): Promise<Response> {
-    return fetch(`./samples/${name}`);
+function fetchSample(name: string): Response {
+    return sampleResponse(name) ?? new Response('', { status: 404 });
 }
 
 function thumb(file: FileItem): Response {
@@ -318,7 +325,7 @@ function answer(
     if (one) {
         const file = files.find((f) => f.id === one[1]);
         if (!file) return json({ message: 'Not found.' }, 404);
-        if (one[2] === 'content' && /\.(csv|txt|pdf)$/.test(file.name))
+        if (one[2] === 'content' && /\.(csv|txt|pdf|docx|xlsx|pptx|doc|xls|ppt)$/.test(file.name))
             return fetchSample(file.name);
         if (one[2]) return thumb(file);
         if (method === 'DELETE') {

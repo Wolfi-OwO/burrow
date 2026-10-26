@@ -9,7 +9,9 @@ import { publish } from '../lib/events.ts';
 import { logger } from '../lib/logger.ts';
 import { asyncHandler, BadRequestError, NotFoundError } from '../lib/errors.ts';
 import { thumbnailPath } from '../lib/thumbnail.ts';
+import { categoryRepository } from '../repository/category.repository.ts';
 import type { FileListFilter } from '../repository/file.repository.ts';
+import { fileRepository } from '../repository/file.repository.ts';
 import { fileService } from '../services/file-service.ts';
 
 const uid = (req: Request): string => (req.user as { sub: string }).sub;
@@ -32,6 +34,11 @@ export const list = asyncHandler(async (req, res) => {
 export const upload = asyncHandler(async (req, res) => {
     const staged = req.file;
     if (!staged) throw new BadRequestError('Send the file as the "file" field.');
+    // Optional: file it straight into the folder the upload was started from.
+    const raw = (req.body as { categoryId?: string } | undefined)?.categoryId;
+    const categoryId = raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : null;
+    if (categoryId !== null && !(await categoryRepository.findById(uid(req), categoryId)))
+        throw new NotFoundError('Category not found.');
     // A .zip is unpacked into its files in the background: the request answers at once with a job id, and the page
     // follows the progress on its event stream (upload.progress, then upload.done or upload.failed).
     if (/\.zip$/i.test(staged.originalname)) {
@@ -64,6 +71,11 @@ export const upload = asyncHandler(async (req, res) => {
         staged.originalname,
         staged.mimetype,
     );
+    if (categoryId !== null) {
+        await fileRepository.setCategory(uid(req), result.file.id, categoryId);
+        result.file.categoryId = categoryId;
+        result.file.status = 'sorted';
+    }
     res.status(201).json({ file: result.file, deduplicated: result.deduplicated });
 });
 

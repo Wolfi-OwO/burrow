@@ -23,6 +23,9 @@ export function kindOf(name: string, mime: string): Kind {
     if (n.endsWith('.docx') || n.endsWith('.docm')) return 'docx';
     if (n.endsWith('.xlsx') || n.endsWith('.xlsm')) return 'xlsx';
     if (n.endsWith('.pptx') || n.endsWith('.pptm')) return 'pptx';
+    if (n.endsWith('.doc') || n.endsWith('.dot')) return 'doc';
+    if (n.endsWith('.xls') || n.endsWith('.xlt')) return 'xls';
+    if (n.endsWith('.ppt') || n.endsWith('.pps')) return 'ppt';
     if (/\.(odt|ods|odp)$/.test(n)) return 'odf';
     if (/\.(csv|tsv)$/.test(n)) return 'csv';
     if (n.endsWith('.zip') || mime === 'application/zip') return 'zip';
@@ -137,6 +140,43 @@ async function load(path: string, name: string, mime: string, kind: Kind): Promi
                 sheets: sheets.slice(0, 12).map((s) => ({
                     name: s.sheet,
                     rows: s.data.slice(0, SHEET_ROWS).map((r) => r.map(cell)),
+                })),
+            };
+        }
+        case 'doc': {
+            const { docText } = await import('../lib/legacy-office.ts');
+            const text = docText(new Uint8Array(await blob.arrayBuffer()));
+            return text === null
+                ? { kind: 'none', reason: 'No readable text in this Word document.' }
+                : {
+                      kind: 'text',
+                      text: text.slice(0, TEXT_LIMIT),
+                      truncated: text.length > TEXT_LIMIT,
+                  };
+        }
+        case 'ppt': {
+            const { pptSlides } = await import('../lib/legacy-office.ts');
+            const slides = pptSlides(new Uint8Array(await blob.arrayBuffer()));
+            return slides === null
+                ? { kind: 'none', reason: 'No readable slides in this presentation.' }
+                : { kind: 'slides', slides };
+        }
+        case 'xls': {
+            const XLSX = await import('xlsx');
+            const book = XLSX.read(await blob.arrayBuffer(), { type: 'array' });
+            return {
+                kind: 'table',
+                sheets: book.SheetNames.slice(0, 12).map((sheetName) => ({
+                    name: sheetName,
+                    rows: (
+                        XLSX.utils.sheet_to_json(book.Sheets[sheetName] as object, {
+                            header: 1,
+                            raw: false,
+                            defval: '',
+                        }) as unknown[][]
+                    )
+                        .slice(0, SHEET_ROWS)
+                        .map((r) => r.map(cell)),
                 })),
             };
         }

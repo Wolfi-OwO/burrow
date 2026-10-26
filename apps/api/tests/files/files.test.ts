@@ -37,13 +37,19 @@ describe('files', () => {
             { name: 'trip/.hidden', data: a },
             { name: '__MACOSX/trip/._a.png', data: a },
         ]);
+        const folder = (
+            await api('POST', '/api/categories', { token, body: { name: 'Trips', parentId: null } })
+        ).json.id as number;
         const stream = await fetch(`${base}/api/events`, {
             headers: { authorization: `Bearer ${token}` },
         });
         assert.ok(stream.headers.get('content-type')?.startsWith('text/event-stream'));
         const reader = (stream.body as ReadableStream<Uint8Array>).getReader();
 
-        const reply = await upload(token, 'photos.zip', zip);
+        const form = new FormData();
+        form.append('categoryId', String(folder));
+        form.append('file', zip, 'photos.zip');
+        const reply = await api('POST', '/api/files', { token, form });
         assert.equal(reply.status, 202);
         assert.ok(reply.json.job);
 

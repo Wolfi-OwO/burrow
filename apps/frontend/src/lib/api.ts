@@ -123,6 +123,7 @@ export function uploadWithProgress<T>(
     path: string,
     file: File,
     onProgress: (fraction: number) => void,
+    fields: Record<string, string> = {},
 ): Promise<T> {
     const attempt = (retry: boolean): Promise<T> =>
         new Promise<T>((resolve, reject) => {
@@ -157,6 +158,8 @@ export function uploadWithProgress<T>(
                     );
             };
             const form = new FormData();
+            // Text fields go first so the server has them when the file arrives.
+            for (const [key, value] of Object.entries(fields)) form.append(key, value);
             form.append('file', file, file.name);
             xhr.send(form);
         });

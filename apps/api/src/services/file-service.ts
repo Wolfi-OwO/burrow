@@ -102,6 +102,7 @@ export const fileService = {
         userId: string,
         stagedPath: string,
         onProgress?: (seen: number, total: number) => void,
+        categoryId: number | null = null,
     ): Promise<ArchiveResult> {
         const files: FileRecord[] = [];
         try {
@@ -114,7 +115,11 @@ export const fileService = {
                     maxTotalBytes: config.zip.maxTotalBytes,
                 },
                 async (path, size, name) => {
-                    files.push((await fileService.upload(userId, path, size, name, '')).file);
+                    const { file } = await fileService.upload(userId, path, size, name, '');
+                    // Unpacked into the folder the upload was started from, like a single file would be.
+                    if (categoryId !== null)
+                        await fileRepository.setCategory(userId, file.id, categoryId);
+                    files.push(file);
                 },
                 (seen, total) => onProgress?.(seen, total),
             );
