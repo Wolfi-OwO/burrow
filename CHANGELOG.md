@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-26
+
 ### Added
 
 - "Sort all now" runs in the background without a time limit (it used to stop after four minutes, about 200 files); the button shows `done / total`, the Review page a progress bar, and it can be left and come back to. `SORT_CONCURRENCY` sets how many files are classified at once.
