@@ -61,8 +61,8 @@ services:
     environment:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
     networks: [vision-net]
-    # ADR-0004: ~1.07 GiB peak for both models, measured; one worker, because a second process doubles it.
-    mem_limit: 1280m
+    # ADR-0004 measured ~1.07 GiB peak; a long sorting run (300+ files, three at once) was OOM-killed at 1.25 GiB, so 2.25 GiB. One worker, because a second process doubles it.
+    mem_limit: 2304m
     read_only: true
     tmpfs:
       - /tmp

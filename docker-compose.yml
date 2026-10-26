@@ -31,7 +31,7 @@ services:
     build:
       context: apps/vision
     # ADR-0004: both models together peak at ~1.07 GiB RSS, measured.
-    mem_limit: 1280m
+    mem_limit: 2304m
     read_only: true
     tmpfs:
       - /tmp
