@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- Big uploads: files of 48 MB and more go up in 16 MB pieces, four at a time, each retried on its own and written straight into place on the server, so a 5 GB file is sent as fast as the line allows (measured locally: 5 GB in 14 seconds) and finishes in seconds. Files up to 20 GB and zips unpacking to 32 GB are accepted (`MAX_FILE_GB`, `ZIP_MAX_TOTAL_MB`).
+
+### Fixed
+
+- Zip contents were not filed into the folder the zip was uploaded from.
+- The previewer's type list was missing the old Office formats, which broke the type check in CI.
+
 ### Changed
 
 - Release workflow redesigned: the web image (api and frontend) is built only when its files changed, the AI detector image only when asked for (`[vision]` in the release notes, or ticked on a manual run); unchanged components reuse their image. Deploy takes a tag per component, shows the release version even for a reused image, and a registry tidy job removes old and duplicate image versions.

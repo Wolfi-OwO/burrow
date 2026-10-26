@@ -82,7 +82,7 @@ async function unpack(
         stagingDir,
         {
             maxEntries: config.zip.maxEntries,
-            maxEntryBytes: config.maxUploadBytes,
+            maxEntryBytes: config.maxFileBytes,
             maxTotalBytes: Math.max(config.zip.maxTotalBytes - budget.used, 0),
         },
         async (path, size, name) => {

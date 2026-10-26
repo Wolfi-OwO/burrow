@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { stat } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { blobStore } from '../lib/blob-store.ts';
 import { publish } from '../lib/events.ts';
@@ -33,52 +33,76 @@ export const list = asyncHandler(async (req, res) => {
 });
 
 /** FR-016/FR-017: one blob per content, an over-size upload never reaches the store. */
-export const upload = asyncHandler(async (req, res) => {
-    const staged = req.file;
-    if (!staged) throw new BadRequestError('Send the file as the "file" field.');
-    // Optional: file it straight into the folder the upload was started from.
-    const raw = (req.body as { categoryId?: string } | undefined)?.categoryId;
-    const categoryId = raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : null;
-    if (categoryId !== null && !(await categoryRepository.findById(uid(req), categoryId)))
+/**
+ * Takes a staged file into the drive, however it arrived (one multipart request, or the last piece of a chunked
+ * upload). A .zip is unpacked in the background (the request answers at once with a job id and the page follows the
+ * progress on its event stream); anything else is stored now. Either way it goes into `categoryId` when given.
+ */
+export async function ingest(
+    res: Response,
+    userId: string,
+    staged: { path: string; size: number; name: string; mime: string },
+    categoryId: number | null,
+): Promise<void> {
+    if (categoryId !== null && !(await categoryRepository.findById(userId, categoryId))) {
+        await rm(staged.path, { force: true });
         throw new NotFoundError('Category not found.');
-    // A .zip is unpacked into its files in the background: the request answers at once with a job id, and the page
-    // follows the progress on its event stream (upload.progress, then upload.done or upload.failed).
-    if (/\.zip$/i.test(staged.originalname)) {
-        const user = uid(req);
+    }
+    if (/\.zip$/i.test(staged.name)) {
         const job = randomUUID();
-        const name = staged.originalname;
+        const name = staged.name;
         res.status(202).json({ job });
-        publish(user, { type: 'upload.progress', data: { job, name, seen: 0, total: 0 } });
+        publish(userId, { type: 'upload.progress', data: { job, name, seen: 0, total: 0 } });
         fileService
-            .uploadArchive(user, staged.path, (seen, total) =>
-                publish(user, { type: 'upload.progress', data: { job, name, seen, total } }),
+            .uploadArchive(
+                userId,
+                staged.path,
+                (seen, total) =>
+                    publish(userId, { type: 'upload.progress', data: { job, name, seen, total } }),
+                categoryId,
             )
             .then(
                 (archive) =>
-                    publish(user, {
+                    publish(userId, {
                         type: 'upload.done',
                         data: { job, name, extracted: archive.extracted, skipped: archive.skipped },
                     }),
                 (error: unknown) => {
                     logger.warn({ err: error }, 'zip upload failed');
-                    publish(user, { type: 'upload.failed', data: { job, name } });
+                    publish(userId, { type: 'upload.failed', data: { job, name } });
                 },
             );
         return;
     }
     const result = await fileService.upload(
-        uid(req),
+        userId,
         staged.path,
         staged.size,
-        staged.originalname,
-        staged.mimetype,
+        staged.name,
+        staged.mime,
     );
     if (categoryId !== null) {
-        await fileRepository.setCategory(uid(req), result.file.id, categoryId);
+        await fileRepository.setCategory(userId, result.file.id, categoryId);
         result.file.categoryId = categoryId;
         result.file.status = 'sorted';
     }
     res.status(201).json({ file: result.file, deduplicated: result.deduplicated });
+}
+
+/** The optional `categoryId` field of an upload: file it straight into the folder the upload was started from. */
+export const folderOf = (raw: unknown): number | null =>
+    typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : null;
+
+/** FR-016/FR-017: one blob per content, an over-size upload never reaches the store. */
+export const upload = asyncHandler(async (req, res) => {
+    const staged = req.file;
+    if (!staged) throw new BadRequestError('Send the file as the "file" field.');
+    await ingest(
+        res,
+        uid(req),
+        { path: staged.path, size: staged.size, name: staged.originalname, mime: staged.mimetype },
+        folderOf((req.body as { categoryId?: string } | undefined)?.categoryId),
+    );
 });
 
 export const get = asyncHandler(async (req, res) => {

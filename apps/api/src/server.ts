@@ -23,6 +23,7 @@ import { metricsRouter } from './routes/metrics.routes.ts';
 import { profileRouter } from './routes/profile.routes.ts';
 import { publicShareRouter, shareRouter } from './routes/share.routes.ts';
 import { versionRouter } from './routes/version.routes.ts';
+import { startUploadSweep } from './lib/chunked-upload.ts';
 import { schedulerService } from './services/scheduler-service.ts';
 
 /**
@@ -115,11 +116,15 @@ if (isMainModule) {
     const server = app.listen(config.port, () => {
         logger.info({ port: config.port }, 'apps/api listening');
     });
+    // Node's default gives a request five minutes in total; a piece of a big upload on a slow line needs longer.
+    server.requestTimeout = 30 * 60_000;
     const stopScheduler = schedulerService.start();
+    const stopSweep = startUploadSweep();
 
     const shutdown = (signal: string): void => {
         logger.info({ signal }, 'shutting down');
         stopScheduler();
+        stopSweep();
         server.close(() => {
             getPool()
                 .shutdown()

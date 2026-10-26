@@ -37,7 +37,11 @@ export const apiRateLimiter = rateLimit({
     // one request per image, so a grid of 200 files would otherwise spend the whole window on pictures.
     skip: (req) => {
         const path = req.path.toLowerCase();
-        return !path.startsWith('/api/') || /\/(thumbnail|content|avatar)$/.test(path);
+        return (
+            !path.startsWith('/api/') ||
+            /\/(thumbnail|content|avatar)$/.test(path) ||
+            /\/chunks\/\d+$/.test(path)
+        );
     },
     message: {
         error: 'TooManyRequestsError',

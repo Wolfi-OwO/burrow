@@ -49,12 +49,19 @@ export const config = {
     zip: {
         maxEntries: Number(process.env.ZIP_MAX_ENTRIES) || 5000,
         /** Everything one archive may unpack to, however small the zip itself is. */
-        maxTotalBytes: (Number(process.env.ZIP_MAX_TOTAL_MB) || 4096) * MEBIBYTE,
+        maxTotalBytes: (Number(process.env.ZIP_MAX_TOTAL_MB) || 32768) * MEBIBYTE,
     },
 
     /** FR-017: an upload larger than this is rejected before any byte is stored. */
     maxUploadBytes: (Number(process.env.MAX_UPLOAD_MB) || 200) * MEBIBYTE,
     maxAvatarBytes: 2 * MEBIBYTE,
+    /**
+     * The largest file the chunked upload accepts, and the largest single entry of a zip. Big files arrive in small
+     * pieces (so no proxy limit or dropped connection can sink them), written straight into place.
+     */
+    maxFileBytes: (Number(process.env.MAX_FILE_GB) || 20) * 1024 * MEBIBYTE,
+    /** Size of one piece of a chunked upload. */
+    uploadChunkBytes: (Number(process.env.UPLOAD_CHUNK_MB) || 16) * MEBIBYTE,
 
     storage: {
         /**

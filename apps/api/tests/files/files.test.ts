@@ -73,6 +73,72 @@ describe('files', () => {
         ]);
     });
 
+    it('takes a big file in pieces, in any order and in parallel, and stores it whole', async () => {
+        const { config } = await import('../../src/config/index.ts');
+        const before = config.uploadChunkBytes;
+        config.uploadChunkBytes = 16;
+        try {
+            const { token } = await registerOwner();
+            const bytes = Buffer.from(await (await png(90)).arrayBuffer());
+            const start = await api('POST', '/api/uploads', {
+                token,
+                body: { name: 'big.png', size: bytes.length, mime: 'image/png' },
+            });
+            assert.equal(start.status, 201);
+            const { id, chunks, chunkBytes } = start.json as {
+                id: string;
+                chunks: number;
+                chunkBytes: number;
+            };
+            assert.ok(chunks > 1, 'the test file spans several pieces');
+            const send = (i: number): Promise<Response> =>
+                fetch(`${base}/api/uploads/${id}/chunks/${String(i)}`, {
+                    method: 'PUT',
+                    headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/octet-stream',
+                    },
+                    body: new Uint8Array(bytes.subarray(i * chunkBytes, (i + 1) * chunkBytes)),
+                });
+            const order = [...Array(chunks).keys()].reverse();
+            // Not finished yet: refused, and the status says what is missing.
+            assert.equal((await api('POST', `/api/uploads/${id}/complete`, { token })).status, 400);
+            const replies = await Promise.all(order.map(send));
+            assert.ok(replies.every((r) => r.status === 204));
+            const status = await api('GET', `/api/uploads/${id}`, { token });
+            assert.equal(status.json.received.length, chunks);
+            const done = await api('POST', `/api/uploads/${id}/complete`, { token });
+            assert.equal(done.status, 201);
+            assert.equal(done.json.file.size, bytes.length);
+            const served = await fetch(`${base}/api/files/${done.json.file.id as string}/content`, {
+                headers: { authorization: `Bearer ${token}` },
+            });
+            assert.deepEqual(Buffer.from(await served.arrayBuffer()), bytes);
+        } finally {
+            config.uploadChunkBytes = before;
+        }
+    });
+
+    it("refuses a piece of the wrong length and a stranger's upload", async () => {
+        const { token } = await registerOwner();
+        const start = await api('POST', '/api/uploads', {
+            token,
+            body: { name: 'x.bin', size: 50 },
+        });
+        const id = start.json.id as string;
+        const short = await fetch(`${base}/api/uploads/${id}/chunks/0`, {
+            method: 'PUT',
+            headers: { authorization: `Bearer ${token}` },
+            body: new Uint8Array(10),
+        });
+        assert.equal(short.status, 400);
+        const { config } = await import('../../src/config/index.ts');
+        config.registrationOpen = true;
+        const other = await registerOwner('other');
+        config.registrationOpen = false;
+        assert.equal((await api('GET', `/api/uploads/${id}`, { token: other.token })).status, 403);
+    });
+
     it('unpacks zips inside zips and keeps no archive behind', async () => {
         const { token } = await registerOwner();
         const a = Buffer.from(await (await png(11)).arrayBuffer());

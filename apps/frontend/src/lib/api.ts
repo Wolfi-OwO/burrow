@@ -165,3 +165,96 @@ export function uploadWithProgress<T>(
         });
     return attempt(true);
 }
+
+/** One raw PUT with progress, refreshing the session once on a 401. */
+function putWithProgress(
+    path: string,
+    body: Blob,
+    onProgress: (loaded: number) => void,
+    retry = true,
+): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', path);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        xhr.upload.onprogress = (event) => onProgress(event.loaded);
+        xhr.onerror = () => reject(new Error('Could not reach the server.'));
+        xhr.onload = () => {
+            if (xhr.status === 401 && retry) {
+                void refreshSession().then((ok) =>
+                    ok
+                        ? resolve(putWithProgress(path, body, onProgress, false))
+                        : reject(new ApiError(401, 'Session ended.')),
+                );
+            } else if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new ApiError(xhr.status, `Upload piece failed (${String(xhr.status)})`));
+        };
+        xhr.send(body);
+    });
+}
+
+/** Files at least this large go up in pieces; smaller ones in one request. */
+export const CHUNKED_FROM_BYTES = 48 * 1024 * 1024;
+const PARALLEL_PIECES = 4;
+const PIECE_TRIES = 4;
+
+/**
+ * Uploads a big file in pieces, several at a time, each retried on its own; a piece that cannot be sent after a few
+ * tries ends the upload with an error, and the pieces that did arrive are kept on the server for a day. The progress
+ * counts the bytes that have left, so the bar moves smoothly.
+ *
+ * @returns What a normal upload returns: the stored file, or a job id for a zip that is being unpacked.
+ */
+export async function uploadChunked<T>(
+    file: File,
+    onProgress: (fraction: number) => void,
+    categoryId?: number,
+): Promise<T> {
+    const start = await api<{ id: string; chunkBytes: number; chunks: number }>(
+        'POST',
+        '/api/uploads',
+        {
+            name: file.name,
+            size: file.size,
+            ...(file.type ? { mime: file.type } : {}),
+            ...(categoryId === undefined ? {} : { categoryId }),
+        },
+    );
+    const sent = new Array<number>(start.chunks).fill(0);
+    const report = (): void => onProgress(sent.reduce((a, b) => a + b, 0) / Math.max(file.size, 1));
+    const queue = [...Array(start.chunks).keys()];
+
+    const worker = async (): Promise<void> => {
+        for (;;) {
+            const index = queue.shift();
+            if (index === undefined) return;
+            const from = index * start.chunkBytes;
+            const piece = file.slice(from, Math.min(from + start.chunkBytes, file.size));
+            for (let attempt = 1; ; attempt++) {
+                try {
+                    await putWithProgress(
+                        `/api/uploads/${start.id}/chunks/${String(index)}`,
+                        piece,
+                        (loaded) => {
+                            sent[index] = loaded;
+                            report();
+                        },
+                    );
+                    sent[index] = piece.size;
+                    report();
+                    break;
+                } catch (error) {
+                    sent[index] = 0;
+                    if (attempt >= PIECE_TRIES) throw error;
+                    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: PARALLEL_PIECES }, () => worker()));
+
+    const response = await request(`/api/uploads/${start.id}/complete`, { method: 'POST' });
+    if (!response.ok) return fail(response);
+    return (await response.json()) as T;
+}

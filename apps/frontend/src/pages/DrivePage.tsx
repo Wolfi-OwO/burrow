@@ -23,7 +23,14 @@ import { Lightbox } from '../components/Lightbox.tsx';
 import { UnzipDialog } from '../components/UnzipDialog.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
-import { api, ApiError, fetchBlob, uploadWithProgress } from '../lib/api.ts';
+import {
+    api,
+    ApiError,
+    CHUNKED_FROM_BYTES,
+    fetchBlob,
+    uploadChunked,
+    uploadWithProgress,
+} from '../lib/api.ts';
 import { useServerEvents } from '../lib/events.tsx';
 import { formatBytes } from '../lib/format.ts';
 import { FILE_KINDS } from '../lib/types.ts';
@@ -111,16 +118,17 @@ export function DrivePage(): ReactNode {
     ): Promise<{ file?: FileItem; duplicate: boolean; job?: string }> => {
         for (let attempt = 0; ; attempt++) {
             try {
-                const result = await uploadWithProgress<{
-                    file?: FileItem;
-                    deduplicated?: boolean;
-                    job?: string;
-                }>(
-                    '/api/files',
-                    file,
-                    onProgress,
-                    typeof category === 'number' ? { categoryId: String(category) } : {},
-                );
+                type Reply = { file?: FileItem; deduplicated?: boolean; job?: string };
+                const folder = typeof category === 'number' ? category : undefined;
+                const result =
+                    file.size >= CHUNKED_FROM_BYTES
+                        ? await uploadChunked<Reply>(file, onProgress, folder)
+                        : await uploadWithProgress<Reply>(
+                              '/api/files',
+                              file,
+                              onProgress,
+                              folder === undefined ? {} : { categoryId: String(folder) },
+                          );
                 return {
                     duplicate: result.deduplicated === true,
                     ...(result.file ? { file: result.file } : {}),

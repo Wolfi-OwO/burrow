@@ -14,7 +14,20 @@ const TEXT_EXT =
     /\.(txt|md|markdown|json|jsonl|csv|tsv|log|xml|yml|yaml|ini|toml|cfg|conf|env|js|mjs|ts|tsx|jsx|py|java|kt|c|h|cpp|hpp|cs|go|rs|rb|php|sh|bash|zsh|sql|css|scss|html|htm|svg|tex|rtf|srt|vtt|gitignore)$/i;
 
 type Kind =
-    'pdf' | 'text' | 'csv' | 'docx' | 'xlsx' | 'pptx' | 'odf' | 'zip' | 'audio' | 'video' | 'other';
+    | 'pdf'
+    | 'text'
+    | 'csv'
+    | 'docx'
+    | 'xlsx'
+    | 'pptx'
+    | 'doc'
+    | 'xls'
+    | 'ppt'
+    | 'odf'
+    | 'zip'
+    | 'audio'
+    | 'video'
+    | 'other';
 
 /** What a file is, from its name first (browsers often send a generic type for Office files) and its type second. */
 export function kindOf(name: string, mime: string): Kind {
