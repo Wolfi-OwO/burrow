@@ -1,3 +1,4 @@
+import type { RequestHandler } from 'express';
 import type { Request, Response } from 'express';
 
 import { asyncHandler, UnauthorizedError } from '../lib/errors.ts';
@@ -65,6 +66,6 @@ export const changePassword = asyncHandler(async (req, res) => {
 });
 
 /** Which "log in with ..." buttons the login page should show. */
-export const providers = asyncHandler(async (_req, res) => {
+export const providers: RequestHandler = (_req, res) => {
     res.json({ providers: configuredProviders() });
-});
+};
