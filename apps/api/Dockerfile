@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Build context is the repository root (npm workspaces share one lockfile).
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md ./
 COPY apps/api/package.json apps/api/
@@ -12,7 +12,7 @@ RUN npm run build --workspace apps/frontend && npm run build --workspace apps/ap
 RUN npm ci --ignore-scripts --omit=dev --workspace apps/api --include-workspace-root \
     && npm rebuild argon2 sharp
 
-FROM node:24-slim AS runtime
+FROM node:26-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /repo/node_modules node_modules
