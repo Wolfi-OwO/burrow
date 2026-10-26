@@ -1347,3 +1347,113 @@ html[data-theme='dark'] .theme-toggle .sun {
         --footer-h: 0px;
     }
 }
+
+/* ---- sign-in controls: flat, bordered, quiet ---- */
+.gate-card2 {
+    gap: 22px;
+}
+.gate-card2 h1 {
+    font-size: 1.75rem;
+    letter-spacing: -0.02em;
+}
+.gate-card2 .field label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+.gate-card2 .input {
+    height: 46px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: none;
+    transition:
+        border-color 160ms var(--ease),
+        box-shadow 160ms var(--ease);
+}
+.gate-card2 .input:hover {
+    border-color: color-mix(in srgb, var(--text) 30%, var(--line));
+}
+.gate-card2 .input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.gate-card2 .btn:not(.ghost) {
+    height: 46px;
+    border-radius: 10px;
+    box-shadow: none;
+    font-weight: 600;
+    transition:
+        filter 160ms var(--ease),
+        transform 160ms var(--ease);
+}
+.gate-card2 .btn:not(.ghost):hover {
+    filter: brightness(1.06);
+    transform: none;
+}
+.gate-card2 .btn:not(.ghost):active {
+    filter: brightness(0.94);
+}
+.gate-card2 .divider {
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+.gate-card2 .provider-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.gate-card2 .provider {
+    width: auto;
+    height: 46px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    transition:
+        border-color 160ms var(--ease),
+        background 160ms var(--ease);
+}
+.gate-card2 .provider:hover {
+    transform: none;
+    border-color: color-mix(in srgb, var(--text) 35%, var(--line));
+    background: var(--surface);
+}
+.gate-card2 .provider:active {
+    box-shadow: none;
+    background: var(--surface-2);
+}
+.gate-card2 .provider:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.gate-card2 .provider svg {
+    width: 22px;
+    height: 22px;
+}
+.gate-card2 .btn.ghost.sm {
+    height: auto;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    box-shadow: none;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.gate-card2 .btn.ghost.sm:hover {
+    color: var(--text);
+}
+.theme-toggle {
+    border: 1px solid var(--line);
+    background: transparent;
+    box-shadow: none;
+}
+.theme-toggle:hover {
+    transform: none;
+    background: var(--surface);
+}

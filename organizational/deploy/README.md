@@ -6,28 +6,28 @@ there. The decisions behind this shape are in [ADR-0005](../adr/0005-deployment-
 rollout) and [ADR-0006](../adr/0006-local-store-encrypted-offsite-backup.md) (the VPS disk is the store of record, with an
 encrypted nightly backup on Azure).
 
-| File | Purpose |
-| - | - |
-| [`vps/deploy.sh`](vps/deploy.sh) | Forced-command deploy: one validated tag in, readiness-gated rollout or rollback out |
-| [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet) | The vhost to add to the shared Caddyfile |
-| [`vps/backup.sh`](vps/backup.sh), [`burrow-backup.service`](vps/burrow-backup.service), [`burrow-backup.timer`](vps/burrow-backup.timer) | Nightly encrypted database dump and blob copy |
-| [`vps/restore-drill.sh`](vps/restore-drill.sh) | Proves a backup restores, on a scratch machine |
-| [`../../docker-compose.prod.yml`](../../docker-compose.prod.yml) | The production stack |
+| File                                                                                                                                     | Purpose                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`vps/deploy.sh`](vps/deploy.sh)                                                                                                         | Forced-command deploy: one validated tag in, readiness-gated rollout or rollback out |
+| [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet)                                                                                         | The vhost to add to the shared Caddyfile                                             |
+| [`vps/backup.sh`](vps/backup.sh), [`burrow-backup.service`](vps/burrow-backup.service), [`burrow-backup.timer`](vps/burrow-backup.timer) | Nightly encrypted database dump and blob copy                                        |
+| [`vps/restore-drill.sh`](vps/restore-drill.sh)                                                                                           | Proves a backup restores, on a scratch machine                                       |
+| [`../../docker-compose.prod.yml`](../../docker-compose.prod.yml)                                                                         | The production stack                                                                 |
 
 ## Status of the one-time setup (2026-10-24)
 
-| Step | State |
-| - | - |
-| GitHub OAuth app | Registered; callbacks for production and `localhost:8080`; id and secret in the VPS `.env` |
-| Microsoft app registration | Registered (personal and work accounts, token version 2); 2-year secret in the VPS `.env`, **expires 2028-10-24, rotate before then** |
-| Google OAuth client | Created (project `burrow-512617`, External, testing mode with the owner as test user); id and secret in the VPS `.env` |
-| Azure backup account | Created (`burrow-rg`, private Cool-tier container, soft delete and versioning, lifecycle rule) |
-| `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS |
-| Forced-command CI key | Installed; refuses any command that is not a release tag (tested) |
-| GitHub `VPS_SSH_KEY` secret and `VPS_HOST` variable | Set |
-| metrion key and collector route | Done ([metrion-onboarding.md](metrion-onboarding.md)) |
-| Backup credentials on the VPS, `rclone`, GPG key | See "Backups" below |
-| Caddy vhost, DNS record, first release | Go-live, see "Releasing" |
+| Step                                                                      | State                                                                                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub OAuth app                                                          | Registered; callbacks for production and `localhost:8080`; id and secret in the VPS `.env`                                            |
+| Microsoft app registration                                                | Registered (personal and work accounts, token version 2); 2-year secret in the VPS `.env`, **expires 2028-10-24, rotate before then** |
+| Google OAuth client                                                       | Created (project `burrow-512617`, External, testing mode with the owner as test user); id and secret in the VPS `.env`                |
+| Azure backup account                                                      | Created (`burrow-rg`, private Cool-tier container, soft delete and versioning, lifecycle rule)                                        |
+| `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS                                                                                                                   |
+| Forced-command CI key                                                     | Installed; refuses any command that is not a release tag (tested)                                                                     |
+| GitHub `VPS_SSH_KEY` secret and `VPS_HOST` variable                       | Set                                                                                                                                   |
+| metrion key and collector route                                           | Done ([metrion-onboarding.md](metrion-onboarding.md))                                                                                 |
+| Backup credentials on the VPS, `rclone`, GPG key                          | See "Backups" below                                                                                                                   |
+| Caddy vhost, DNS record, first release                                    | Go-live, see "Releasing"                                                                                                              |
 
 ## Setup (the full procedure)
 
@@ -59,7 +59,6 @@ encrypted nightly backup on Azure).
    CORS_ALLOWED_ORIGINS=https://burrow.woofi-developments.at
    OAUTH_FRONTEND_BASE_URL=https://burrow.woofi-developments.at
    REGISTRATION_OPEN=false
-   OWNER_SETUP_TOKEN=<openssl rand -base64 30>     # the first account must present this; see "First account"
    GITHUB_CLIENT_ID=...    GITHUB_CLIENT_SECRET=...
    MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=...
    GOOGLE_CLIENT_ID=...    GOOGLE_CLIENT_SECRET=...      # optional until the Google client exists
@@ -69,6 +68,7 @@ encrypted nightly backup on Azure).
    Then add [`vps/Caddyfile.snippet`](vps/Caddyfile.snippet) to `/opt/portfolio/Caddyfile` and reload Caddy with the
    shared `/opt/caddy-reload.sh` (never `docker exec caddy reload`; the script exists because a bind mount of a single
    file follows the inode, not the path).
+
 5. **Metrics**: see [metrion-onboarding.md](metrion-onboarding.md).
 
 ## Backups
@@ -93,6 +93,7 @@ Everything that leaves the box is encrypted (ADR-0006). On the VPS:
    Every value is single-quoted because the file is sourced by a shell and a SAS token contains `&`. The SAS allows read, add, create, write and list, and deliberately not delete; it expires after a year, so renew it
    (`az storage container generate-sas ...`) before then. Keep the crypt password and salt in the operator's password
    store too: without them the backed-up blobs cannot be read.
+
 4. Copy the two units to `/etc/systemd/system/`, `sudo systemctl enable --now burrow-backup.timer`, then run
    `sudo systemctl start burrow-backup.service` once and read `journalctl -u burrow-backup`.
 5. Prove it restores: `vps/restore-drill.sh <object>` on a scratch machine, and compare the counts.
@@ -112,12 +113,11 @@ release contains a new migration.
 
 ## First account
 
-The first account becomes the admin, and a new hostname is public the moment its certificate is issued (certificate
-logs are scanned within minutes), so the first registration has to present `OWNER_SETUP_TOKEN` from the server `.env`;
-without it the request is refused, and a provider login cannot create the first account either. Open
-`https://burrow.woofi-developments.at`, choose "First time here? Create the owner account", enter a username, a
-password of 12 or more characters and the token, and register. Registration is then closed for good
-(`REGISTRATION_OPEN=false`). Link GitHub or Microsoft from the Profile page afterwards. Nothing is reachable without
+The first account becomes the admin, and registration is closed afterwards (`REGISTRATION_OPEN=false`). Nothing else
+guards the unclaimed site, and a new hostname is public as soon as its certificate is issued, so create the owner
+account right after the first deploy: open `https://burrow.woofi-developments.at`, either sign in with GitHub,
+Microsoft or Google (that creates the account) or choose "New here? Create an account" and register with a username
+and a password of 12 or more characters. Link further providers from the Profile page. Nothing is reachable without
 signing in.
 
 ## Restoring

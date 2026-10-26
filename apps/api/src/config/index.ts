@@ -35,7 +35,6 @@ export const config = {
      * moment its certificate is issued, and the first account becomes the admin, so without it whoever finds the
      * hostname first owns the drive. Unset (local development) leaves the first registration open.
      */
-    ownerSetupToken: process.env.OWNER_SETUP_TOKEN,
 
     /** Registration stays closed once the owner exists, unless this is true (burrow is single-tenant). */
     registrationOpen: (process.env.REGISTRATION_OPEN ?? 'false') === 'true',

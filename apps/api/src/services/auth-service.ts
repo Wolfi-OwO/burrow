@@ -1,5 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
-
 import argon2 from 'argon2';
 
 import { config } from '../config/index.ts';
@@ -23,23 +21,6 @@ const ARGON2_OPTIONS = {
 
 /** Verified against when the username does not exist, so a miss costs as much as a wrong password. */
 const DUMMY_HASH = await argon2.hash('burrow-dummy-password', ARGON2_OPTIONS);
-
-/**
- * @param presented - What the registrant sent.
- * @returns True when no setup token is configured, or the presented one matches it (compared in constant time).
- */
-export function isSetupTokenValid(presented: string | undefined): boolean {
-    const expected = config.ownerSetupToken;
-    if (!expected) return true;
-    const a = Buffer.from(presented ?? '');
-    const b = Buffer.from(expected);
-    return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/** @returns Whether the first account still has to be created with the setup token, i.e. the site is not yet claimed. */
-export async function setupRequired(): Promise<boolean> {
-    return Boolean(config.ownerSetupToken) && (await userRepository.count()) === 0;
-}
 
 /** The pair a successful login hands out. */
 export interface SessionTokens {
@@ -81,14 +62,10 @@ export const authService = {
         password: string,
         displayName: string,
         userAgent: string | null,
-        setupToken?: string,
     ): Promise<SessionTokens> {
         const existing = await userRepository.count();
         if (existing > 0 && !config.registrationOpen)
             throw new ForbiddenError('Registration is closed.');
-        if (existing === 0 && !isSetupTokenValid(setupToken)) {
-            throw new ForbiddenError('The setup token is required to create the first account.');
-        }
         if (await userRepository.findByUsername(username))
             throw new ConflictError('That username is taken.');
 

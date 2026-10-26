@@ -14,7 +14,6 @@ export const registerSchema = z
         username,
         password,
         displayName: z.string().trim().min(1).max(60).optional(),
-        setupToken: z.string().max(200).optional(),
     })
     .strict();
 export const loginSchema = z

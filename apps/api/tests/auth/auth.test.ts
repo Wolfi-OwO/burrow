@@ -169,54 +169,22 @@ describe('session retention', () => {
     });
 });
 
-describe('owner setup token', () => {
+describe('first account', () => {
     beforeEach(resetDatabase);
 
-    it('lets nobody create the first account without the token once one is configured', async () => {
-        const { config } = await import('../../src/config/index.ts');
-        config.ownerSetupToken = 'setup-token-for-tests';
-        try {
-            const body = { username: 'wolf', password: 'correct horse battery' };
-            assert.equal((await api('POST', '/api/auth/register', { body })).status, 403);
-            assert.equal(
-                (
-                    await api('POST', '/api/auth/register', {
-                        body: { ...body, setupToken: 'wrong' },
-                    })
-                ).status,
-                403,
-            );
-            const providers = await api('GET', '/api/auth/providers');
-            assert.equal(providers.json.setupRequired, true);
-
-            const ok = await api('POST', '/api/auth/register', {
-                body: { ...body, setupToken: 'setup-token-for-tests' },
-            });
-            assert.equal(ok.status, 201);
-            assert.equal(ok.json.user.role, 'admin');
-            assert.equal((await api('GET', '/api/auth/providers')).json.setupRequired, false);
-        } finally {
-            config.ownerSetupToken = undefined;
-        }
-    });
-
-    it('does not let a provider login claim an unclaimed site', async () => {
-        const { config } = await import('../../src/config/index.ts');
+    it('makes the first account the admin, whether it comes from a password or a provider', async () => {
         const { oauthService } = await import('../../src/services/oauth-service.ts');
-        config.ownerSetupToken = 'setup-token-for-tests';
-        try {
-            await assert.rejects(
-                oauthService.resolveLogin('github', {
-                    providerUserId: 'x',
-                    email: 'a@example.org',
-                    emailVerified: true,
-                    displayName: 'A',
-                    pictureUrl: null,
-                }),
-                /setup token/,
-            );
-        } finally {
-            config.ownerSetupToken = undefined;
-        }
+        const user = await oauthService.resolveLogin('github', {
+            providerUserId: 'x',
+            email: 'a@example.org',
+            emailVerified: true,
+            displayName: 'A',
+            pictureUrl: null,
+        });
+        assert.equal(user.role, 'admin');
+        const second = await api('POST', '/api/auth/register', {
+            body: { username: 'wolf', password: 'correct horse battery' },
+        });
+        assert.equal(second.status, 403);
     });
 });

@@ -166,8 +166,7 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
     const p = url.pathname;
     if (p === '/api/version') return json({ version: 'prototype' });
     if (p === '/api/auth/refresh') return signedIn ? json({ accessToken: 'demo' }) : json({}, 401);
-    if (p === '/api/auth/providers')
-        return json({ providers: ['github', 'microsoft', 'google'], setupRequired: false });
+    if (p === '/api/auth/providers') return json({ providers: ['github', 'microsoft', 'google'] });
     if (p === '/api/auth/login' || p === '/api/auth/register') {
         signedIn = true;
         return json({ accessToken: 'demo', user: owner });

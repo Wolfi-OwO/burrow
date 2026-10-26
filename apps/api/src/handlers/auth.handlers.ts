@@ -4,7 +4,7 @@ import { asyncHandler, UnauthorizedError } from '../lib/errors.ts';
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from '../lib/refresh-cookie.ts';
 import { toAccount } from '../lib/account-view.ts';
 import { configuredProviders } from '../lib/oauth-providers.ts';
-import { authService, setupRequired } from '../services/auth-service.ts';
+import { authService } from '../services/auth-service.ts';
 import type { SessionTokens } from '../services/auth-service.ts';
 
 function respond(res: Response, tokens: SessionTokens, status = 200): void {
@@ -16,21 +16,14 @@ function respond(res: Response, tokens: SessionTokens, status = 200): void {
 const agent = (req: Request): string | null => req.header('user-agent')?.slice(0, 200) ?? null;
 
 export const register = asyncHandler(async (req, res) => {
-    const { username, password, displayName, setupToken } = req.body as {
+    const { username, password, displayName } = req.body as {
         username: string;
         password: string;
         displayName?: string;
-        setupToken?: string;
     };
     respond(
         res,
-        await authService.register(
-            username,
-            password,
-            displayName ?? username,
-            agent(req),
-            setupToken,
-        ),
+        await authService.register(username, password, displayName ?? username, agent(req)),
         201,
     );
 });
@@ -73,5 +66,5 @@ export const changePassword = asyncHandler(async (req, res) => {
 
 /** Which "log in with ..." buttons the login page should show. */
 export const providers = asyncHandler(async (_req, res) => {
-    res.json({ providers: configuredProviders(), setupRequired: await setupRequired() });
+    res.json({ providers: configuredProviders() });
 });

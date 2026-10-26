@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-26
+
+### Changed
+
+- The owner setup token is gone: the first account is created by password or by signing in with GitHub, Microsoft or Google.
+- Sign-in form and provider buttons restyled: flat, bordered, no glows.
+
 ## [0.1.6] - 2026-10-26
 
 ### Changed
