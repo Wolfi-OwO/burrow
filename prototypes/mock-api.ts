@@ -88,9 +88,6 @@ const names: [string, number | null, FileItem['status'], number | null][] = [
     ['untitled-1.png', null, 'unsorted', null],
     ['notes.txt', 4, 'sorted', null],
     ['report.pdf', 4, 'sorted', null],
-    ['letter.docx', 4, 'sorted', null],
-    ['budget.xlsx', 4, 'sorted', null],
-    ['deck.pptx', 4, 'sorted', null],
     ['people.csv', 4, 'sorted', null],
 ];
 const hues = [
@@ -113,7 +110,7 @@ let files: FileItem[] = names.map(([name, categoryId, status, suggested], i) => 
         ? 'application/pdf'
         : name.endsWith('.txt')
           ? 'text/plain'
-          : /\.(docx|xlsx|pptx|csv)$/.test(name)
+          : /\.csv$/.test(name)
             ? 'application/octet-stream'
             : 'image/jpeg',
     size: 80_000 + i * 173_000,
@@ -321,7 +318,7 @@ function answer(
     if (one) {
         const file = files.find((f) => f.id === one[1]);
         if (!file) return json({ message: 'Not found.' }, 404);
-        if (one[2] === 'content' && /\.(docx|xlsx|pptx|csv|txt|pdf)$/.test(file.name))
+        if (one[2] === 'content' && /\.(csv|txt|pdf)$/.test(file.name))
             return fetchSample(file.name);
         if (one[2]) return thumb(file);
         if (method === 'DELETE') {
