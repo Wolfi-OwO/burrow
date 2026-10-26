@@ -1,6 +1,8 @@
 # Production stack for the VPS. Joins the `edge-net` network the shared Caddy already uses. Run with:
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d
-# Image tags come from IMAGE_TAG in .env, which deploy.sh rewrites on every release.
+# Image tags come from API_TAG and VISION_TAG in .env, which deploy.sh rewrites on a release; a component whose
+# files did not change keeps its tag. APP_VERSION and APP_REVISION are set the same way, so the footer shows the
+# release that is running even when the image was reused.
 #
 # How this differs from docker-compose.yml (local dev):
 #   * No published host port. Caddy is the only process on the box allowed to publish 0.0.0.0 ports, and a
@@ -23,7 +25,7 @@ x-logging: &logging
 
 services:
   burrow:
-    image: ${REGISTRY:?REGISTRY must be set}/burrow-api:${IMAGE_TAG:?IMAGE_TAG must be set}
+    image: ${REGISTRY:?REGISTRY must be set}/burrow-api:${API_TAG:?API_TAG must be set}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -54,7 +56,7 @@ services:
     logging: *logging
 
   burrow-vision:
-    image: ${REGISTRY}/burrow-vision:${IMAGE_TAG}
+    image: ${REGISTRY}/burrow-vision:${VISION_TAG:?VISION_TAG must be set}
     restart: unless-stopped
     environment:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}

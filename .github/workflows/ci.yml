@@ -15,6 +15,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which parts of the repository this change touches. A job whose files did not change is skipped, which counts as
+  # passed for branch protection; hygiene and the secret scan always run.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.diff.outputs.web }}
+      vision: ${{ steps.diff.outputs.vision }}
+      runtime: ${{ steps.diff.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Compare with the base
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          ZERO=0000000000000000000000000000000000000000
+          if [ "$EVENT" = "pull_request" ]; then BASE="$PR_BASE"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ] && git cat-file -e "$BEFORE" 2>/dev/null; then BASE="$BEFORE"
+          else BASE=""; fi
+
+          if [ -z "$BASE" ]; then
+            # Nothing to compare with (manual run, first push): run everything.
+            WEB=true; VISION=true
+          else
+            FILES="$(git diff --name-only "$BASE" HEAD)"
+            printf '%s\n' "$FILES" | grep -Eq '^(apps/api/|apps/frontend/|e2e/|package(-lock)?\.json$|\.nvmrc$|eslint\.config\.mjs$|docker-compose\.yml$|\.github/workflows/ci\.yml$)' && WEB=true || WEB=false
+            printf '%s\n' "$FILES" | grep -Eq '^(apps/vision/|\.github/workflows/ci\.yml$)' && VISION=true || VISION=false
+          fi
+          if [ "$WEB" = true ] || [ "$VISION" = true ]; then RUNTIME=true; else RUNTIME=false; fi
+          printf 'web=%s\nvision=%s\nruntime=%s\n' "$WEB" "$VISION" "$RUNTIME" | tee -a "$GITHUB_OUTPUT"
+
   repo-hygiene:
     name: Repository hygiene
     runs-on: ubuntu-latest
@@ -54,6 +91,8 @@ jobs:
 
   api:
     name: apps/api and apps/frontend
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -94,6 +133,8 @@ jobs:
 
   vision:
     name: apps/vision
+    needs: changes
+    if: needs.changes.outputs.vision == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -127,7 +168,9 @@ jobs:
   smoke:
     name: End-to-end smoke
     runs-on: ubuntu-latest
-    needs: [api, vision]
+    needs: [changes, api, vision]
+    # Skipped jobs are fine; a failed one, or nothing that runs in the stack changed, is not a reason to start it.
+    if: ${{ !cancelled() && !failure() && needs.changes.outputs.runtime == 'true' }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7

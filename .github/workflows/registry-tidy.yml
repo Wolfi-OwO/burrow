@@ -1,0 +1,51 @@
+name: Registry tidy
+
+# Removes old and duplicate images from the container registry. Always kept: the tags that are deployed right now
+# (passed in by the release) and the newest few of each image, for a quick rollback. Anything a kept tag still points
+# at (a multi-platform manifest's children) is protected too, so a pull never breaks.
+
+on:
+  workflow_call:
+    inputs:
+      keep:
+        description: Space separated tags that must stay (the deployed ones)
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: Space separated tags that must stay (the deployed ones)
+        default: ""
+      newest:
+        description: How many of the newest tagged images to keep per image
+        default: "3"
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  tidy:
+    name: Remove old images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tidy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP: ${{ inputs.keep }}
+          NEWEST: ${{ inputs.newest || '3' }}
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
+          OWNER: wolfi-owo
+        run: bash organizational/deploy/registry-tidy.sh

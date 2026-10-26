@@ -1,9 +1,15 @@
 name: Release
 
-# Publishing a GitHub Release builds both images, pushes them under the release tag, and deploys that tag.
-# workflow_dispatch redeploys any existing tag, which is also the rollback path.
+# Publishing a GitHub Release ships it. Each component is its own job and is only rebuilt when its inputs changed:
+#
+#   web     apps/api + apps/frontend (one image). Tagged web-<hash of its sources>; if that tag already exists in the
+#           registry, nothing is built and the existing image is deployed.
+#   vision  apps/vision, the AI detector. Heavy, so it is replaced only when asked for: put [vision] in the release
+#           notes, or run this workflow by hand with "vision" ticked. Otherwise the vision image on the server stays.
+#
 # The deploy job sits behind the `production` environment, whose required reviewer is the owner: a release builds
-# straight away, then waits for one approval before anything touches the server.
+# straight away, then waits for one approval before anything touches the server. workflow_dispatch redeploys any
+# existing release tag, which is also the rollback path.
 
 on:
   release:
@@ -11,8 +17,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to (re)deploy, e.g. v0.1.0
+        description: Existing release tag to (re)deploy, e.g. v0.3.0
         required: true
+      vision:
+        description: Replace the AI detector image too
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,21 +32,25 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # GitHub's own registry: no extra secret, and the images hold nothing private (public model weights, our own code).
   REGISTRY: ghcr.io/wolfi-owo
 
 jobs:
-  images:
-    name: Build and push images
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: read
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      web_tag: ${{ steps.plan.outputs.web_tag }}
+      build_web: ${{ steps.plan.outputs.build_web }}
+      vision_tag: ${{ steps.plan.outputs.vision_tag }}
+      build_vision: ${{ steps.plan.outputs.build_vision }}
     steps:
-      - name: Resolve the tag
-        id: tag
+      - name: Resolve the release tag
+        id: resolve
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_TAG: ${{ inputs.tag }}
@@ -49,46 +63,114 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          ref: ${{ steps.tag.outputs.tag }}
-      - uses: docker/setup-buildx-action@v4
+          ref: ${{ steps.resolve.outputs.tag }}
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push burrow-api
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: ${{ env.REGISTRY }}/burrow-api:${{ steps.tag.outputs.tag }}
-          build-args: |
-            APP_VERSION=${{ steps.tag.outputs.tag }}
-            APP_REVISION=${{ github.sha }}
-            APP_BUILD_DATE=${{ github.event.repository.updated_at }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,scope=api,mode=max
+      - name: Decide what to build
+        id: plan
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          ASKED_INPUT: ${{ inputs.vision }}
+          RELEASE_NOTES: ${{ github.event.release.body }}
+        run: |
+          set -euo pipefail
+          exists() { docker manifest inspect "$REGISTRY/$1:$2" >/dev/null 2>&1; }
 
-      - name: Build and push burrow-vision
-        uses: docker/build-push-action@v7
-        with:
-          context: apps/vision
-          push: true
-          tags: ${{ env.REGISTRY }}/burrow-vision:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha,scope=vision
-          cache-to: type=gha,scope=vision,mode=max
+          # A tag is the hash of the files an image is built from: same files, same tag, same image.
+          WEB_HASH="$(git rev-parse HEAD:apps/api HEAD:apps/frontend HEAD:package.json HEAD:package-lock.json HEAD:.nvmrc | sha256sum | cut -c1-12)"
+          VISION_HASH="$(git rev-parse HEAD:apps/vision | cut -c1-12)"
+          WEB_TAG="web-$WEB_HASH"
+          VISION_TAG="vision-$VISION_HASH"
+
+          if exists burrow-api "$WEB_TAG"; then BUILD_WEB=false; else BUILD_WEB=true; fi
+
+          # The AI detector only changes when someone says so.
+          if [ "$ASKED_INPUT" = "true" ] || printf '%s' "$RELEASE_NOTES" | grep -qiF '[vision]'; then
+            ASKED=true
+            if exists burrow-vision "$VISION_TAG"; then BUILD_VISION=false; else BUILD_VISION=true; fi
+          else
+            ASKED=false
+            BUILD_VISION=false
+            VISION_TAG=keep
+          fi
+
+          {
+            echo "tag=$TAG"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "web_tag=$WEB_TAG"
+            echo "build_web=$BUILD_WEB"
+            echo "vision_tag=$VISION_TAG"
+            echo "build_vision=$BUILD_VISION"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release plan for $TAG"
+            echo
+            echo "| Component | Image tag | Action |"
+            echo "| - | - | - |"
+            if [ "$BUILD_WEB" = true ]; then echo "| web (api and frontend) | \`$WEB_TAG\` | built, its files changed |"; else echo "| web (api and frontend) | \`$WEB_TAG\` | reused, no changed files |"; fi
+            if [ "$ASKED" = false ]; then echo "| vision (AI detector) | kept | not replaced, not asked for |";
+            elif [ "$BUILD_VISION" = true ]; then echo "| vision (AI detector) | \`$VISION_TAG\` | built, asked for |";
+            else echo "| vision (AI detector) | \`$VISION_TAG\` | reused, asked for but nothing changed |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        # REGISTRY comes from the workflow env above.
+
+  web:
+    name: Web image
+    needs: plan
+    if: needs.plan.outputs.build_web == 'true'
+    uses: ./.github/workflows/build-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      ref: ${{ needs.plan.outputs.tag }}
+      image: burrow-api
+      tag: ${{ needs.plan.outputs.web_tag }}
+      context: .
+      file: apps/api/Dockerfile
+      cache-scope: web
+      build-args: |
+        APP_VERSION=${{ needs.plan.outputs.tag }}
+        APP_REVISION=${{ needs.plan.outputs.sha }}
+
+  vision:
+    name: AI detector image
+    needs: plan
+    if: needs.plan.outputs.build_vision == 'true'
+    uses: ./.github/workflows/build-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      ref: ${{ needs.plan.outputs.tag }}
+      image: burrow-vision
+      tag: ${{ needs.plan.outputs.vision_tag }}
+      context: apps/vision
+      cache-scope: vision
 
   deploy:
     name: Deploy to the VPS
-    needs: images
+    needs: [plan, web, vision]
+    # The build jobs are skipped when nothing changed; only a failed or cancelled one stops the deploy.
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      api_tag: ${{ steps.send.outputs.api_tag }}
+      vision_tag: ${{ steps.send.outputs.vision_tag }}
     steps:
-      - name: Send the tag over the forced-command key
+      - name: Send the tags over the forced-command key
+        id: send
         env:
-          TAG: ${{ needs.images.outputs.tag }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          WEB_TAG: ${{ needs.plan.outputs.web_tag }}
+          VISION_TAG: ${{ needs.plan.outputs.vision_tag }}
           VPS_HOST: ${{ vars.VPS_HOST }}
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
@@ -97,4 +179,17 @@ jobs:
           (umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key)
           ssh-keyscan -t ed25519 "$VPS_HOST" >> ~/.ssh/known_hosts
           # The key on the box is bound to /opt/burrow/deploy.sh; this string is its only input.
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "deploy@${VPS_HOST}" "$TAG"
+          OUT="$(ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "deploy@${VPS_HOST}" \
+            "deploy api=$WEB_TAG vision=$VISION_TAG version=$TAG revision=$SHA" | tee /dev/stderr)"
+          printf '%s\n' "$OUT" | sed -n 's/^DEPLOYED api=\(.*\) vision=\(.*\)$/api_tag=\1\nvision_tag=\2/p' >> "$GITHUB_OUTPUT"
+
+  tidy:
+    name: Tidy the registry
+    needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    uses: ./.github/workflows/registry-tidy.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      keep: ${{ needs.deploy.outputs.api_tag }} ${{ needs.deploy.outputs.vision_tag }}

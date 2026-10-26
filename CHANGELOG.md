@@ -8,6 +8,11 @@ first release is cut.
 
 ## [Unreleased]
 
+### Changed
+
+- Release workflow redesigned: the web image (api and frontend) is built only when its files changed, the AI detector image only when asked for (`[vision]` in the release notes, or ticked on a manual run); unchanged components reuse their image. Deploy takes a tag per component, shows the release version even for a reused image, and a registry tidy job removes old and duplicate image versions.
+- CI runs the web, vision and smoke jobs only when their files changed.
+
 ## [0.3.0] - 2026-10-26
 
 ### Added

@@ -100,13 +100,26 @@ Everything that leaves the box is encrypted (ADR-0006). On the VPS:
 
 ## Releasing
 
-A published GitHub Release runs `.github/workflows/release.yml`: it builds both images, pushes them tagged with the
-release tag, then connects with the forced-command key and sends the tag. `deploy.sh` rewrites `IMAGE_TAG`, pulls,
-restarts, and waits for `/readyz` to answer three times in a row. If it never does, it restores the previous tag and
-exits non-zero, so the workflow fails loudly and the old version keeps serving.
+A published GitHub Release runs `.github/workflows/release.yml`. Each part is its own job and is only rebuilt when
+its files changed:
 
-Rolling back by hand: re-run the release workflow for the older tag (`workflow_dispatch`), or on the box run
-`/opt/burrow/deploy.sh v0.1.0` with the tag you want.
+| Job               | What                                                                                                       | When it builds                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan              | Hashes the sources of each component and checks which images already exist                                 | always, and prints a table in the run summary                                                                                                                    |
+| Web image         | `apps/api` and `apps/frontend` in one image, tagged `web-<hash of its sources>`                            | only when that tag does not exist yet, i.e. only when its files changed                                                                                          |
+| AI detector image | `apps/vision`, tagged `vision-<hash>`                                                                      | only when asked: put `[vision]` in the release notes, or run the workflow by hand with "vision" ticked. Otherwise the vision image on the server stays untouched |
+| Deploy            | Sends `deploy api=<tag> vision=<tag or keep> version=<release> revision=<sha>` over the forced-command key | after you approve the `production` environment                                                                                                                   |
+| Tidy the registry | Deletes old and duplicate image versions                                                                   | after a successful deploy                                                                                                                                        |
+
+`deploy.sh` rewrites `API_TAG`, `VISION_TAG`, `APP_VERSION` and `APP_REVISION` in `.env`, pulls, restarts, and waits for
+`/readyz` to answer three times in a row. If it never does, it restores the previous tags and exits non-zero, so the
+workflow fails loudly and the old version keeps serving. `deploy.sh status` prints the tags that are deployed now.
+
+Rolling back by hand: run the release workflow again with the older release tag (`workflow_dispatch`); a missing image is
+rebuilt from that tag's sources.
+
+The registry keeps the deployed tags and the newest three images of each kind (`organizational/deploy/registry-tidy.sh`,
+also runnable on its own as the "Registry tidy" workflow).
 
 The first start applies the schema (`scripts/run-migrations.mjs` runs before the server). Take a backup first whenever a
 release contains a new migration.
