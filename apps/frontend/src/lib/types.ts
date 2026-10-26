@@ -90,3 +90,15 @@ export interface DuplicateGroup {
     keepId: string;
     files: FileItem[];
 }
+
+/** The kinds the drive can be filtered by; the key is what the API's `type` parameter takes. */
+export const FILE_KINDS: { key: string; label: string }[] = [
+    { key: 'image', label: 'Pictures' },
+    { key: 'document', label: 'Documents' },
+    { key: 'spreadsheet', label: 'Spreadsheets' },
+    { key: 'presentation', label: 'Presentations' },
+    { key: 'archive', label: 'Archives' },
+    { key: 'audio', label: 'Audio' },
+    { key: 'video', label: 'Video' },
+    { key: 'other', label: 'Other' },
+];

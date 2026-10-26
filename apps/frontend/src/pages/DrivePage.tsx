@@ -3,6 +3,7 @@ import {
     CheckCircle2,
     Copy,
     FileText,
+    FolderOpen,
     Download,
     Maximize2,
     Play,
@@ -19,11 +20,13 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { FileCard } from '../components/FileCard.tsx';
 import { previewable } from '../components/FilePreview.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
+import { UnzipDialog } from '../components/UnzipDialog.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api, ApiError, fetchBlob, uploadWithProgress } from '../lib/api.ts';
 import { useServerEvents } from '../lib/events.tsx';
 import { formatBytes } from '../lib/format.ts';
+import { FILE_KINDS } from '../lib/types.ts';
 import type { CategoryNode, FileItem } from '../lib/types.ts';
 
 interface UploadState {
@@ -38,12 +41,15 @@ interface UploadState {
 }
 
 export function DrivePage(): ReactNode {
-    const [params] = useSearchParams();
+    const [params, setParams] = useSearchParams();
     const navigate = useNavigate();
     const client = useQueryClient();
     const toast = useToast();
     const raw = params.get('c');
     const category = raw === null ? undefined : raw === 'unsorted' ? 'unsorted' : Number(raw);
+    const kindParam = params.get('t');
+    const kind = FILE_KINDS.some((k) => k.key === kindParam) ? kindParam : null;
+    const [unzipping, setUnzipping] = useState<string[] | null>(null);
     const [openId, setOpenId] = useState<string | null>(null);
     const [viewId, setViewId] = useState<string | null>(null);
     const [uploads, setUploads] = useState<UploadState[]>([]);
@@ -56,13 +62,28 @@ export function DrivePage(): ReactNode {
         queryFn: () => api<{ categories: CategoryNode[] }>('GET', '/api/categories'),
     });
     const files = useQuery({
-        queryKey: ['files', category ?? 'all'],
+        queryKey: ['files', category ?? 'all', kind ?? 'any'],
         queryFn: () =>
             api<{ files: FileItem[] }>(
                 'GET',
-                `/api/files?limit=200${category === undefined ? '' : `&category=${String(category)}&subtree=true`}`,
+                `/api/files?limit=200${category === undefined ? '' : `&category=${String(category)}&subtree=true`}${kind ? `&type=${kind}` : ''}`,
             ),
     });
+    const counts = useQuery({
+        queryKey: ['types'],
+        queryFn: () => api<{ counts: Record<string, number> }>('GET', '/api/files/types'),
+    });
+    const pickKind = (key: string | null): void =>
+        setParams(
+            (p) => {
+                const next = new URLSearchParams(p);
+                if (key) next.set('t', key);
+                else next.delete('t');
+                return next;
+            },
+            { replace: true },
+        );
+    const zipsHere = (files.data?.files ?? []).filter((f) => /\.zip$/i.test(f.name));
     const current = tree.data?.categories.find((c) => c.id === category);
     const crumbs = useMemo(() => {
         if (category === undefined) return ['Everything'];
@@ -277,6 +298,38 @@ export function DrivePage(): ReactNode {
                 </form>
             </header>
 
+            <div className="kinds" role="group" aria-label="Show only">
+                <button type="button" aria-pressed={kind === null} onClick={() => pickKind(null)}>
+                    All
+                    {counts.data ? <span className="n">{counts.data.counts.all}</span> : null}
+                </button>
+                {FILE_KINDS.filter(
+                    (k) => (counts.data?.counts[k.key] ?? 0) > 0 || k.key === kind,
+                ).map((k) => (
+                    <button
+                        key={k.key}
+                        type="button"
+                        aria-pressed={kind === k.key}
+                        onClick={() => pickKind(k.key)}
+                    >
+                        {k.label}
+                        <span className="n">{counts.data?.counts[k.key] ?? 0}</span>
+                    </button>
+                ))}
+                {zipsHere.length > 0 ? (
+                    <button
+                        type="button"
+                        className="kinds-action"
+                        onClick={() => setUnzipping(zipsHere.map((z) => z.id))}
+                    >
+                        <FolderOpen size={14} />
+                        Unzip{' '}
+                        {zipsHere.length === 1
+                            ? 'this archive'
+                            : `all ${String(zipsHere.length)} archives`}
+                    </button>
+                ) : null}
+            </div>
             <button className={`hole ${over ? 'over' : ''}`} onClick={() => input.current?.click()}>
                 <UploadCloud size={30} aria-hidden="true" />
                 <strong>{over ? 'Let go to drop it in' : 'Drop files into the burrow'}</strong>
@@ -371,6 +424,7 @@ export function DrivePage(): ReactNode {
                 ))}
             </div>
 
+            {unzipping ? <UnzipDialog ids={unzipping} onClose={() => setUnzipping(null)} /> : null}
             {viewing ? (
                 <Lightbox
                     name={viewing.name}
@@ -395,6 +449,7 @@ export function DrivePage(): ReactNode {
                 <Details
                     file={open}
                     onView={() => setViewId(open.id)}
+                    onUnzip={() => setUnzipping([open.id])}
                     categories={tree.data?.categories ?? []}
                     onClose={() => setOpenId(null)}
                     onGone={() => {
@@ -410,12 +465,14 @@ export function DrivePage(): ReactNode {
 function Details({
     file,
     onView,
+    onUnzip,
     categories,
     onClose,
     onGone,
 }: {
     file: FileItem;
     onView: () => void;
+    onUnzip: () => void;
     categories: CategoryNode[];
     onClose: () => void;
     onGone: () => void;
@@ -582,6 +639,12 @@ function Details({
                     <Download size={16} />
                     Download
                 </button>
+                {/\.zip$/i.test(file.name) ? (
+                    <button className="btn ghost" onClick={onUnzip}>
+                        <FolderOpen size={16} />
+                        Unzip
+                    </button>
+                ) : null}
                 <button className="btn ghost" onClick={() => setSharing(true)}>
                     <Share2 size={16} />
                     Share

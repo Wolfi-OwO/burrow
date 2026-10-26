@@ -73,6 +73,98 @@ describe('files', () => {
         ]);
     });
 
+    it('unpacks zips inside zips and keeps no archive behind', async () => {
+        const { token } = await registerOwner();
+        const a = Buffer.from(await (await png(11)).arrayBuffer());
+        const b = Buffer.from(await (await png(12)).arrayBuffer());
+        const inner = Buffer.from(await zipOf([{ name: 'deep/b.png', data: b }]).arrayBuffer());
+        const outer = zipOf([
+            { name: 'a.png', data: a },
+            { name: 'more.zip', data: inner },
+        ]);
+        const stream = await fetch(`${base}/api/events`, {
+            headers: { authorization: `Bearer ${token}` },
+        });
+        const reader = (stream.body as ReadableStream<Uint8Array>).getReader();
+        assert.equal((await upload(token, 'outer.zip', outer)).status, 202);
+        let seen = '';
+        const decoder = new TextDecoder();
+        while (!seen.includes('event: upload.done')) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            seen += decoder.decode(chunk.value);
+        }
+        await reader.cancel();
+        const names = (await api('GET', '/api/files?limit=50', { token })).json.files.map(
+            (f: { name: string }) => f.name,
+        );
+        assert.deepEqual(names.sort(), ['a.png', 'b.png']);
+    });
+
+    it('filters the drive by kind of file and counts each kind', async () => {
+        const { token } = await registerOwner();
+        await upload(token, 'p.png', await png(20));
+        await upload(token, 'notes.txt', new Blob(['hello'], { type: 'text/plain' }));
+        await upload(token, 'sheet.xlsx', new Blob(['x'], { type: 'application/octet-stream' }));
+        await upload(token, 'weird.bin', new Blob(['x'], { type: 'application/octet-stream' }));
+        const names = async (type: string): Promise<string[]> =>
+            (await api('GET', `/api/files?type=${type}&limit=50`, { token })).json.files.map(
+                (f: { name: string }) => f.name,
+            );
+        assert.deepEqual(await names('image'), ['p.png']);
+        assert.deepEqual(await names('document'), ['notes.txt']);
+        assert.deepEqual(await names('spreadsheet'), ['sheet.xlsx']);
+        assert.deepEqual(await names('other'), ['weird.bin']);
+        const counts = (await api('GET', '/api/files/types', { token })).json.counts;
+        assert.equal(counts.all, 4);
+        assert.equal(counts.image, 1);
+        assert.equal(counts.other, 1);
+    });
+
+    it('unzips a stored zip in place and removes the zip', async () => {
+        const { token } = await registerOwner();
+        const cat = (
+            await api('POST', '/api/categories', { token, body: { name: 'Box', parentId: null } })
+        ).json.id as number;
+        const a = Buffer.from(await (await png(31)).arrayBuffer());
+        const stored = (await upload(token, 'stored.zip.keep', zipOf([{ name: 'x.png', data: a }])))
+            .json.file.id as string;
+        // A real zip name is unpacked on upload, so store it under another name first, then rename it.
+        await api('PATCH', `/api/files/${stored}`, {
+            token,
+            body: { name: 'stored.zip', categoryId: cat },
+        });
+        const stream = await fetch(`${base}/api/events`, {
+            headers: { authorization: `Bearer ${token}` },
+        });
+        const reader = (stream.body as ReadableStream<Uint8Array>).getReader();
+        const reply = await api('POST', '/api/files/unzip', { token, body: {} });
+        assert.equal(reply.status, 202);
+        assert.equal(reply.json.count, 1);
+        let seen = '';
+        const decoder = new TextDecoder();
+        while (!seen.includes('event: upload.done')) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            seen += decoder.decode(chunk.value);
+        }
+        await reader.cancel();
+        const files = (await api('GET', '/api/files?limit=50', { token })).json.files as {
+            name: string;
+            categoryId: number;
+        }[];
+        assert.deepEqual(
+            files.map((f) => f.name),
+            ['x.png'],
+        );
+        assert.equal(files[0]?.categoryId, cat, "the contents stay in the zip's folder");
+        assert.equal(
+            (await api('GET', `/api/files/${stored}`, { token })).status,
+            404,
+            'the zip is gone',
+        );
+    });
+
     it('stores byte-identical content once, under a new name, and says so (FR-016)', async () => {
         const { token } = await registerOwner();
         const content = await png(3);

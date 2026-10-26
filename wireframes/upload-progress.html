@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>burrow wireframe: Upload progress</title><style>
+*{box-sizing:border-box} body{margin:0;font:15px/1.45 system-ui,sans-serif;color:#222;background:#fff}
+.page{max-width:1280px;margin:0 auto;padding:24px}
+.note{font-size:12px;color:#666;border-left:3px solid #999;padding:4px 10px;margin:0 0 16px}
+.box{border:2px solid #444;padding:12px;background:#fff} .dash{border:2px dashed #888;padding:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .col{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1;min-width:0} h1,h2,h3{margin:0 0 8px} h1{font-size:26px}h2{font-size:19px}h3{font-size:15px}
+.btn{display:inline-block;border:2px solid #444;padding:8px 14px;font-weight:600;background:#eee}
+.ghost{background:#fff} .in{border:2px solid #444;padding:10px;min-height:40px;color:#777;background:#fff}
+.tile{border:2px solid #444;aspect-ratio:1;display:grid;place-items:center;color:#777;background:repeating-linear-gradient(45deg,#fff,#fff 8px,#eee 8px,#eee 9px)}
+.shell{display:grid;grid-template-columns:260px 1fr;gap:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chip{border:1.5px solid #444;border-radius:99px;padding:2px 10px;font-size:12px} .muted{color:#777;font-size:13px}
+.ind{padding-left:16px;border-left:2px dotted #888} .bar{height:8px;border:1.5px solid #444} .bar i{display:block;height:100%;background:#444}
+.circle{width:48px;height:48px;border:2px solid #444;border-radius:50%;display:grid;place-items:center;font-size:11px}
+nav.wf{font-size:13px;margin-bottom:16px;color:#555} nav.wf a{margin-right:12px}
+</style></head>
+<body><div class="page"><nav class="wf"><a href="index.html">Index</a><a href="gate.html">Sign in</a><a href="drive.html">Drive</a><a href="drive-empty.html">Drive (empty)</a><a href="drive-details.html">Drive (details)</a><a href="upload-progress.html">Upload progress</a><a href="viewer.html">Viewer and previews</a><a href="share-dialog.html">Share dialog</a><a href="shared.html">Shared</a><a href="share-public.html">Public share page</a><a href="duplicates.html">Duplicates</a><a href="search.html">Search</a><a href="review.html">Review</a><a href="profile.html">Profile</a><a href="legal.html">Legal</a><a href="signing-in.html">Signing in</a></nav>
+<p class="note"><b>Upload progress</b>. Same drive screen while files are arriving. Each row shows the name, the state and a thin progress bar. A zip first uploads (percent), then the server unpacks it (entry x of y) and pushes updates; a notification appears when it finishes, on any page.</p>
+<div class="shell"><aside class="box col">
+  <div><b>[logo] burrow</b></div>
+  <div class="col"><div>[icon] Drive</div><div>[icon] Review <span class="chip">3</span></div><div class="box">[icon] Duplicates</div><div>[icon] Shared</div><div>[icon] Profile</div></div>
+  <div class="btn">+ New category</div>
+  <div class="col muted"><b>Everything</b><span>Unsorted</span><span>Photos</span><span class="ind">Holidays</span><span>Documents</span></div>
+  <div class="row"><div class="circle">avatar</div><div class="grow"><b>Display name</b><div class="muted">@username</div></div><span>[theme] [sign out]</span></div>
+</aside><main class="col"><div class="dash" style="text-align:center;padding:20px">[upload icon] <b>Drop files into the burrow</b> &middot; zip files are unpacked</div><div class="col"><div class="box">[spinner] photos.zip &nbsp; unpacking, 6 of 24 entries<div class="bar"><i style="width:25%"></i></div></div><div class="box">[spinner] big-photo.png &nbsp; uploading 62%<div class="bar"><i style="width:62%"></i></div></div><div class="box">[check] notes.txt &nbsp; stored</div><div class="box">[copy] same.jpg &nbsp; already stored, kept once</div></div><div class="box">[notification toast] photos.zip: 22 files unpacked.</div><div class="grid"><div class="col" style="gap:4px"><div class="tile">thumbnail</div><div>file-name.ext</div><div class="muted">2.0 MB</div></div><div class="col" style="gap:4px"><div class="tile">thumbnail</div><div>file-name.ext</div><div class="muted">2.0 MB</div></div><div class="col" style="gap:4px"><div class="tile">thumbnail</div><div>file-name.ext</div><div class="muted">2.0 MB</div></div><div class="col" style="gap:4px"><div class="tile">thumbnail</div><div>file-name.ext</div><div class="muted">2.0 MB</div></div><div class="col" style="gap:4px"><div class="tile">thumbnail</div><div>file-name.ext</div><div class="muted">2.0 MB</div></div></div></main></div><div class="box muted" style="margin-top:16px;display:flex;justify-content:space-between"><span>&copy; 2026 owner &middot; All rights reserved.</span><span>[build chip: repo &middot; version]</span><span>Status &middot; Impressum &middot; Privacy Policy &middot; Contact</span></div></div></body></html>

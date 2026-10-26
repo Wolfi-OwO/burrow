@@ -15,6 +15,8 @@ first release is cut.
 - Duplicates page: byte-identical files and near-identical pictures (same picture saved at another size or quality, found from the sorter's picture embeddings), keep the best copy, remove the rest one group at a time or all at once.
 - Rating check on the Review page: moves pictures that the NSFW classifier puts on the other side of an SFW / NSFW folder pair.
 - "Re-sort" on a folder sends its files back to the sorter.
+- Filter the drive by kind of file (pictures, documents, spreadsheets, presentations, archives, audio, video, other) with counts.
+- Unzip zips that are already in the drive, one or all: the contents are saved in the zip's folder and the zip is removed; zips inside zips are unpacked too, on upload as well.
 - Previews for old Office files too (.doc, .xls, .ppt), read in the browser.
 - Zip contents are filed into the folder the upload was started from.
 - Previews for everything: text and code, CSV, PDF, Word (docx), Excel (xlsx), PowerPoint (pptx) and OpenDocument files, audio, video and zip contents open full screen from Details and on share pages; anything else shows a clear "no preview" card with Download.

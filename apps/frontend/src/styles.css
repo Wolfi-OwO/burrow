@@ -2013,3 +2013,47 @@ select.input {
 .preview-table {
     width: max-content;
 }
+
+/* ---- filter by kind ---- */
+.kinds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 14px;
+}
+.kinds button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition:
+        background var(--dur) var(--ease),
+        color var(--dur) var(--ease),
+        border-color var(--dur) var(--ease);
+}
+.kinds button:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--text) 30%, var(--line));
+}
+.kinds button[aria-pressed='true'] {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
+}
+.kinds .n {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+.kinds .kinds-action {
+    margin-left: auto;
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--text) 30%, var(--line));
+}

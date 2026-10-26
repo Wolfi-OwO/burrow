@@ -1,5 +1,7 @@
 import type { DatabaseRow, Queryable } from '../database/connection.ts';
 import { getPool } from '../database/connection.ts';
+import { typeCondition, FILE_TYPES, ZIP_CONDITION } from '../lib/file-types.ts';
+import type { FileType } from '../lib/file-types.ts';
 import { EXPLICIT_SQL, SAFE_SQL } from '../lib/rating.ts';
 import type { FileRecord, FileStatus, FileView } from '../models/file.model.ts';
 
@@ -47,6 +49,8 @@ export interface FileListFilter {
     /** A category id, or `unsorted` for files in no category. Omitted → everything. */
     category?: number | 'unsorted';
     status?: FileStatus;
+    /** Only files of this kind (pictures, documents, archives ...). */
+    type?: FileType;
     /** Include the whole subtree of `category`, not only files filed directly in it. */
     subtree?: boolean;
     limit: number;
@@ -95,6 +99,7 @@ export const fileRepository = {
             values.push(filter.status);
             where.push(`f.status = $${String(values.length)}`);
         }
+        if (filter.type) where.push(typeCondition(filter.type));
         if (filter.category === 'unsorted') {
             where.push('f.category_id IS NULL');
         } else if (typeof filter.category === 'number') {
@@ -378,5 +383,33 @@ export const fileRepository = {
             [userId],
         );
         return rowCount ?? 0;
+    },
+
+    /** How many files of each kind the user has, for the filter chips. */
+    async typeCounts(userId: string, db: Queryable = getPool()): Promise<Record<string, number>> {
+        const cols = FILE_TYPES.map(
+            (t) => `count(*) FILTER (WHERE ${typeCondition(t)})::int AS "${t}"`,
+        ).join(', ');
+        const { rows } = await db.query(
+            `SELECT count(*)::int AS "all", ${cols} FROM files f WHERE f.user_id = $1`,
+            [userId],
+        );
+        return Object.fromEntries(
+            Object.entries(rows[0] as DatabaseRow).map(([k, v]) => [k, Number(v)]),
+        );
+    },
+
+    /** The user's .zip files (all of them, or just these ids) that the drive can unpack. */
+    async zipFiles(
+        userId: string,
+        ids: string[] | null,
+        db: Queryable = getPool(),
+    ): Promise<FileRecord[]> {
+        const { rows } = await db.query(
+            `SELECT ${COLUMNS} FROM files f WHERE f.user_id = $1 AND ${ZIP_CONDITION}
+               AND ($2::uuid[] IS NULL OR f.id = ANY($2::uuid[])) ORDER BY f.created_at`,
+            [userId, ids],
+        );
+        return rows.map(toRecord);
     },
 };

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
+import { FILE_TYPES } from '../lib/file-types.ts';
+
 export const fileListQuerySchema = z.object({
     category: z.union([z.literal('unsorted'), z.coerce.number().int().positive()]).optional(),
     status: z.enum(['unsorted', 'sorted', 'review']).optional(),
+    type: z.enum(FILE_TYPES).optional(),
     subtree: z
         .enum(['true', 'false'])
         .default('false')
@@ -31,3 +34,5 @@ export const reviewResolveSchema = z
         (v) => v.action !== 'move' || v.categoryId !== undefined,
         'categoryId is required to move.',
     );
+
+export const unzipSchema = z.object({ ids: z.array(z.uuid()).max(500).optional() }).strict();

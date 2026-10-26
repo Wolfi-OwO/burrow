@@ -20,6 +20,7 @@ export const list = asyncHandler(async (req, res) => {
     const q = req.query as unknown as {
         category?: number | 'unsorted';
         status?: FileListFilter['status'];
+        type?: FileListFilter['type'];
         subtree: boolean;
         limit: number;
         offset: number;
@@ -27,6 +28,7 @@ export const list = asyncHandler(async (req, res) => {
     const filter: FileListFilter = { subtree: q.subtree, limit: q.limit, offset: q.offset };
     if (q.category !== undefined) filter.category = q.category;
     if (q.status !== undefined) filter.status = q.status;
+    if (q.type !== undefined) filter.type = q.type;
     res.json({ files: await fileService.list(uid(req), filter) });
 });
 
@@ -128,4 +130,42 @@ export const search = asyncHandler(async (req, res) => {
     // FR-022: the empty state is explicit, not a silently empty list.
     const files = await fileService.search(uid(req), q, limit);
     res.json({ query: q, total: files.length, empty: files.length === 0, files });
+});
+
+export const typeCounts = asyncHandler(async (req, res) => {
+    res.json({ counts: await fileRepository.typeCounts(uid(req)) });
+});
+
+/**
+ * Unpacks .zip files that are already in the drive (one, a chosen few, or all of them): the contents are saved in
+ * the same folder and each zip that unpacked is removed. Runs in the background and reports on the event stream.
+ */
+export const unzip = asyncHandler(async (req, res) => {
+    const { ids } = req.body as { ids?: string[] };
+    const user = uid(req);
+    const zips = await fileRepository.zipFiles(user, ids ?? null);
+    const job = randomUUID();
+    res.status(202).json({ job, count: zips.length });
+    if (zips.length === 0) return;
+    const name =
+        zips.length === 1 ? (zips[0]?.name ?? 'archive') : `${String(zips.length)} archives`;
+    publish(user, { type: 'upload.progress', data: { job, name, seen: 0, total: zips.length } });
+    fileService
+        .unzipStored(user, zips, (seen) =>
+            publish(user, {
+                type: 'upload.progress',
+                data: { job, name, seen, total: zips.length },
+            }),
+        )
+        .then(
+            (result) =>
+                publish(user, {
+                    type: 'upload.done',
+                    data: { job, name, extracted: result.extracted, skipped: result.failed },
+                }),
+            (error: unknown) => {
+                logger.warn({ err: error }, 'unzip failed');
+                publish(user, { type: 'upload.failed', data: { job, name } });
+            },
+        );
 });

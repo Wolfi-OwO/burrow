@@ -96,6 +96,8 @@ const names: [string, number | null, FileItem['status'], number | null][] = [
     ['letter.doc', 4, 'sorted', null],
     ['budget.xls', 4, 'sorted', null],
     ['deck.ppt', 4, 'sorted', null],
+    ['holiday-photos.zip', 2, 'sorted', null],
+    ['old-documents.zip', 4, 'sorted', null],
 ];
 const hues = [
     24, 200, 140, 260, 340, 48, 180, 300, 20, 100, 220, 60, 160, 280, 40, 80, 120, 160, 200, 240,
@@ -240,6 +242,17 @@ function shareView(s: MockShare): Record<string, unknown> {
     };
 }
 
+const KINDS: Record<string, RegExp> = {
+    image: /\.(jpe?g|png|gif|webp)$/i,
+    document: /\.(pdf|docx?|odt|txt|md)$/i,
+    spreadsheet: /\.(xlsx?|ods|csv)$/i,
+    presentation: /\.(pptx?|odp)$/i,
+    archive: /\.(zip|7z|rar|tar|gz)$/i,
+};
+function kindOf(name: string): string {
+    return Object.entries(KINDS).find(([, re]) => re.test(name))?.[0] ?? 'other';
+}
+
 function answer(
     method: string,
     url: URL,
@@ -297,6 +310,8 @@ function answer(
     if (p === '/api/files' && method === 'GET') {
         const wanted = url.searchParams.get('category');
         let list = view();
+        const wantedType = url.searchParams.get('type');
+        if (wantedType) list = list.filter((f) => kindOf(f.name) === wantedType);
         if (wanted === 'unsorted') list = list.filter((f) => f.categoryId === null);
         else if (wanted)
             list = list.filter(
@@ -427,6 +442,55 @@ function answer(
             suggestedCategoryId: null,
         }));
         return json({ queued });
+    }
+    if (p === '/api/files/types') {
+        const counts: Record<string, number> = { all: files.length };
+        for (const k of [...Object.keys(KINDS), 'other'])
+            counts[k] = files.filter((f) => kindOf(f.name) === k).length;
+        return json({ counts });
+    }
+    if (p === '/api/files/unzip') {
+        const zips = files.filter(
+            (f) =>
+                /\.zip$/i.test(f.name) &&
+                (!(body.ids as string[] | undefined) || (body.ids as string[]).includes(f.id)),
+        );
+        const job = `unzip-${String(Date.now())}`;
+        let step = 0;
+        pushEvent?.('upload.progress', {
+            job,
+            name: `${String(zips.length)} archives`,
+            seen: 0,
+            total: zips.length,
+        });
+        const tick = setInterval(() => {
+            step += 1;
+            pushEvent?.('upload.progress', {
+                job,
+                name: `${String(zips.length)} archives`,
+                seen: step,
+                total: zips.length,
+            });
+            if (step >= zips.length) {
+                clearInterval(tick);
+                const made = zips.length * 3;
+                files = files.filter((f) => !zips.includes(f));
+                for (let i = 0; i < made; i++)
+                    files.unshift({
+                        ...(files[0] as FileItem),
+                        id: `u${String(Date.now())}${String(i)}`,
+                        name: `unpacked-${String(i + 1)}.jpg`,
+                        categoryId: zips[0]?.categoryId ?? null,
+                    });
+                pushEvent?.('upload.done', {
+                    job,
+                    name: `${String(zips.length)} archives`,
+                    extracted: made,
+                    skipped: 0,
+                });
+            }
+        }, 500);
+        return json({ job, count: zips.length }, 202);
     }
     if (p === '/api/review') return json({ files: view().filter((f) => f.status === 'review') });
     const review = /^\/api\/review\/(f\d+)$/.exec(p);

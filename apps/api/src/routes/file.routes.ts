@@ -12,6 +12,7 @@ import {
     filePatchSchema,
     reviewResolveSchema,
     searchQuerySchema,
+    unzipSchema,
 } from '../schemas/file.schemas.ts';
 
 export const fileRouter = Router();
@@ -20,6 +21,8 @@ fileRouter.use(requireAuth);
 fileRouter.get('/events', (req, res) => openStream((req.user as { sub: string }).sub, req, res));
 fileRouter.get('/files', validateQuery(fileListQuerySchema), file.list);
 fileRouter.post('/files', uploadRateLimiter, ...uploadFile, file.upload);
+fileRouter.get('/files/types', file.typeCounts);
+fileRouter.post('/files/unzip', validateBody(unzipSchema), file.unzip);
 fileRouter.get('/files/:id', validateIdParam(), file.get);
 fileRouter.get('/files/:id/content', validateIdParam(), file.content);
 fileRouter.get('/files/:id/thumbnail', validateIdParam(), file.thumbnail);

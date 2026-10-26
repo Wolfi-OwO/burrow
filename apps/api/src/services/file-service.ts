@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import sharp from 'sharp';
 
@@ -53,6 +53,66 @@ export interface ArchiveResult {
     skipped: number;
 }
 
+/** How deep zips inside zips are followed. */
+const MAX_ZIP_DEPTH = 3;
+
+/**
+ * Unpacks one archive into files, recursing into nested .zip entries. `budget` is shared, so the size cap covers the
+ * whole tree: a zip of zips cannot unpack to more than one archive's allowance in total.
+ */
+async function unpack(
+    userId: string,
+    archive: string,
+    stagingDir: string,
+    categoryId: number | null,
+    onProgress?: (seen: number, total: number) => void,
+    depth = 0,
+    budget = { used: 0 },
+): Promise<ArchiveResult> {
+    const files: FileRecord[] = [];
+    let skipped = 0;
+    const store = async (path: string, size: number, name: string): Promise<void> => {
+        const { file } = await fileService.upload(userId, path, size, name, '');
+        // Unpacked into the folder the upload was started from, like a single file would be.
+        if (categoryId !== null) await fileRepository.setCategory(userId, file.id, categoryId);
+        files.push(file);
+    };
+    const summary = await extractZip(
+        archive,
+        stagingDir,
+        {
+            maxEntries: config.zip.maxEntries,
+            maxEntryBytes: config.maxUploadBytes,
+            maxTotalBytes: Math.max(config.zip.maxTotalBytes - budget.used, 0),
+        },
+        async (path, size, name) => {
+            budget.used += size;
+            if (depth < MAX_ZIP_DEPTH && /\.zip$/i.test(name)) {
+                try {
+                    const inner = await unpack(
+                        userId,
+                        path,
+                        stagingDir,
+                        categoryId,
+                        undefined,
+                        depth + 1,
+                        budget,
+                    );
+                    files.push(...inner.files);
+                    skipped += inner.skipped;
+                    await rm(path, { force: true });
+                    return;
+                } catch {
+                    // Not a readable zip after all: keep it as an ordinary file.
+                }
+            }
+            await store(path, size, name);
+        },
+        depth === 0 ? onProgress : undefined,
+    );
+    return { files, extracted: files.length, skipped: summary.skipped + skipped };
+}
+
 export const fileService = {
     /**
      * Stores an uploaded file: hash it, skip the write when the bytes already exist, and always
@@ -96,7 +156,7 @@ export const fileService = {
 
     /**
      * A .zip is not stored itself: every file inside becomes its own file, exactly as if it had been uploaded one by
-     * one (same dedupe, same classification queue).
+     * one (same dedupe, same classification queue). A zip inside a zip is unpacked too, down to a fixed depth.
      */
     async uploadArchive(
         userId: string,
@@ -104,29 +164,46 @@ export const fileService = {
         onProgress?: (seen: number, total: number) => void,
         categoryId: number | null = null,
     ): Promise<ArchiveResult> {
-        const files: FileRecord[] = [];
         try {
-            const summary = await extractZip(
-                stagedPath,
-                dirname(stagedPath),
-                {
-                    maxEntries: config.zip.maxEntries,
-                    maxEntryBytes: config.maxUploadBytes,
-                    maxTotalBytes: config.zip.maxTotalBytes,
-                },
-                async (path, size, name) => {
-                    const { file } = await fileService.upload(userId, path, size, name, '');
-                    // Unpacked into the folder the upload was started from, like a single file would be.
-                    if (categoryId !== null)
-                        await fileRepository.setCategory(userId, file.id, categoryId);
-                    files.push(file);
-                },
-                (seen, total) => onProgress?.(seen, total),
-            );
-            return { files, ...summary };
+            return await unpack(userId, stagedPath, dirname(stagedPath), categoryId, onProgress);
         } finally {
             await rm(stagedPath, { force: true });
         }
+    },
+
+    /**
+     * Unpacks zips that are already in the drive: contents saved in the zip's own folder, then the zip is removed.
+     * A zip that cannot be read, or that held nothing, stays where it is.
+     */
+    async unzipStored(
+        userId: string,
+        zips: FileRecord[],
+        onProgress?: (done: number) => void,
+    ): Promise<{ extracted: number; failed: number }> {
+        let extracted = 0;
+        let failed = 0;
+        let done = 0;
+        for (const zip of zips) {
+            try {
+                const path = await blobStore.ensureLocal(zip.blobSha256);
+                const result = await unpack(
+                    userId,
+                    path,
+                    join(config.storage.dir, 'tmp'),
+                    zip.categoryId,
+                );
+                if (result.extracted === 0) failed += 1;
+                else {
+                    extracted += result.extracted;
+                    await fileService.remove(userId, zip.id);
+                }
+            } catch {
+                failed += 1;
+            }
+            done += 1;
+            onProgress?.(done);
+        }
+        return { extracted, failed };
     },
 
     list(userId: string, filter: FileListFilter): Promise<FileView[]> {

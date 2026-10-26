@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>burrow wireframe: Shared</title><style>
+*{box-sizing:border-box} body{margin:0;font:15px/1.45 system-ui,sans-serif;color:#222;background:#fff}
+.page{max-width:1280px;margin:0 auto;padding:24px}
+.note{font-size:12px;color:#666;border-left:3px solid #999;padding:4px 10px;margin:0 0 16px}
+.box{border:2px solid #444;padding:12px;background:#fff} .dash{border:2px dashed #888;padding:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .col{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1;min-width:0} h1,h2,h3{margin:0 0 8px} h1{font-size:26px}h2{font-size:19px}h3{font-size:15px}
+.btn{display:inline-block;border:2px solid #444;padding:8px 14px;font-weight:600;background:#eee}
+.ghost{background:#fff} .in{border:2px solid #444;padding:10px;min-height:40px;color:#777;background:#fff}
+.tile{border:2px solid #444;aspect-ratio:1;display:grid;place-items:center;color:#777;background:repeating-linear-gradient(45deg,#fff,#fff 8px,#eee 8px,#eee 9px)}
+.shell{display:grid;grid-template-columns:260px 1fr;gap:16px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chip{border:1.5px solid #444;border-radius:99px;padding:2px 10px;font-size:12px} .muted{color:#777;font-size:13px}
+.ind{padding-left:16px;border-left:2px dotted #888} .bar{height:8px;border:1.5px solid #444} .bar i{display:block;height:100%;background:#444}
+.circle{width:48px;height:48px;border:2px solid #444;border-radius:50%;display:grid;place-items:center;font-size:11px}
+nav.wf{font-size:13px;margin-bottom:16px;color:#555} nav.wf a{margin-right:12px}
+</style></head>
+<body><div class="page"><nav class="wf"><a href="index.html">Index</a><a href="gate.html">Sign in</a><a href="drive.html">Drive</a><a href="drive-empty.html">Drive (empty)</a><a href="drive-details.html">Drive (details)</a><a href="upload-progress.html">Upload progress</a><a href="viewer.html">Viewer and previews</a><a href="share-dialog.html">Share dialog</a><a href="shared.html">Shared</a><a href="share-public.html">Public share page</a><a href="duplicates.html">Duplicates</a><a href="search.html">Search</a><a href="review.html">Review</a><a href="profile.html">Profile</a><a href="legal.html">Legal</a><a href="signing-in.html">Signing in</a></nav>
+<p class="note"><b>Shared</b>. Route /shared. Links I made, grouped by what they point at, each with copy, edit, revoke and delete; below, what other people shared with me with an Open button.</p>
+<div class="shell"><aside class="box col">
+  <div><b>[logo] burrow</b></div>
+  <div class="col"><div>[icon] Drive</div><div>[icon] Review <span class="chip">3</span></div><div class="box">[icon] Duplicates</div><div>[icon] Shared</div><div>[icon] Profile</div></div>
+  <div class="btn">+ New category</div>
+  <div class="col muted"><b>Everything</b><span>Unsorted</span><span>Photos</span><span class="ind">Holidays</span><span>Documents</span></div>
+  <div class="row"><div class="circle">avatar</div><div class="grow"><b>Display name</b><div class="muted">@username</div></div><span>[theme] [sign out]</span></div>
+</aside><main class="col"><div><h1>Shared</h1><div class="muted">Links you made, and what other people shared with you.</div></div><h3>Shared by me</h3><div class="col"><b>[file] file-name.ext</b><div class="box row"><span>[people]</span><span class="grow">1 person &middot; Permanent<div class="muted">Mira Fuchs</div></span><span class="btn ghost">Copy link</span><span class="btn ghost">Edit</span><span class="btn ghost">Revoke</span></div><b>[folder] Holidays</b><div class="box row"><span>[link]</span><span class="grow">Anyone with the link &middot; Ends in 6 days</span><span class="btn ghost">Copy link</span><span class="btn ghost">Edit</span></div></div><h3>Shared with me</h3><div class="box row"><span>[folder]</span><span class="grow">Trip photos<div class="muted">from Mira Fuchs</div></span><span class="btn">Open</span></div></main></div><div class="box muted" style="margin-top:16px;display:flex;justify-content:space-between"><span>&copy; 2026 owner &middot; All rights reserved.</span><span>[build chip: repo &middot; version]</span><span>Status &middot; Impressum &middot; Privacy Policy &middot; Contact</span></div></div></body></html>
