@@ -1,6 +1,7 @@
 import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
+import { PLACE_MIN_SCORE, PLACES } from '../lib/places.ts';
 import { ratingOf } from '../lib/rating.ts';
 import { visionClient } from '../lib/vision-client.ts';
 import type { Category } from '../models/category.model.ts';
@@ -110,6 +111,43 @@ export async function descend(
         : { status: 'unsorted', category: null, confidence: null };
 }
 
+/** The most likely landmark or kind of scene, or no guess when nothing on the list clearly wins. */
+async function guessPlace(path: string): Promise<{ place: string | null; score: number | null }> {
+    try {
+        const scores = await visionClient.classify(
+            path,
+            PLACES.map((p) => p.prompt),
+        );
+        const best = [...scores].sort((a, b) => b.score - a.score)[0];
+        const known = PLACES.find((p) => p.prompt === best?.label);
+        return known && best && best.score >= PLACE_MIN_SCORE
+            ? { place: known.place, score: best.score }
+            : { place: null, score: null };
+    } catch (error) {
+        // A failed guess must not fail the sorting itself.
+        logger.warn({ err: error }, 'place guess failed');
+        return { place: null, score: null };
+    }
+}
+
+/**
+ * A folder named after a place ("Paris", "Beach") takes a picture the sorter recognised there, unless the subject
+ * descent already filed it deeper than that.
+ */
+export function placeDecision(
+    decision: Decision,
+    place: string | null,
+    placeScore: number | null,
+    categories: Category[],
+): Decision {
+    if (!place || placeScore === null || decision.status === 'sorted') return decision;
+    const haystack = place.toLowerCase();
+    const match = categories.find(
+        (c) => c.name.length > 2 && haystack.includes(c.name.toLowerCase()),
+    );
+    return match ? { status: 'sorted', category: match, confidence: placeScore } : decision;
+}
+
 export const classificationService = {
     /**
      * Classifies one file against its owner's live category tree and records the outcome. Failure
@@ -137,12 +175,20 @@ export const classificationService = {
                 visionClient.embed(path),
                 visionClient.nsfw(path),
             ]);
-            const decision = await descend(
-                (parentId) => categoryRepository.listChildren(file.userId, parentId),
-                (labels) => visionClient.classify(path, labels),
-                config.sorting.autoFileThreshold,
-                nsfw,
-                config.sorting.reviewFloor,
+            // Explicit pictures are not worth a landmark guess.
+            const { place, score: placeScore } =
+                nsfw >= 0.5 ? { place: null, score: null } : await guessPlace(path);
+            const decision = placeDecision(
+                await descend(
+                    (parentId) => categoryRepository.listChildren(file.userId, parentId),
+                    (labels) => visionClient.classify(path, labels),
+                    config.sorting.autoFileThreshold,
+                    nsfw,
+                    config.sorting.reviewFloor,
+                ),
+                place,
+                placeScore,
+                await categoryRepository.listAll(file.userId),
             );
 
             // FR-037: an NSFW file never auto-files into a category that may sit behind a preview link.
@@ -162,6 +208,8 @@ export const classificationService = {
                 confidence: final.confidence,
                 nsfwScore: nsfw,
                 embedding,
+                place,
+                placeScore,
             });
             return final;
         } catch (error) {

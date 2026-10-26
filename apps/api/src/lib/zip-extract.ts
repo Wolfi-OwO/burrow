@@ -45,12 +45,14 @@ function cap(max: number, onBytes: (n: number) => void): Transform {
  * @param stagingDir - Where each extracted file is written before `onFile` takes it over (and removes it).
  * @param limits - Entry count and size bounds.
  * @param onFile - Receives the staged file, its size and its base name; must delete or move the staged file.
+ * @param onProgress - Called before every entry is read, with how many were handled out of how many the archive lists.
  */
 export function extractZip(
     archive: string,
     stagingDir: string,
     limits: ZipLimits,
     onFile: (path: string, size: number, name: string) => Promise<void>,
+    onProgress?: (seen: number, total: number, summary: ZipSummary) => void,
 ): Promise<ZipSummary> {
     return new Promise((resolve, reject) => {
         yauzl.open(archive, { lazyEntries: true, autoClose: true }, (openError, zip) => {
@@ -61,7 +63,10 @@ export function extractZip(
             let n = 0;
 
             const finish = (): void => resolve(summary);
-            const next = (): void => zip.readEntry();
+            const next = (): void => {
+                onProgress?.(entries, zip.entryCount, summary);
+                zip.readEntry();
+            };
 
             zip.on('end', finish);
             zip.on('error', reject);

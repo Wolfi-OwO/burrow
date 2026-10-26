@@ -146,6 +146,10 @@ jobs:
       - name: Start the stack
         env:
           JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+          # A token on both services, so the API-to-vision handshake is exercised (it was once never sent).
+          INTERNAL_SERVICE_TOKEN: ci-service-token
+          # The plain test image must still land in the review queue; the floor itself is unit tested.
+          REVIEW_FLOOR: '0.0001'
         run: docker compose up -d --wait --wait-timeout 300
 
       - name: Smoke test

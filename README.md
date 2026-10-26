@@ -20,6 +20,8 @@ the legal documents (they need my address and decisions only I can make) — see
 - Name search, ranked, with each hit's place in the tree
 - AI sorting: OpenCLIP zero-shot against my own category names, a dedicated NSFW model, a confidence
   threshold, and a review queue for what it is unsure of
+- Place recognition: the photo's GPS tag plus a landmark and scene guess, searchable
+- Live notifications (server-sent events) for zip unpacking and sorting results
 - Duplicate finder (identical and near-identical pictures) with one-click clean-up
 - Thumbnails, a profile, a light and a dark look
 

@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileText, X } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { Lightbox } from '../components/Lightbox.tsx';
 import { Mark } from '../components/Shell.tsx';
 import { ProtectedImage, Spinner } from '../components/ui.tsx';
 import { api, ApiError, fetchBlob } from '../lib/api.ts';
@@ -22,6 +23,10 @@ export function SharePage(): ReactNode {
         queryFn: () => api<{ share: Share; files: FileItem[] }>('GET', `/api/s/${token}`),
     });
     const failure = page.error instanceof ApiError ? page.error : null;
+    const images = (page.data?.files ?? []).filter((f) => f.mime.startsWith('image/'));
+    const at = open ? images.findIndex((f) => f.id === open.id) : -1;
+    const prev = at > 0 ? images[at - 1] : undefined;
+    const next = at >= 0 ? images[at + 1] : undefined;
 
     const download = async (file: FileItem): Promise<void> => {
         const url = URL.createObjectURL(
@@ -101,29 +106,14 @@ export function SharePage(): ReactNode {
                 ) : null}
             </main>
             {open ? (
-                <div className="lightbox" role="dialog" aria-modal="true" aria-label={open.name}>
-                    <div className="lightbox-bar">
-                        <strong>{open.name}</strong>
-                        <span className="grow" />
-                        <button className="btn ghost sm" onClick={() => void download(open)}>
-                            <Download size={14} />
-                            Download
-                        </button>
-                        <button className="tool" aria-label="Close" onClick={() => setOpen(null)}>
-                            <X size={18} />
-                        </button>
-                    </div>
-                    <div className="lightbox-body">
-                        {open.mime.startsWith('image/') ? (
-                            <ProtectedImage
-                                path={`/api/s/${token}/files/${open.id}/content`}
-                                alt={open.name}
-                            />
-                        ) : (
-                            <p className="muted">No preview for {open.mime}. Use Download.</p>
-                        )}
-                    </div>
-                </div>
+                <Lightbox
+                    name={open.name}
+                    path={`/api/s/${token}/files/${open.id}/content`}
+                    onClose={() => setOpen(null)}
+                    onDownload={() => void download(open)}
+                    onPrev={prev ? () => setOpen(prev) : undefined}
+                    onNext={next ? () => setOpen(next) : undefined}
+                />
             ) : null}
         </div>
     );

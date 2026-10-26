@@ -209,4 +209,13 @@ export const categoryRepository = {
         );
         return (rowCount ?? 0) > 0;
     },
+
+    /** Every category of one user, for matching names against a recognised place. */
+    async listAll(userId: string, db: Queryable = getPool()): Promise<Category[]> {
+        const { rows } = await db.query(
+            `SELECT id, user_id, parent_id, name, path::text AS path, public_preview FROM categories WHERE user_id = $1`,
+            [userId],
+        );
+        return rows.map(toCategory);
+    },
 };

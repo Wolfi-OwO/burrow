@@ -34,6 +34,11 @@ export interface FileItem {
     nsfwScore: number | null;
     createdAt: string;
     rank?: number;
+    latitude?: number | null;
+    longitude?: number | null;
+    place?: string | null;
+    placeScore?: number | null;
+    takenAt?: string | null;
 }
 
 export interface SortingStatus {

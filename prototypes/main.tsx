@@ -5,6 +5,7 @@ import { HashRouter } from 'react-router';
 
 import { App } from '../apps/frontend/src/App.tsx';
 import { ToastProvider } from '../apps/frontend/src/components/ui.tsx';
+import { EventsProvider } from '../apps/frontend/src/lib/events.tsx';
 import { AuthProvider } from '../apps/frontend/src/lib/auth.tsx';
 import '../apps/frontend/src/styles.css';
 import { installMockApi } from './mock-api.ts';
@@ -24,7 +25,9 @@ createRoot(root).render(
             <HashRouter>
                 <ToastProvider>
                     <AuthProvider>
-                        <App />
+                        <EventsProvider>
+                            <App />
+                        </EventsProvider>
                     </AuthProvider>
                 </ToastProvider>
             </HashRouter>

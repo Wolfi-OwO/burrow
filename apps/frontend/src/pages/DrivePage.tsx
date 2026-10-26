@@ -3,6 +3,7 @@ import {
     CheckCircle2,
     Copy,
     Download,
+    Maximize2,
     Play,
     Search,
     Share2,
@@ -15,17 +16,23 @@ import type { DragEvent, ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { FileCard } from '../components/FileCard.tsx';
+import { Lightbox } from '../components/Lightbox.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
-import { api, ApiError, fetchBlob, uploadForm } from '../lib/api.ts';
+import { api, ApiError, fetchBlob, uploadWithProgress } from '../lib/api.ts';
+import { useServerEvents } from '../lib/events.tsx';
 import { formatBytes } from '../lib/format.ts';
 import type { CategoryNode, FileItem } from '../lib/types.ts';
 
 interface UploadState {
     id: number;
     name: string;
-    state: 'sending' | 'new' | 'duplicate' | 'failed';
+    state: 'sending' | 'unpacking' | 'new' | 'duplicate' | 'failed';
     message?: string;
+    /** 0 to 1: how much of the upload has left, then how much of a zip has been unpacked. */
+    progress?: number;
+    /** Set for a zip the server is unpacking; its events carry the same id. */
+    job?: string;
 }
 
 export function DrivePage(): ReactNode {
@@ -36,6 +43,7 @@ export function DrivePage(): ReactNode {
     const raw = params.get('c');
     const category = raw === null ? undefined : raw === 'unsorted' ? 'unsorted' : Number(raw);
     const [openId, setOpenId] = useState<string | null>(null);
+    const [viewId, setViewId] = useState<string | null>(null);
     const [uploads, setUploads] = useState<UploadState[]>([]);
     const [over, setOver] = useState(false);
     const input = useRef<HTMLInputElement>(null);
@@ -64,29 +72,31 @@ export function DrivePage(): ReactNode {
         return parts.map((c) => c.name);
     }, [category, current, tree.data]);
     const open = files.data?.files.find((f) => f.id === openId) ?? null;
+    const images = (files.data?.files ?? []).filter((f) => f.mime.startsWith('image/'));
+    const viewAt = images.findIndex((f) => f.id === viewId);
+    const viewing = viewAt >= 0 ? (images[viewAt] as FileItem) : null;
+    const downloadOriginal = async (file: FileItem): Promise<void> => {
+        const url = URL.createObjectURL(await fetchBlob(`/api/files/${file.id}/content`));
+        Object.assign(document.createElement('a'), { href: url, download: file.name }).click();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    };
 
     /** One file (or one zip) with a patient retry when the server says "slow down". */
     const sendOne = async (
         file: File,
-    ): Promise<{ files: FileItem[]; duplicate: boolean; note?: string }> => {
+        onProgress: (fraction: number) => void,
+    ): Promise<{ file?: FileItem; duplicate: boolean; job?: string }> => {
         for (let attempt = 0; ; attempt++) {
             try {
-                const result = await uploadForm<{
+                const result = await uploadWithProgress<{
                     file?: FileItem;
-                    files?: FileItem[];
                     deduplicated?: boolean;
-                    extracted?: number;
-                    skipped?: number;
-                }>('POST', '/api/files', file);
-                const files = result.files ?? (result.file ? [result.file] : []);
+                    job?: string;
+                }>('/api/files', file, onProgress);
                 return {
-                    files,
                     duplicate: result.deduplicated === true,
-                    ...(result.files
-                        ? {
-                              note: `${String(result.extracted ?? files.length)} files unpacked${result.skipped ? `, ${String(result.skipped)} skipped` : ''}`,
-                          }
-                        : {}),
+                    ...(result.file ? { file: result.file } : {}),
+                    ...(result.job ? { job: result.job } : {}),
                 };
             } catch (error) {
                 if (error instanceof ApiError && error.status === 429 && attempt < 6) {
@@ -97,6 +107,37 @@ export function DrivePage(): ReactNode {
             }
         }
     };
+    // The server unpacks a zip in the background and reports as it goes.
+    useServerEvents((event) => {
+        const job = event.data.job;
+        if (typeof job !== 'string') return;
+        setUploads((u) =>
+            u.map((x) => {
+                if (x.job !== job) return x;
+                if (event.type === 'upload.progress') {
+                    const seen = Number(event.data.seen);
+                    const total = Number(event.data.total);
+                    return {
+                        ...x,
+                        state: 'unpacking',
+                        progress: total > 0 ? seen / total : 0,
+                        message:
+                            total > 0 ? `${String(seen)} of ${String(total)} entries` : 'starting',
+                    };
+                }
+                if (event.type === 'upload.done')
+                    return {
+                        ...x,
+                        state: 'new',
+                        progress: 1,
+                        message: `${String(event.data.extracted)} files unpacked`,
+                    };
+                if (event.type === 'upload.failed')
+                    return { ...x, state: 'failed', message: 'could not be unpacked' };
+                return x;
+            }),
+        );
+    });
     const upload = async (list: File[]): Promise<void> => {
         const rows = list.map((file) => ({ id: Date.now() + Math.random(), file }));
         setUploads((u) => [
@@ -114,15 +155,24 @@ export function DrivePage(): ReactNode {
                 const row = rows[next++];
                 if (!row) return;
                 try {
-                    const result = await sendOne(row.file);
+                    const result = await sendOne(row.file, (fraction) =>
+                        mark(row.id, { progress: fraction }),
+                    );
+                    if (result.job) {
+                        mark(row.id, {
+                            state: 'unpacking',
+                            job: result.job,
+                            progress: 0,
+                            message: 'starting',
+                        });
+                        continue;
+                    }
                     // Filed into the category being viewed, so "upload here" does what it says.
-                    if (typeof category === 'number')
-                        for (const f of result.files)
-                            await api('PATCH', `/api/files/${f.id}`, { categoryId: category });
-                    mark(row.id, {
-                        state: result.duplicate ? 'duplicate' : 'new',
-                        ...(result.note ? { message: result.note } : {}),
-                    });
+                    if (typeof category === 'number' && result.file)
+                        await api('PATCH', `/api/files/${result.file.id}`, {
+                            categoryId: category,
+                        });
+                    mark(row.id, { state: result.duplicate ? 'duplicate' : 'new', progress: 1 });
                 } catch (error) {
                     const message =
                         error instanceof ApiError && error.status === 413
@@ -245,7 +295,7 @@ export function DrivePage(): ReactNode {
                 <div className="uploads" aria-live="polite">
                     {uploads.slice(0, 8).map((u) => (
                         <div className="upload-row" key={u.id}>
-                            {u.state === 'sending' ? (
+                            {u.state === 'sending' || u.state === 'unpacking' ? (
                                 <Spinner />
                             ) : u.state === 'failed' ? (
                                 <X size={18} color="var(--danger)" />
@@ -256,16 +306,32 @@ export function DrivePage(): ReactNode {
                             )}
                             <span className="grow">{u.name}</span>
                             <span className="muted small">
-                                {u.message && u.state === 'new'
-                                    ? u.message
-                                    : u.state === 'duplicate'
-                                      ? 'already stored, kept once'
-                                      : u.state === 'failed'
-                                        ? (u.message ?? 'failed')
-                                        : u.state === 'new'
-                                          ? 'stored'
-                                          : 'sending'}
+                                {u.state === 'sending'
+                                    ? `uploading ${String(Math.round((u.progress ?? 0) * 100))}%`
+                                    : u.state === 'unpacking'
+                                      ? `unpacking, ${u.message ?? ''}`
+                                      : u.state === 'duplicate'
+                                        ? 'already stored, kept once'
+                                        : u.state === 'failed'
+                                          ? (u.message ?? 'failed')
+                                          : (u.message ?? 'stored')}
                             </span>
+                            {u.state === 'sending' || u.state === 'unpacking' ? (
+                                <div
+                                    className="bar"
+                                    role="progressbar"
+                                    aria-label={`${u.name} ${u.state === 'sending' ? 'upload' : 'unpacking'}`}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={Math.round((u.progress ?? 0) * 100)}
+                                >
+                                    <i
+                                        style={{
+                                            width: `${String(Math.round((u.progress ?? 0) * 100))}%`,
+                                        }}
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     ))}
                 </div>
@@ -298,9 +364,28 @@ export function DrivePage(): ReactNode {
                 ))}
             </div>
 
+            {viewing ? (
+                <Lightbox
+                    name={viewing.name}
+                    path={`/api/files/${viewing.id}/content`}
+                    onClose={() => setViewId(null)}
+                    onDownload={() => void downloadOriginal(viewing)}
+                    onPrev={
+                        viewAt > 0
+                            ? () => setViewId((images[viewAt - 1] as FileItem).id)
+                            : undefined
+                    }
+                    onNext={
+                        viewAt < images.length - 1
+                            ? () => setViewId((images[viewAt + 1] as FileItem).id)
+                            : undefined
+                    }
+                />
+            ) : null}
             {open ? (
                 <Details
                     file={open}
+                    onView={() => setViewId(open.id)}
                     categories={tree.data?.categories ?? []}
                     onClose={() => setOpenId(null)}
                     onGone={() => {
@@ -315,11 +400,13 @@ export function DrivePage(): ReactNode {
 
 function Details({
     file,
+    onView,
     categories,
     onClose,
     onGone,
 }: {
     file: FileItem;
+    onView: () => void;
     categories: CategoryNode[];
     onClose: () => void;
     onGone: () => void;
@@ -364,7 +451,17 @@ function Details({
             </div>
             <div className="preview">
                 {file.mime.startsWith('image/') ? (
-                    <ProtectedImage path={`/api/files/${file.id}/content`} alt={file.name} />
+                    <button
+                        type="button"
+                        className="preview-open"
+                        aria-label="Open full screen"
+                        onClick={onView}
+                    >
+                        <ProtectedImage path={`/api/files/${file.id}/content`} alt={file.name} />
+                        <span className="preview-hint">
+                            <Maximize2 size={14} /> Full screen
+                        </span>
+                    </button>
                 ) : (
                     <p className="muted">No preview for {file.mime}</p>
                 )}
@@ -419,6 +516,40 @@ function Details({
                 <dd>{formatBytes(file.size)}</dd>
                 <dt>Added</dt>
                 <dd>{new Date(file.createdAt).toLocaleString()}</dd>
+                {file.takenAt ? (
+                    <>
+                        <dt>Taken</dt>
+                        <dd>{new Date(file.takenAt).toLocaleString()}</dd>
+                    </>
+                ) : null}
+                {file.place ? (
+                    <>
+                        <dt>Place</dt>
+                        <dd>
+                            {file.place}
+                            {file.placeScore ? (
+                                <span className="muted small">
+                                    {' '}
+                                    · {Math.round(file.placeScore * 100)}% sure
+                                </span>
+                            ) : null}
+                        </dd>
+                    </>
+                ) : null}
+                {file.latitude != null && file.longitude != null ? (
+                    <>
+                        <dt>GPS</dt>
+                        <dd>
+                            <a
+                                href={`https://www.openstreetmap.org/?mlat=${String(file.latitude)}&mlon=${String(file.longitude)}#map=15/${String(file.latitude)}/${String(file.longitude)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {file.latitude.toFixed(4)}, {file.longitude.toFixed(4)}
+                            </a>
+                        </dd>
+                    </>
+                ) : null}
                 {file.confidence !== null ? (
                     <>
                         <dt>Sorter</dt>

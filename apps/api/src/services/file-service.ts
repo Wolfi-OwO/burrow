@@ -7,6 +7,7 @@ import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { NotFoundError } from '../lib/errors.ts';
+import { readExif } from '../lib/exif.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { extractZip } from '../lib/zip-extract.ts';
 import type { FileRecord, FileView } from '../models/file.model.ts';
@@ -81,6 +82,12 @@ export const fileService = {
                 mime,
                 size,
             });
+            // Read before the staged file is removed. Photos from a phone carry where and when they were taken.
+            const exif = mime.startsWith('image/') ? await readExif(stagedPath) : null;
+            if (exif) {
+                await fileRepository.setExif(file.id, exif);
+                Object.assign(file, exif);
+            }
             return { file, deduplicated: !fresh };
         } finally {
             await rm(stagedPath, { force: true });
@@ -91,7 +98,11 @@ export const fileService = {
      * A .zip is not stored itself: every file inside becomes its own file, exactly as if it had been uploaded one by
      * one (same dedupe, same classification queue).
      */
-    async uploadArchive(userId: string, stagedPath: string): Promise<ArchiveResult> {
+    async uploadArchive(
+        userId: string,
+        stagedPath: string,
+        onProgress?: (seen: number, total: number) => void,
+    ): Promise<ArchiveResult> {
         const files: FileRecord[] = [];
         try {
             const summary = await extractZip(
@@ -105,6 +116,7 @@ export const fileService = {
                 async (path, size, name) => {
                     files.push((await fileService.upload(userId, path, size, name, '')).file);
                 },
+                (seen, total) => onProgress?.(seen, total),
             );
             return { files, ...summary };
         } finally {

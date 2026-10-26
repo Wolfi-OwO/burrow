@@ -107,3 +107,58 @@ export async function fetchBlob(path: string): Promise<Blob> {
     if (!response.ok) return fail(response);
     return response.blob();
 }
+
+/** The current access token, for the one caller (the event stream) that cannot go through `request`. */
+export function currentAccessToken(): string | null {
+    return accessToken;
+}
+
+/**
+ * Multipart upload with progress: `fetch` cannot report how many bytes have left, XMLHttpRequest can. Refreshes the
+ * session once on a 401 like the other calls.
+ *
+ * @param onProgress - Fraction (0 to 1) of the body that has been sent.
+ */
+export function uploadWithProgress<T>(
+    path: string,
+    file: File,
+    onProgress: (fraction: number) => void,
+): Promise<T> {
+    const attempt = (retry: boolean): Promise<T> =>
+        new Promise<T>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', path);
+            if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) onProgress(event.loaded / event.total);
+            };
+            xhr.onerror = () => reject(new Error('Could not reach the server.'));
+            xhr.onload = () => {
+                if (xhr.status === 401 && retry) {
+                    void refreshSession().then((ok) =>
+                        ok ? resolve(attempt(false)) : reject(new ApiError(401, 'Session ended.')),
+                    );
+                    return;
+                }
+                let body: { message?: string; issues?: { path: string; message: string }[] } = {};
+                try {
+                    body = JSON.parse(xhr.responseText) as typeof body;
+                } catch {
+                    // not JSON
+                }
+                if (xhr.status >= 200 && xhr.status < 300) resolve(body as T);
+                else
+                    reject(
+                        new ApiError(
+                            xhr.status,
+                            body.message ?? `Request failed (${String(xhr.status)})`,
+                            body.issues ?? [],
+                        ),
+                    );
+            };
+            const form = new FormData();
+            form.append('file', file, file.name);
+            xhr.send(form);
+        });
+    return attempt(true);
+}

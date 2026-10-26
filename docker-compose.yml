@@ -35,6 +35,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
     expose:
       - '8000'
     healthcheck:
@@ -58,6 +60,8 @@ services:
       NODE_ENV: development
       VISION_SERVICE_URL: http://vision:8000
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      REVIEW_FLOOR: ${REVIEW_FLOOR:-0.3}
       REGISTRATION_OPEN: ${REGISTRATION_OPEN:-false}
       LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
       OAUTH_FRONTEND_BASE_URL: ${OAUTH_FRONTEND_BASE_URL:-http://localhost:8080}

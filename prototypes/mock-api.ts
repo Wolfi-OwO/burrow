@@ -88,7 +88,17 @@ const names: [string, number | null, FileItem['status'], number | null][] = [
     ['untitled-1.png', null, 'unsorted', null],
 ];
 const hues = [24, 200, 140, 260, 340, 48, 180, 300, 20, 100, 220, 60, 160, 280];
+const placeOf: Record<number, string> = {
+    0: 'Alpine lake',
+    1: 'Beach',
+    2: 'Old town',
+    3: 'Matterhorn, Switzerland',
+};
 let files: FileItem[] = names.map(([name, categoryId, status, suggested], i) => ({
+    place: placeOf[i] ?? null,
+    placeScore: placeOf[i] ? 0.62 : null,
+    latitude: i === 3 ? 45.9763 : null,
+    longitude: i === 3 ? 7.6586 : null,
     id: `f${String(i + 1)}`,
     name,
     mime: name.endsWith('.pdf')
@@ -146,7 +156,7 @@ function inside(child: number, ancestor: number): boolean {
 
 function thumb(file: FileItem): Response {
     const hue = hues[Number(file.id.slice(1)) % hues.length] ?? 30;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${String(hue)} 55% 62%)"/><stop offset="1" stop-color="hsl(${String(hue + 40)} 50% 38%)"/></linearGradient></defs><rect width="320" height="240" fill="url(#g)"/><path d="M0 190 L90 110 L150 165 L210 95 L320 200 V240 H0Z" fill="#fff" opacity=".22"/><circle cx="250" cy="55" r="22" fill="#fff" opacity=".35"/></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${String(hue)} 55% 62%)"/><stop offset="1" stop-color="hsl(${String(hue + 40)} 50% 38%)"/></linearGradient></defs><rect width="320" height="240" fill="url(#g)"/><path d="M0 190 L90 110 L150 165 L210 95 L320 200 V240 H0Z" fill="#fff" opacity=".22"/><circle cx="250" cy="55" r="22" fill="#fff" opacity=".35"/></svg>`;
     return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
 }
 
@@ -408,7 +418,73 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
     return json({ message: 'Not part of the prototype.' }, 404);
 }
 
+/** The prototype's event stream: whatever the mock wants to tell the page is pushed through here. */
+let pushEvent: ((type: string, data: Record<string, unknown>) => void) | null = null;
+
+function fakeZip(name: string): string {
+    const job = `job-${String(Date.now())}`;
+    const total = 24;
+    let seen = 0;
+    const tick = setInterval(() => {
+        seen += 3;
+        pushEvent?.('upload.progress', { job, name, seen: Math.min(seen, total), total });
+        if (seen >= total) {
+            clearInterval(tick);
+            pushEvent?.('upload.done', { job, name, extracted: 22, skipped: 2 });
+        }
+    }, 450);
+    return job;
+}
+
+/** Stands in for XMLHttpRequest on /api paths, because the upload progress bar needs one. */
+class MockXhr {
+    status = 0;
+    responseText = '';
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    upload: {
+        onprogress:
+            ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null;
+    } = {
+        onprogress: null,
+    };
+    private path = '';
+    open(_method: string, path: string): void {
+        this.path = path;
+    }
+    setRequestHeader(): void {
+        // no auth in the prototype
+    }
+    send(form: FormData): void {
+        const file = form.get('file') as File;
+        let step = 0;
+        const tick = setInterval(() => {
+            step += 1;
+            this.upload.onprogress?.({ lengthComputable: true, loaded: step, total: 5 });
+            if (step < 5) return;
+            clearInterval(tick);
+            if (/\.zip$/i.test(file.name)) {
+                this.status = 202;
+                this.responseText = JSON.stringify({ job: fakeZip(file.name) });
+            } else {
+                const created = answer('POST', new URL(this.path, location.href), {});
+                this.status = created.status;
+                void created.text().then((text) => {
+                    this.responseText = text;
+                    this.onload?.();
+                });
+                return;
+            }
+            this.onload?.();
+        }, 120);
+    }
+}
+
 export function installMockApi(): void {
+    const RealXhr = window.XMLHttpRequest;
+    window.XMLHttpRequest = new Proxy(RealXhr, {
+        construct: () => new MockXhr() as unknown as XMLHttpRequest,
+    }) as typeof XMLHttpRequest;
     const real = window.fetch.bind(window);
     window.fetch = async (input, init) => {
         const url = new URL(
@@ -416,6 +492,18 @@ export function installMockApi(): void {
             location.href,
         );
         if (!url.pathname.startsWith('/api/')) return real(input, init);
+        if (url.pathname === '/api/events') {
+            const encoder = new TextEncoder();
+            const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    pushEvent = (type, data) =>
+                        controller.enqueue(
+                            encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`),
+                        );
+                },
+            });
+            return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+        }
         await new Promise((r) => setTimeout(r, 120));
         const method = (init?.method ?? 'GET').toUpperCase();
         let body: Record<string, unknown> = {};

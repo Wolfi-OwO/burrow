@@ -69,6 +69,7 @@ interface FileJson {
     categoryPath: string[];
     suggestedCategoryId: number | null;
     nsfwScore: number;
+    place: string | null;
 }
 const fileOf = async (token: string, id: string): Promise<FileJson> =>
     (await api('GET', `/api/files/${id}`, { token })).json as FileJson;
@@ -133,6 +134,19 @@ describe('sorting', () => {
         } finally {
             config.sorting.batchSize = before;
         }
+    });
+
+    it('recognises a landmark, stores the guess, finds it by search and files it into a folder of that place', async () => {
+        const { token } = await registerOwner();
+        const paris = await category(token, 'Paris');
+        behaviour.scores = { 'the Eiffel Tower in Paris': 0.9 };
+        const { file } = (await upload(token, 'trip.png', await png(70))).json;
+        await api('POST', '/api/sorting/run', { token });
+        const after = await fileOf(token, file.id as string);
+        assert.equal(after.place, 'Eiffel Tower, Paris');
+        assert.equal(after.categoryId, paris);
+        const found = await api('GET', '/api/search?q=eiffel', { token });
+        assert.equal(found.json.files.length, 1);
     });
 
     it('two scheduler steps at once never double-run the backlog: exactly one process holds the lock (FR-042)', async () => {

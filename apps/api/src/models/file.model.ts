@@ -15,6 +15,14 @@ export interface FileRecord {
     nsfwScore: number | null;
     classifiedAt: Date | null;
     createdAt: Date;
+    /** EXIF GPS position, when the photo carries one. */
+    latitude: number | null;
+    longitude: number | null;
+    /** The sorter's guess at a landmark or kind of scene, with how sure it was. */
+    place: string | null;
+    placeScore: number | null;
+    /** When the photo was taken according to its own metadata. */
+    takenAt: Date | null;
 }
 
 /** A file together with its human-readable location in the tree. */

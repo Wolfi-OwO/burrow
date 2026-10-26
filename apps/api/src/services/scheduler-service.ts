@@ -1,3 +1,4 @@
+import { publish } from '../lib/events.ts';
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { logger } from '../lib/logger.ts';
@@ -44,10 +45,21 @@ export function isDue(lastRun: Date | null, backlog: number, now: Date): boolean
 /** Processes one bounded batch of the backlog. @returns How many files were decided. */
 async function runBatch(): Promise<number> {
     let decided = 0;
+    const perUser = new Map<string, number>();
     for (const file of await fileRepository.nextBacklog(config.sorting.batchSize)) {
-        if (await classificationService.classify(file)) decided += 1;
+        if (await classificationService.classify(file)) {
+            decided += 1;
+            perUser.set(file.userId, (perUser.get(file.userId) ?? 0) + 1);
+        }
     }
+    tell(perUser);
     return decided;
+}
+
+/** Lets each owner's open pages know how many of their files the sorter just decided. */
+function tell(perUser: Map<string, number>): void {
+    for (const [userId, decided] of perUser)
+        publish(userId, { type: 'sorting.done', data: { decided } });
 }
 
 /** How long "Sort now" keeps working through the backlog before it hands the rest back to the schedule. */
@@ -60,15 +72,20 @@ const SORT_NOW_BUDGET_MS = 4 * 60_000;
 async function runUntilEmpty(): Promise<{ decided: number; remaining: number }> {
     const deadline = Date.now() + SORT_NOW_BUDGET_MS;
     const tried: string[] = [];
+    const perUser = new Map<string, number>();
     let decided = 0;
     while (Date.now() < deadline) {
         const batch = await fileRepository.nextBacklog(config.sorting.batchSize, tried);
         if (batch.length === 0) break;
         for (const file of batch) {
             tried.push(file.id);
-            if (await classificationService.classify(file)) decided += 1;
+            if (await classificationService.classify(file)) {
+                decided += 1;
+                perUser.set(file.userId, (perUser.get(file.userId) ?? 0) + 1);
+            }
         }
     }
+    tell(perUser);
     return { decided, remaining: await fileRepository.backlogSize() };
 }
 

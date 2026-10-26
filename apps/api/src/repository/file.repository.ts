@@ -4,7 +4,8 @@ import { EXPLICIT_SQL, SAFE_SQL } from '../lib/rating.ts';
 import type { FileRecord, FileStatus, FileView } from '../models/file.model.ts';
 
 const COLUMNS = `f.id, f.user_id, f.blob_sha256, f.name, f.mime, f.size, f.category_id, f.status,
-    f.suggested_category_id, f.confidence, f.nsfw_score, f.classified_at, f.created_at`;
+    f.suggested_category_id, f.confidence, f.nsfw_score, f.classified_at, f.created_at,
+    f.latitude, f.longitude, f.place, f.place_score, f.taken_at`;
 
 /** Ancestor names, root first. The join is on the ltree's own ancestor operator, never on names (ADR-0003). */
 const CATEGORY_PATH = `COALESCE((SELECT array_agg(a.name ORDER BY nlevel(a.path))
@@ -26,6 +27,11 @@ function toRecord(row: DatabaseRow): FileRecord {
         nsfwScore: row.nsfw_score === null ? null : Number(row.nsfw_score),
         classifiedAt: row.classified_at as Date | null,
         createdAt: row.created_at as Date,
+        latitude: row.latitude === null ? null : Number(row.latitude),
+        longitude: row.longitude === null ? null : Number(row.longitude),
+        place: row.place as string | null,
+        placeScore: row.place_score === null ? null : Number(row.place_score),
+        takenAt: row.taken_at as Date | null,
     };
 }
 
@@ -56,7 +62,8 @@ export const fileRepository = {
         const { rows } = await db.query(
             `INSERT INTO files (user_id, blob_sha256, name, mime, size) VALUES ($1, $2, $3, $4, $5)
              RETURNING id, user_id, blob_sha256, name, mime, size, category_id, status, suggested_category_id,
-                       confidence, nsfw_score, classified_at, created_at`,
+                       confidence, nsfw_score, classified_at, created_at, latitude, longitude, place, place_score,
+                       taken_at`,
             [input.userId, input.blobSha256, input.name, input.mime, input.size],
         );
         return toRecord(rows[0] as DatabaseRow);
@@ -164,12 +171,15 @@ export const fileRepository = {
             confidence: number | null;
             nsfwScore: number | null;
             embedding: number[] | null;
+            place?: string | null;
+            placeScore?: number | null;
         },
         db: Queryable = getPool(),
     ): Promise<void> {
         await db.query(
             `UPDATE files SET status = $2, category_id = $3, suggested_category_id = $4, confidence = $5,
-                    nsfw_score = $6, embedding = $7::vector, classified_at = now() WHERE id = $1`,
+                    nsfw_score = $6, embedding = $7::vector, place = $8, place_score = $9, classified_at = now()
+             WHERE id = $1`,
             [
                 id,
                 result.status,
@@ -178,6 +188,8 @@ export const fileRepository = {
                 result.confidence,
                 result.nsfwScore,
                 result.embedding ? `[${result.embedding.join(',')}]` : null,
+                result.place ?? null,
+                result.placeScore ?? null,
             ],
         );
     },
@@ -344,5 +356,16 @@ export const fileRepository = {
             [userId, categoryId],
         );
         return rowCount ?? 0;
+    },
+    /** The position and time a photo's own metadata reports; nulls when it has none. */
+    async setExif(
+        id: string,
+        exif: { latitude: number | null; longitude: number | null; takenAt: Date | null },
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query(
+            'UPDATE files SET latitude = $2, longitude = $3, taken_at = $4 WHERE id = $1',
+            [id, exif.latitude, exif.longitude, exif.takenAt],
+        );
     },
 };

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { openStream } from '../lib/events.ts';
 import * as file from '../handlers/file.handlers.ts';
 import * as sorting from '../handlers/sorting.handlers.ts';
 import { requireAuth } from '../middlewares/auth.ts';
@@ -16,6 +17,7 @@ import {
 export const fileRouter = Router();
 fileRouter.use(requireAuth);
 
+fileRouter.get('/events', (req, res) => openStream((req.user as { sub: string }).sub, req, res));
 fileRouter.get('/files', validateQuery(fileListQuerySchema), file.list);
 fileRouter.post('/files', uploadRateLimiter, ...uploadFile, file.upload);
 fileRouter.get('/files/:id', validateIdParam(), file.get);

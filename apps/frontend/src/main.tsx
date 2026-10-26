@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router';
 import { App } from './App.tsx';
 import { ToastProvider } from './components/ui.tsx';
 import { AuthProvider } from './lib/auth.tsx';
+import { EventsProvider } from './lib/events.tsx';
 import './styles.css';
 
 const client = new QueryClient({
@@ -21,7 +22,9 @@ createRoot(root).render(
             <BrowserRouter>
                 <ToastProvider>
                     <AuthProvider>
-                        <App />
+                        <EventsProvider>
+                            <App />
+                        </EventsProvider>
                     </AuthProvider>
                 </ToastProvider>
             </BrowserRouter>
