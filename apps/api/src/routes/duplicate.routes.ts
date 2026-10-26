@@ -24,3 +24,4 @@ duplicateRouter.post('/duplicates/clean', validateBody(duplicateCleanSchema), du
 duplicateRouter.get('/sorting/ratings', duplicates.ratingPreview);
 duplicateRouter.post('/sorting/ratings', duplicates.ratingFix);
 duplicateRouter.post('/sorting/resort', validateBody(resortSchema), duplicates.resort);
+duplicateRouter.post('/sorting/unsort-all', duplicates.unsortAll);

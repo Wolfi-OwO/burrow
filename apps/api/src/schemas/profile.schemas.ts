@@ -7,3 +7,5 @@ export const profilePatchSchema = z
     })
     .strict()
     .refine((v) => v.displayName !== undefined || v.bio !== undefined, 'Nothing to change.');
+
+export const avatarFromFileSchema = z.object({ fileId: z.uuid() }).strict();

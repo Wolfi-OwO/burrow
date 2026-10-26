@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { FilePreview } from './FilePreview.tsx';
 import { ProtectedImage } from './ui.tsx';
 
 /**
@@ -12,6 +13,8 @@ import { ProtectedImage } from './ui.tsx';
 export function Lightbox({
     name,
     path,
+    mime = 'image/*',
+    size = 0,
     onClose,
     onDownload,
     onPrev,
@@ -19,12 +22,16 @@ export function Lightbox({
 }: {
     name: string;
     path: string;
+    /** Anything that is not an image is shown by the document previewer instead. */
+    mime?: string;
+    size?: number;
     onClose: () => void;
     onDownload?: () => void;
     onPrev?: (() => void) | undefined;
     onNext?: (() => void) | undefined;
 }): ReactNode {
     const [actual, setActual] = useState(false);
+    const isImage = mime.startsWith('image/');
     useEffect(() => setActual(false), [path]);
     useEffect(() => {
         const onKey = (event: KeyboardEvent): void => {
@@ -46,9 +53,11 @@ export function Lightbox({
             <div className="lightbox-bar">
                 <strong className="lightbox-name">{name}</strong>
                 <span className="grow" />
-                <span className="muted small hide-narrow">
-                    {actual ? 'Actual size' : 'Fit to screen'} · click the picture to switch
-                </span>
+                {isImage ? (
+                    <span className="muted small hide-narrow">
+                        {actual ? 'Actual size' : 'Fit to screen'} · click the picture to switch
+                    </span>
+                ) : null}
                 {onDownload ? (
                     <button className="btn ghost sm" onClick={onDownload}>
                         <Download size={14} />
@@ -65,14 +74,26 @@ export function Lightbox({
                         <ChevronLeft size={22} />
                     </button>
                 ) : null}
-                <button
-                    type="button"
-                    className="lightbox-img"
-                    aria-label={actual ? 'Fit to screen' : 'Show at actual size'}
-                    onClick={() => setActual((v) => !v)}
-                >
-                    <ProtectedImage path={path} alt={name} />
-                </button>
+                {isImage ? (
+                    <button
+                        type="button"
+                        className="lightbox-img"
+                        aria-label={actual ? 'Fit to screen' : 'Show at actual size'}
+                        onClick={() => setActual((v) => !v)}
+                    >
+                        <ProtectedImage path={path} alt={name} />
+                    </button>
+                ) : (
+                    <div className="lightbox-doc">
+                        <FilePreview
+                            path={path}
+                            name={name}
+                            mime={mime}
+                            size={size}
+                            {...(onDownload ? { onDownload } : {})}
+                        />
+                    </div>
+                )}
                 {onNext ? (
                     <button className="lightbox-nav next" aria-label="Next" onClick={onNext}>
                         <ChevronRight size={22} />

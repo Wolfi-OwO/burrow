@@ -91,6 +91,33 @@ describe('duplicates and ratings', () => {
         assert.equal((await api('GET', `/api/files/${right}`, { token })).json.categoryId, sfw);
     });
 
+    it('unsorts everything and queues it for the sorter', async () => {
+        const { token } = await registerOwner();
+        const cat = (
+            await api('POST', '/api/categories', { token, body: { name: 'Pics', parentId: null } })
+        ).json.id as number;
+        const ids: string[] = [];
+        for (let i = 0; i < 3; i++)
+            ids.push(
+                (await upload(token, `u${String(i)}.png`, await png(80 + i))).json.file
+                    .id as string,
+            );
+        for (const id of ids.slice(0, 2))
+            await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: cat } });
+        const result = await api('POST', '/api/sorting/unsort-all', { token });
+        assert.equal(result.json.queued, 2);
+        for (const id of ids) {
+            const file = (await api('GET', `/api/files/${id}`, { token })).json;
+            assert.equal(file.categoryId, null);
+            assert.equal(file.status, 'unsorted');
+        }
+        assert.equal(
+            (await api('GET', '/api/categories', { token })).json.categories.length,
+            1,
+            'folders stay',
+        );
+    });
+
     it('sends a folder back to the sorter', async () => {
         const { token } = await registerOwner();
         const cat = (

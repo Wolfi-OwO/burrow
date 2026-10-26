@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Link2, Unlink } from 'lucide-react';
+import { Camera, Image as ImageIcon, Link2, Unlink } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { DrivePicker } from '../components/DrivePicker.tsx';
 import { ProtectedImage, useToast } from '../components/ui.tsx';
 import { api, uploadForm } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
@@ -41,6 +42,18 @@ export function ProfilePage(): ReactNode {
         onSuccess: (u) => {
             setUser(u);
             toast.say('Saved.');
+        },
+        onError: fail,
+    });
+    const [picking, setPicking] = useState(false);
+    const fromDrive = useMutation({
+        mutationFn: (fileId: string) =>
+            api<Account>('POST', '/api/me/avatar/from-file', { fileId }),
+        onSuccess: (u) => {
+            forgetImage(`/api/users/${u.id}/avatar`);
+            setUser({ ...u });
+            setPicking(false);
+            toast.say('Avatar updated.');
         },
         onError: fail,
     });
@@ -132,9 +145,20 @@ export function ProfilePage(): ReactNode {
                             disabled={avatar.isPending}
                         >
                             <Camera size={16} />
-                            Change avatar
+                            Upload a picture
+                        </button>
+                        <button className="btn ghost" onClick={() => setPicking(true)}>
+                            <ImageIcon size={16} />
+                            Choose from the drive
                         </button>
                     </div>
+                    {picking ? (
+                        <DrivePicker
+                            busy={fromDrive.isPending}
+                            onPick={(id) => fromDrive.mutate(id)}
+                            onClose={() => setPicking(false)}
+                        />
+                    ) : null}
                     <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
                         <div className="field">
                             <label htmlFor="dn">Display name</label>

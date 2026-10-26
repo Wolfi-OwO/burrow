@@ -42,6 +42,9 @@ app.use(
                 ...helmet.contentSecurityPolicy.getDefaultDirectives(),
                 // Thumbnails and previews come from this origin only; nothing is framed by anyone.
                 'img-src': ["'self'", 'data:', 'blob:'],
+                // PDFs, audio and video are shown from object URLs the page makes itself, never from a remote address.
+                'frame-src': ["'self'", 'blob:'],
+                'media-src': ["'self'", 'blob:'],
                 'frame-ancestors': ["'none'"],
             },
         },

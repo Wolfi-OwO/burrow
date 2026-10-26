@@ -15,6 +15,9 @@ first release is cut.
 - Duplicates page: byte-identical files and near-identical pictures (same picture saved at another size or quality, found from the sorter's picture embeddings), keep the best copy, remove the rest one group at a time or all at once.
 - Rating check on the Review page: moves pictures that the NSFW classifier puts on the other side of an SFW / NSFW folder pair.
 - "Re-sort" on a folder sends its files back to the sorter.
+- Previews for everything: text and code, CSV, PDF, Word (docx), Excel (xlsx), PowerPoint (pptx) and OpenDocument files, audio, video and zip contents open full screen from Details and on share pages; anything else shows a clear "no preview" card with Download.
+- Choose the avatar from the pictures already in the drive, besides uploading one.
+- "Unsort everything" on the Review page: every file back to Unsorted and queued for the sorter, folders stay; asks first.
 - Full-screen viewer: click the picture in Details to see the original, click again for the real pixel size, arrow keys step through the folder.
 - Where a picture was taken: the photo's own GPS position and time are read at upload, the sorter guesses a landmark or kind of scene (about a hundred well-known places and scenes), Details shows both with a map link, search finds the place, and a folder named after the place (for example "Paris") takes the picture.
 - Zip uploads run in the background with a progress bar (uploading, then unpacking entry by entry), and the server pushes results over a live event stream: unpacking finished or failed, and how many files the sorter decided, shown as a notification on any page.

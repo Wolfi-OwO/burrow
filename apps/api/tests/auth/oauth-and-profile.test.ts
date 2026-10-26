@@ -6,7 +6,7 @@ import { signOAuthState, verifyOAuthState } from '../../src/lib/oauth-state.ts';
 import type { OAuthProfile } from '../../src/lib/oauth-providers.ts';
 import { buildAuthorizeUrl } from '../../src/lib/oauth-providers.ts';
 import { oauthService } from '../../src/services/oauth-service.ts';
-import { api, closeServer, png, registerOwner, resetDatabase } from '../helpers.ts';
+import { api, upload, closeServer, png, registerOwner, resetDatabase } from '../helpers.ts';
 
 const profile = (over: Partial<OAuthProfile> = {}): OAuthProfile => ({
     providerUserId: 'gh-1',
@@ -177,6 +177,27 @@ describe('profile (FR-018, FR-019)', () => {
             headers: { authorization: `Bearer ${token}` },
         });
         assert.equal(served.headers.get('content-type'), 'image/webp');
+    });
+
+    it("uses one of the drive pictures as the avatar, and only the owner's own", async () => {
+        const { token, id } = await registerOwner();
+        const file = (await upload(token, 'me.png', await png(41))).json.file.id as string;
+        const reply = await api('POST', '/api/me/avatar/from-file', {
+            token,
+            body: { fileId: file },
+        });
+        assert.equal(reply.status, 200);
+        assert.equal(reply.json.hasAvatar, true);
+        const { base } = await import('../helpers.ts');
+        const served = await fetch(`${base}/api/users/${id}/avatar`, {
+            headers: { authorization: `Bearer ${token}` },
+        });
+        assert.equal(served.headers.get('content-type'), 'image/webp');
+        const other = await api('POST', '/api/me/avatar/from-file', {
+            token,
+            body: { fileId: '00000000-0000-4000-8000-000000000000' },
+        });
+        assert.equal(other.status, 404);
     });
 
     it('rejects an avatar that is not an image', async () => {

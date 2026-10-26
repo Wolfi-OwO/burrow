@@ -368,4 +368,15 @@ export const fileRepository = {
             [id, exif.latitude, exif.longitude, exif.takenAt],
         );
     },
+
+    /** "Unsort everything": every file of the user back to Unsorted and queued for the sorter. @returns How many. */
+    async unsortAll(userId: string, db: Queryable = getPool()): Promise<number> {
+        const { rowCount } = await db.query(
+            `UPDATE files SET category_id = NULL, status = 'unsorted', suggested_category_id = NULL,
+                    confidence = NULL, classified_at = NULL
+             WHERE user_id = $1 AND (category_id IS NOT NULL OR status <> 'unsorted' OR classified_at IS NOT NULL)`,
+            [userId],
+        );
+        return rowCount ?? 0;
+    },
 };

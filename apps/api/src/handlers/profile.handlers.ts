@@ -8,6 +8,7 @@ import { blobStore } from '../lib/blob-store.ts';
 import { asyncHandler, BadRequestError, NotFoundError } from '../lib/errors.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { blobRepository } from '../repository/blob.repository.ts';
+import { fileRepository } from '../repository/file.repository.ts';
 import { userRepository } from '../repository/user.repository.ts';
 
 const uid = (req: Request): string => (req.user as { sub: string }).sub;
@@ -25,15 +26,15 @@ export const patchMe = asyncHandler(async (req, res) => {
     res.json(toAccount(user));
 });
 
-/** FR-018: the avatar goes through the same blob store as every file, no second storage path. */
-export const putAvatar = asyncHandler(async (req, res) => {
-    const staged = req.file;
-    if (!staged) throw new BadRequestError('Send the image as the "file" field.');
+/**
+ * FR-018: the avatar goes through the same blob store as every file, no second storage path. The picture is
+ * re-encoded (not stored as sent): that strips metadata and guarantees a small, valid image.
+ */
+async function storeAvatar(userId: string, source: string): Promise<ReturnType<typeof toAccount>> {
+    const normalized = `${source}.webp`;
     try {
-        // Re-encoded (not stored as sent): strips metadata and guarantees a small, valid image.
-        const normalized = `${staged.path}.webp`;
         try {
-            await sharp(staged.path, { failOn: 'error' })
+            await sharp(source, { failOn: 'error' })
                 .rotate()
                 .resize(512, 512, { fit: 'cover' })
                 .webp({ quality: 85 })
@@ -45,12 +46,31 @@ export const putAvatar = asyncHandler(async (req, res) => {
         const { size } = await stat(normalized);
         await blobRepository.insertIfAbsent(sha256, size, 'image/webp');
         await blobStore.put(sha256, normalized, 'image/webp');
-        const user = await userRepository.updateProfile(uid(req), { avatarSha256: sha256 });
+        const user = await userRepository.updateProfile(userId, { avatarSha256: sha256 });
         if (!user) throw new NotFoundError();
-        res.json(toAccount(user));
+        return toAccount(user);
+    } finally {
+        await rm(normalized, { force: true });
+    }
+}
+
+export const putAvatar = asyncHandler(async (req, res) => {
+    const staged = req.file;
+    if (!staged) throw new BadRequestError('Send the image as the "file" field.');
+    try {
+        res.json(await storeAvatar(uid(req), staged.path));
     } finally {
         await rm(staged.path, { force: true });
     }
+});
+
+/** Uses one of the user's own pictures from the drive as the avatar. */
+export const avatarFromFile = asyncHandler(async (req, res) => {
+    const { fileId } = req.body as { fileId: string };
+    const file = await fileRepository.findById(uid(req), fileId);
+    if (!file) throw new NotFoundError('File not found.');
+    if (!file.mime.startsWith('image/')) throw new BadRequestError('That file is not an image.');
+    res.json(await storeAvatar(uid(req), await blobStore.ensureLocal(file.blobSha256)));
 });
 
 export const getProfile = asyncHandler(async (req, res) => {

@@ -3,6 +3,7 @@ import { Check, FolderInput, Play, ShieldCheck, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { UnsortAll } from '../components/UnsortAll.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 import { ago } from '../lib/format.ts';
@@ -104,13 +105,16 @@ export function ReviewPage(): ReactNode {
             <section className="panel" aria-labelledby="sorter-h" style={{ marginBottom: 24 }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                     <h2 id="sorter-h">The sorter</h2>
-                    <button
-                        className="btn"
-                        disabled={sortNow.isPending || !status.data?.visionHealthy}
-                        onClick={() => sortNow.mutate()}
-                    >
-                        {sortNow.isPending ? <Spinner /> : <Play size={16} />}Sort now
-                    </button>
+                    <div className="row">
+                        <UnsortAll />
+                        <button
+                            className="btn"
+                            disabled={sortNow.isPending || !status.data?.visionHealthy}
+                            onClick={() => sortNow.mutate()}
+                        >
+                            {sortNow.isPending ? <Spinner /> : <Play size={16} />}Sort now
+                        </button>
+                    </div>
                 </div>
                 {status.data ? (
                     <dl className="kv" style={{ gridTemplateColumns: '170px 1fr' }}>

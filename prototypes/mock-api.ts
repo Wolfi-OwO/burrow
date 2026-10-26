@@ -86,8 +86,16 @@ const names: [string, number | null, FileItem['status'], number | null][] = [
     ['IMG_4822.jpg', null, 'review', 2],
     ['scan-0042.pdf', null, 'review', 4],
     ['untitled-1.png', null, 'unsorted', null],
+    ['notes.txt', 4, 'sorted', null],
+    ['report.pdf', 4, 'sorted', null],
+    ['letter.docx', 4, 'sorted', null],
+    ['budget.xlsx', 4, 'sorted', null],
+    ['deck.pptx', 4, 'sorted', null],
+    ['people.csv', 4, 'sorted', null],
 ];
-const hues = [24, 200, 140, 260, 340, 48, 180, 300, 20, 100, 220, 60, 160, 280];
+const hues = [
+    24, 200, 140, 260, 340, 48, 180, 300, 20, 100, 220, 60, 160, 280, 40, 80, 120, 160, 200, 240,
+];
 const placeOf: Record<number, string> = {
     0: 'Alpine lake',
     1: 'Beach',
@@ -105,7 +113,9 @@ let files: FileItem[] = names.map(([name, categoryId, status, suggested], i) => 
         ? 'application/pdf'
         : name.endsWith('.txt')
           ? 'text/plain'
-          : 'image/jpeg',
+          : /\.(docx|xlsx|pptx|csv)$/.test(name)
+            ? 'application/octet-stream'
+            : 'image/jpeg',
     size: 80_000 + i * 173_000,
     status,
     categoryId,
@@ -152,6 +162,10 @@ function inside(child: number, ancestor: number): boolean {
         node = categories.find((c) => c.id === parent);
     }
     return false;
+}
+
+function fetchSample(name: string): Promise<Response> {
+    return fetch(`./samples/${name}`);
 }
 
 function thumb(file: FileItem): Response {
@@ -222,7 +236,11 @@ function shareView(s: MockShare): Record<string, unknown> {
     };
 }
 
-function answer(method: string, url: URL, body: Record<string, unknown>): Response {
+function answer(
+    method: string,
+    url: URL,
+    body: Record<string, unknown>,
+): Response | Promise<Response> {
     const p = url.pathname;
     if (p === '/api/version') return json({ version: 'prototype' });
     if (p === '/api/auth/refresh') return signedIn ? json({ accessToken: 'demo' }) : json({}, 401);
@@ -303,6 +321,8 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
     if (one) {
         const file = files.find((f) => f.id === one[1]);
         if (!file) return json({ message: 'Not found.' }, 404);
+        if (one[2] === 'content' && /\.(docx|xlsx|pptx|csv|txt|pdf)$/.test(file.name))
+            return fetchSample(file.name);
         if (one[2]) return thumb(file);
         if (method === 'DELETE') {
             files = files.filter((f) => f !== file);
@@ -393,6 +413,17 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
                 : { toExplicit: ratingsFixed ? 0 : 3, toSafe: 0 },
         );
     if (p === '/api/sorting/resort') return json({ queued: 4 });
+    if (p === '/api/me/avatar/from-file') return json(Object.assign(owner, { hasAvatar: true }));
+    if (p === '/api/sorting/unsort-all') {
+        const queued = files.filter((f) => f.categoryId !== null || f.status !== 'unsorted').length;
+        files = files.map((f) => ({
+            ...f,
+            categoryId: null,
+            status: 'unsorted',
+            suggestedCategoryId: null,
+        }));
+        return json({ queued });
+    }
     if (p === '/api/review') return json({ files: view().filter((f) => f.status === 'review') });
     const review = /^\/api\/review\/(f\d+)$/.exec(p);
     if (review) {
@@ -467,12 +498,13 @@ class MockXhr {
                 this.status = 202;
                 this.responseText = JSON.stringify({ job: fakeZip(file.name) });
             } else {
-                const created = answer('POST', new URL(this.path, location.href), {});
-                this.status = created.status;
-                void created.text().then((text) => {
-                    this.responseText = text;
-                    this.onload?.();
-                });
+                void Promise.resolve(answer('POST', new URL(this.path, location.href), {})).then(
+                    async (created) => {
+                        this.status = created.status;
+                        this.responseText = await created.text();
+                        this.onload?.();
+                    },
+                );
                 return;
             }
             this.onload?.();

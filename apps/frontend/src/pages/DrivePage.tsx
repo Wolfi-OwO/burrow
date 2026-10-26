@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     CheckCircle2,
     Copy,
+    FileText,
     Download,
     Maximize2,
     Play,
@@ -16,6 +17,7 @@ import type { DragEvent, ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { FileCard } from '../components/FileCard.tsx';
+import { previewable } from '../components/FilePreview.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
@@ -72,7 +74,7 @@ export function DrivePage(): ReactNode {
         return parts.map((c) => c.name);
     }, [category, current, tree.data]);
     const open = files.data?.files.find((f) => f.id === openId) ?? null;
-    const images = (files.data?.files ?? []).filter((f) => f.mime.startsWith('image/'));
+    const images = (files.data?.files ?? []).filter((f) => previewable(f.name, f.mime));
     const viewAt = images.findIndex((f) => f.id === viewId);
     const viewing = viewAt >= 0 ? (images[viewAt] as FileItem) : null;
     const downloadOriginal = async (file: FileItem): Promise<void> => {
@@ -367,6 +369,8 @@ export function DrivePage(): ReactNode {
             {viewing ? (
                 <Lightbox
                     name={viewing.name}
+                    mime={viewing.mime}
+                    size={viewing.size}
                     path={`/api/files/${viewing.id}/content`}
                     onClose={() => setViewId(null)}
                     onDownload={() => void downloadOriginal(viewing)}
@@ -461,6 +465,17 @@ function Details({
                         <span className="preview-hint">
                             <Maximize2 size={14} /> Full screen
                         </span>
+                    </button>
+                ) : previewable(file.name, file.mime) ? (
+                    <button
+                        type="button"
+                        className="preview-open doc"
+                        aria-label="Open preview"
+                        onClick={onView}
+                    >
+                        <FileText size={40} aria-hidden="true" />
+                        <span>Open preview</span>
+                        <span className="muted small">{file.mime}</span>
                     </button>
                 ) : (
                     <p className="muted">No preview for {file.mime}</p>

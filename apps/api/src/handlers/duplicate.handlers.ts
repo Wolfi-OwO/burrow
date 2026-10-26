@@ -38,3 +38,8 @@ export const resort = asyncHandler(async (req, res) => {
         throw new NotFoundError('Category not found.');
     res.json({ queued: await fileRepository.requeueCategory(uid(req), categoryId) });
 });
+
+/** Everything back to Unsorted, queued for the sorter; the folders themselves stay. */
+export const unsortAll = asyncHandler(async (req, res) => {
+    res.json({ queued: await fileRepository.unsortAll(uid(req)) });
+});

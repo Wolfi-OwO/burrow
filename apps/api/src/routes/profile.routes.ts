@@ -6,7 +6,7 @@ import { requireAuth } from '../middlewares/auth.ts';
 import { uploadRateLimiter } from '../middlewares/rate-limit.ts';
 import { uploadAvatar } from '../middlewares/upload.ts';
 import { validateBody, validateIdParam } from '../middlewares/validate.ts';
-import { profilePatchSchema } from '../schemas/profile.schemas.ts';
+import { avatarFromFileSchema, profilePatchSchema } from '../schemas/profile.schemas.ts';
 
 export const profileRouter = Router();
 profileRouter.use(requireAuth);
@@ -14,6 +14,11 @@ profileRouter.use(requireAuth);
 profileRouter.get('/me', profile.getMe);
 profileRouter.patch('/me', validateBody(profilePatchSchema), profile.patchMe);
 profileRouter.put('/me/avatar', uploadRateLimiter, ...uploadAvatar, profile.putAvatar);
+profileRouter.post(
+    '/me/avatar/from-file',
+    validateBody(avatarFromFileSchema),
+    profile.avatarFromFile,
+);
 profileRouter.get('/me/identities', oauth.listIdentities);
 profileRouter.post('/me/identities/:provider/link', oauth.linkStart);
 profileRouter.delete('/me/identities/:provider', oauth.unlinkIdentity);

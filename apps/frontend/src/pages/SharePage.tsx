@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { previewable } from '../components/FilePreview.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
 import { Mark } from '../components/Shell.tsx';
 import { ProtectedImage, Spinner } from '../components/ui.tsx';
@@ -23,7 +24,7 @@ export function SharePage(): ReactNode {
         queryFn: () => api<{ share: Share; files: FileItem[] }>('GET', `/api/s/${token}`),
     });
     const failure = page.error instanceof ApiError ? page.error : null;
-    const images = (page.data?.files ?? []).filter((f) => f.mime.startsWith('image/'));
+    const images = (page.data?.files ?? []).filter((f) => previewable(f.name, f.mime));
     const at = open ? images.findIndex((f) => f.id === open.id) : -1;
     const prev = at > 0 ? images[at - 1] : undefined;
     const next = at >= 0 ? images[at + 1] : undefined;
@@ -108,6 +109,8 @@ export function SharePage(): ReactNode {
             {open ? (
                 <Lightbox
                     name={open.name}
+                    mime={open.mime}
+                    size={open.size}
                     path={`/api/s/${token}/files/${open.id}/content`}
                     onClose={() => setOpen(null)}
                     onDownload={() => void download(open)}
