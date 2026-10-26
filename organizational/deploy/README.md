@@ -20,7 +20,7 @@ encrypted nightly backup on Azure).
 | - | - |
 | GitHub OAuth app | Registered; callbacks for production and `localhost:8080`; id and secret in the VPS `.env` |
 | Microsoft app registration | Registered (personal and work accounts, token version 2); 2-year secret in the VPS `.env`, **expires 2028-10-24, rotate before then** |
-| Google OAuth client | **Open**: Google blocked automated access to its console, so this one is done by hand (steps in the release checklist) |
+| Google OAuth client | Created (project `burrow-512617`, External, testing mode with the owner as test user); id and secret in the VPS `.env` |
 | Azure backup account | Created (`burrow-rg`, private Cool-tier container, soft delete and versioning, lifecycle rule) |
 | `/opt/burrow`, `.env` (mode 600), compose file, deploy and backup scripts | In place on the VPS |
 | Forced-command CI key | Installed; refuses any command that is not a release tag (tested) |

@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-26
+
+### Changed
+
+- Bottom bar now matches the other apps: copyright, build chip, Status, Impressum, Privacy Policy and Contact.
+- Google sign-in is configured on the live site.
+
 ## [0.1.5] - 2026-10-25
 
 ### Changed
