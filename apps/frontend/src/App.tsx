@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { Footer } from './components/Footer.tsx';
 import { Shell } from './components/Shell.tsx';
 import { Spinner } from './components/ui.tsx';
 import { useAuth } from './lib/auth.tsx';
@@ -14,13 +15,16 @@ import { SearchPage } from './pages/SearchPage.tsx';
 
 export function App(): ReactNode {
     return (
-        <Routes>
-            {/* Public: the Impressum has to be reachable without signing in, and must not wait for the session check. */}
-            <Route path="/impressum" element={<LegalPage doc="impressum" />} />
-            <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-            <Route path="/terms" element={<LegalPage doc="terms" />} />
-            <Route path="*" element={<Session />} />
-        </Routes>
+        <>
+            <Routes>
+                {/* Public: the Impressum has to be reachable without signing in, and must not wait for the session check. */}
+                <Route path="/impressum" element={<LegalPage doc="impressum" />} />
+                <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+                <Route path="/terms" element={<LegalPage doc="terms" />} />
+                <Route path="*" element={<Session />} />
+            </Routes>
+            <Footer />
+        </>
     );
 }
 

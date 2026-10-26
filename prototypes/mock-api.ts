@@ -164,6 +164,7 @@ const status: SortingStatus = {
 
 function answer(method: string, url: URL, body: Record<string, unknown>): Response {
     const p = url.pathname;
+    if (p === '/api/version') return json({ version: 'prototype' });
     if (p === '/api/auth/refresh') return signedIn ? json({ accessToken: 'demo' }) : json({}, 401);
     if (p === '/api/auth/providers')
         return json({ providers: ['github', 'microsoft', 'google'], setupRequired: false });

@@ -15,6 +15,7 @@ first release is cut.
 - Sign-in page always fits the screen, at any size.
 - The colour panel is removed everywhere; a light and dark mode toggle replaces it (sidebar and sign-in page), following the system setting until chosen.
 - GitHub, Microsoft and Google icons are always shown; a provider that is not set up yet is dimmed.
+- Bottom bar on every page with copyright, the legal pages and the running version.
 
 ## [0.1.3] - 2026-10-25
 

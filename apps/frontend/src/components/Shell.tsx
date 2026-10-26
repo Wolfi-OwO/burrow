@@ -9,7 +9,6 @@ import { api } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
 import type { FileItem } from '../lib/types.ts';
 import { ProtectedImage } from './ui.tsx';
-import { LegalLinks } from '../pages/LegalPage.tsx';
 import { Tree } from './Tree.tsx';
 
 /** The burrow's mouth: an arch over a dark tunnel. */
@@ -89,7 +88,6 @@ export function Shell(): ReactNode {
                         }}
                     />
                 </div>
-                <LegalLinks />
                 <div className="rail-foot">
                     <span className="avatar">
                         {user?.hasAvatar ? (
