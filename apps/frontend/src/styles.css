@@ -241,7 +241,7 @@ textarea.input {
 /* ---- shell ---- */
 .shell {
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: var(--rail-w, 300px) minmax(0, 1fr);
     min-height: calc(100vh - var(--footer-h));
 }
 .rail {
@@ -2056,4 +2056,40 @@ select.input {
     margin-left: auto;
     color: var(--text);
     border-color: color-mix(in srgb, var(--text) 30%, var(--line));
+}
+
+/* ---- resizable sidebar ---- */
+.rail {
+    position: sticky;
+}
+.rail-resizer {
+    position: absolute;
+    top: 0;
+    right: -5px;
+    bottom: 0;
+    z-index: 4;
+    width: 10px;
+    cursor: col-resize;
+    touch-action: none;
+}
+.rail-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 2px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background var(--dur) var(--ease);
+}
+.rail-resizer:hover::after,
+.rail-resizer:focus-visible::after,
+.rail-resizer:active::after {
+    background: var(--accent);
+}
+@media (max-width: 880px) {
+    .rail-resizer {
+        display: none;
+    }
 }

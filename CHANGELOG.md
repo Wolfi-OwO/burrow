@@ -12,6 +12,8 @@ first release is cut.
 
 - Big uploads: files of 48 MB and more go up in 16 MB pieces, four at a time, each retried on its own and written straight into place on the server, so a 5 GB file is sent as fast as the line allows (measured locally: 5 GB in 14 seconds) and finishes in seconds. Files up to 20 GB and zips unpacking to 32 GB are accepted (`MAX_FILE_GB`, `ZIP_MAX_TOTAL_MB`).
 
+- The left sidebar is resizable: drag its edge (or use the arrow keys when it is focused, double-click to reset); the width is remembered.
+
 ### Fixed
 
 - Zip contents were not filed into the folder the zip was uploaded from.
