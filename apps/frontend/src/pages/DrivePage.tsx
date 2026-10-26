@@ -1,10 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Copy, Download, Search, Trash2, UploadCloud, X } from 'lucide-react';
+import {
+    CheckCircle2,
+    Copy,
+    Download,
+    Play,
+    Search,
+    Share2,
+    Trash2,
+    UploadCloud,
+    X,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { FileCard } from '../components/FileCard.tsx';
+import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api, ApiError, fetchBlob, uploadForm } from '../lib/api.ts';
 import { formatBytes } from '../lib/format.ts';
@@ -54,42 +65,96 @@ export function DrivePage(): ReactNode {
     }, [category, current, tree.data]);
     const open = files.data?.files.find((f) => f.id === openId) ?? null;
 
-    const upload = async (list: File[]): Promise<void> => {
-        for (const file of list) {
-            const id = Date.now() + Math.random();
-            setUploads((u) => [{ id, name: file.name, state: 'sending' }, ...u]);
+    /** One file (or one zip) with a patient retry when the server says "slow down". */
+    const sendOne = async (
+        file: File,
+    ): Promise<{ files: FileItem[]; duplicate: boolean; note?: string }> => {
+        for (let attempt = 0; ; attempt++) {
             try {
-                const result = await uploadForm<{ file: FileItem; deduplicated: boolean }>(
-                    'POST',
-                    '/api/files',
-                    file,
-                );
-                // Filed into the category being viewed, so "upload here" does what it says.
-                if (typeof category === 'number')
-                    await api('PATCH', `/api/files/${result.file.id}`, { categoryId: category });
-                setUploads((u) =>
-                    u.map((x) =>
-                        x.id === id
-                            ? { ...x, state: result.deduplicated ? 'duplicate' : 'new' }
-                            : x,
-                    ),
-                );
+                const result = await uploadForm<{
+                    file?: FileItem;
+                    files?: FileItem[];
+                    deduplicated?: boolean;
+                    extracted?: number;
+                    skipped?: number;
+                }>('POST', '/api/files', file);
+                const files = result.files ?? (result.file ? [result.file] : []);
+                return {
+                    files,
+                    duplicate: result.deduplicated === true,
+                    ...(result.files
+                        ? {
+                              note: `${String(result.extracted ?? files.length)} files unpacked${result.skipped ? `, ${String(result.skipped)} skipped` : ''}`,
+                          }
+                        : {}),
+                };
             } catch (error) {
-                const message =
-                    error instanceof ApiError && error.status === 413
-                        ? 'Too large'
-                        : error instanceof Error
-                          ? error.message
-                          : 'Failed';
-                setUploads((u) =>
-                    u.map((x) => (x.id === id ? { ...x, state: 'failed', message } : x)),
-                );
+                if (error instanceof ApiError && error.status === 429 && attempt < 6) {
+                    await new Promise((resolve) => setTimeout(resolve, 4000 * (attempt + 1)));
+                    continue;
+                }
+                throw error;
             }
         }
+    };
+    const upload = async (list: File[]): Promise<void> => {
+        const rows = list.map((file) => ({ id: Date.now() + Math.random(), file }));
+        setUploads((u) => [
+            ...rows
+                .map((r): UploadState => ({ id: r.id, name: r.file.name, state: 'sending' }))
+                .reverse(),
+            ...u,
+        ]);
+        const mark = (id: number, patch: Partial<UploadState>): void =>
+            setUploads((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+        let next = 0;
+        // Three at a time: a folder of photos moves quickly without opening hundreds of connections at once.
+        const worker = async (): Promise<void> => {
+            while (next < rows.length) {
+                const row = rows[next++];
+                if (!row) return;
+                try {
+                    const result = await sendOne(row.file);
+                    // Filed into the category being viewed, so "upload here" does what it says.
+                    if (typeof category === 'number')
+                        for (const f of result.files)
+                            await api('PATCH', `/api/files/${f.id}`, { categoryId: category });
+                    mark(row.id, {
+                        state: result.duplicate ? 'duplicate' : 'new',
+                        ...(result.note ? { message: result.note } : {}),
+                    });
+                } catch (error) {
+                    const message =
+                        error instanceof ApiError && error.status === 413
+                            ? 'Too large'
+                            : error instanceof Error
+                              ? error.message
+                              : 'Failed';
+                    mark(row.id, { state: 'failed', message });
+                }
+            }
+        };
+        await Promise.all([worker(), worker(), worker()]);
         void client.invalidateQueries({ queryKey: ['files'] });
         void client.invalidateQueries({ queryKey: ['tree'] });
         void client.invalidateQueries({ queryKey: ['sorting'] });
     };
+    const sortNow = useMutation({
+        mutationFn: () =>
+            api<{ ran: boolean; decided: number; remaining: number }>('POST', '/api/sorting/run'),
+        onSuccess: (r) => {
+            for (const key of ['review', 'tree', 'files', 'sorting'])
+                void client.invalidateQueries({ queryKey: [key] });
+            toast.say(
+                !r.ran
+                    ? 'Another sorter is already running.'
+                    : r.remaining > 0
+                      ? `Sorted ${String(r.decided)}, ${String(r.remaining)} still waiting. Press again to continue.`
+                      : `Sorted ${String(r.decided)} file${r.decided === 1 ? '' : 's'}.`,
+            );
+        },
+        onError: (e: Error) => toast.say(e.message),
+    });
     const onDrop = (event: DragEvent): void => {
         event.preventDefault();
         setOver(false);
@@ -123,6 +188,16 @@ export function DrivePage(): ReactNode {
                         </span>
                     </div>
                 </div>
+                {category === 'unsorted' ? (
+                    <button
+                        className="btn"
+                        disabled={sortNow.isPending}
+                        onClick={() => sortNow.mutate()}
+                    >
+                        {sortNow.isPending ? <Spinner /> : <Play size={16} />}
+                        Sort all now
+                    </button>
+                ) : null}
                 <form
                     className="searchbar"
                     role="search"
@@ -152,7 +227,8 @@ export function DrivePage(): ReactNode {
                     {typeof category === 'number'
                         ? `They will be filed in "${crumbs.at(-1) ?? ''}". `
                         : ''}
-                    or click to choose. The AI sorts the rest into your categories.
+                    or click to choose. Zip files are unpacked. The AI sorts the rest into your
+                    categories.
                 </span>
             </button>
             <input
@@ -167,7 +243,7 @@ export function DrivePage(): ReactNode {
             />
             {uploads.length > 0 ? (
                 <div className="uploads" aria-live="polite">
-                    {uploads.slice(0, 6).map((u) => (
+                    {uploads.slice(0, 8).map((u) => (
                         <div className="upload-row" key={u.id}>
                             {u.state === 'sending' ? (
                                 <Spinner />
@@ -180,13 +256,15 @@ export function DrivePage(): ReactNode {
                             )}
                             <span className="grow">{u.name}</span>
                             <span className="muted small">
-                                {u.state === 'duplicate'
-                                    ? 'already stored, kept once'
-                                    : u.state === 'failed'
-                                      ? (u.message ?? 'failed')
-                                      : u.state === 'new'
-                                        ? 'stored'
-                                        : 'sending'}
+                                {u.message && u.state === 'new'
+                                    ? u.message
+                                    : u.state === 'duplicate'
+                                      ? 'already stored, kept once'
+                                      : u.state === 'failed'
+                                        ? (u.message ?? 'failed')
+                                        : u.state === 'new'
+                                          ? 'stored'
+                                          : 'sending'}
                             </span>
                         </div>
                     ))}
@@ -249,6 +327,7 @@ function Details({
     const client = useQueryClient();
     const toast = useToast();
     const [name, setName] = useState(file.name);
+    const [sharing, setSharing] = useState(false);
     useEffect(() => setName(file.name), [file.name]);
     const done = (): void => {
         void client.invalidateQueries({ queryKey: ['files'] });
@@ -352,11 +431,21 @@ function Details({
                     <Download size={16} />
                     Download
                 </button>
+                <button className="btn ghost" onClick={() => setSharing(true)}>
+                    <Share2 size={16} />
+                    Share
+                </button>
                 <button className="btn danger" onClick={() => remove.mutate()}>
                     <Trash2 size={16} />
                     Delete
                 </button>
             </div>
+            {sharing ? (
+                <ShareDialog
+                    target={{ kind: 'file', id: file.id, name: file.name }}
+                    onClose={() => setSharing(false)}
+                />
+            ) : null}
         </aside>
     );
 }

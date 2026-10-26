@@ -39,13 +39,16 @@ export function ReviewPage(): ReactNode {
         onError: (e: Error) => toast.say(e.message),
     });
     const sortNow = useMutation({
-        mutationFn: () => api<{ ran: boolean; decided: number }>('POST', '/api/sorting/run'),
+        mutationFn: () =>
+            api<{ ran: boolean; decided: number; remaining: number }>('POST', '/api/sorting/run'),
         onSuccess: (r) => {
             refresh();
             toast.say(
-                r.ran
-                    ? `Sorted ${String(r.decided)} file${r.decided === 1 ? '' : 's'}.`
-                    : 'Another sorter is already running.',
+                !r.ran
+                    ? 'Another sorter is already running.'
+                    : r.remaining > 0
+                      ? `Sorted ${String(r.decided)}, ${String(r.remaining)} still waiting. Press again to continue.`
+                      : `Sorted ${String(r.decided)} file${r.decided === 1 ? '' : 's'}.`,
             );
         },
         onError: (e: Error) => toast.say(e.message),

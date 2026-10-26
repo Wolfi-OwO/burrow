@@ -2,12 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     ChevronDown,
     ChevronRight,
-    Eye,
-    EyeOff,
     FolderInput,
     Inbox,
     Pencil,
     Plus,
+    Share2,
     Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -15,6 +14,7 @@ import type { DragEvent, ReactNode } from 'react';
 
 import { api } from '../lib/api.ts';
 import type { CategoryNode } from '../lib/types.ts';
+import { ShareDialog } from './ShareDialog.tsx';
 import { Dialog, PromptDialog, useToast } from './ui.tsx';
 
 export const DRAG_FILE = 'application/x-burrow-file';
@@ -29,6 +29,7 @@ type Modal =
     | { kind: 'create'; parent: CategoryNode | null }
     | { kind: 'rename'; node: CategoryNode }
     | { kind: 'delete'; node: CategoryNode }
+    | { kind: 'share'; node: CategoryNode }
     | { kind: 'move'; node: CategoryNode };
 
 /** The category tree, rendered straight from the server's path order (FR-013): a parent always precedes its children. */
@@ -73,12 +74,6 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
     const rename = useMutation({
         mutationFn: (v: { id: number; name: string }) =>
             api('PATCH', `/api/categories/${String(v.id)}`, { name: v.name }),
-        onSuccess: refresh,
-        onError: fail,
-    });
-    const preview = useMutation({
-        mutationFn: (n: CategoryNode) =>
-            api('PATCH', `/api/categories/${String(n.id)}`, { publicPreview: !n.publicPreview }),
         onSuccess: refresh,
         onError: fail,
     });
@@ -228,15 +223,10 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                 </button>
                                 <button
                                     className="tool"
-                                    aria-label={
-                                        node.publicPreview
-                                            ? `${node.name} may be previewed publicly`
-                                            : `${node.name} is private`
-                                    }
-                                    aria-pressed={node.publicPreview}
-                                    onClick={() => preview.mutate(node)}
+                                    aria-label={`Share ${node.name}`}
+                                    onClick={() => setModal({ kind: 'share', node })}
                                 >
-                                    {node.publicPreview ? <Eye size={14} /> : <EyeOff size={14} />}
+                                    <Share2 size={14} />
                                 </button>
                                 <button
                                     className="tool"
@@ -252,6 +242,12 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                 ))}
             </nav>
 
+            {modal?.kind === 'share' ? (
+                <ShareDialog
+                    target={{ kind: 'category', id: modal.node.id, name: modal.node.name }}
+                    onClose={() => setModal(null)}
+                />
+            ) : null}
             {modal?.kind === 'create' ? (
                 <PromptDialog
                     title={modal.parent ? `New category in "${modal.parent.name}"` : 'New category'}

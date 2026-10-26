@@ -10,6 +10,8 @@ import { GatePage } from './pages/GatePage.tsx';
 import { LegalPage } from './pages/LegalPage.tsx';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage.tsx';
 import { ProfilePage } from './pages/ProfilePage.tsx';
+import { SharePage } from './pages/SharePage.tsx';
+import { SharesPage } from './pages/SharesPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
 import { SearchPage } from './pages/SearchPage.tsx';
 
@@ -41,12 +43,14 @@ function Session(): ReactNode {
     return (
         <Routes>
             <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+            <Route path="/s/:token" element={<SharePage />} />
             <Route path="/login" element={user ? <Navigate to="/" replace /> : <GatePage />} />
             {user ? (
                 <Route element={<Shell />}>
                     <Route index element={<DrivePage />} />
                     <Route path="search" element={<SearchPage />} />
                     <Route path="review" element={<ReviewPage />} />
+                    <Route path="shared" element={<SharesPage />} />
                     <Route path="profile" element={<ProfilePage />} />
                 </Route>
             ) : null}

@@ -15,11 +15,12 @@ the legal documents (they need my address and decisions only I can make) — see
 
 - Sign in with a password (Argon2id) or GitHub, Microsoft or Google, with revocable sessions
 - A category tree of any depth, drag and drop, atomic subtree moves (Postgres `ltree`)
-- Upload with content-addressed storage: the same bytes are stored once
+- Upload many files at once, or a `.zip` that is unpacked into its files; content-addressed storage keeps the same bytes once
+- Share links to a file or a whole category: open to anyone with the link, or only to the accounts you pick; permanent or expiring, revocable at any time
 - Name search, ranked, with each hit's place in the tree
 - AI sorting: OpenCLIP zero-shot against my own category names, a dedicated NSFW model, a confidence
   threshold, and a review queue for what it is unsure of
-- Thumbnails, a profile, a colour panel with palettes and fine-tuning
+- Thumbnails, a profile, a light and a dark look
 
 ![CI](https://img.shields.io/badge/CI-not_set_up_yet-lightgrey)
 ![Security](https://img.shields.io/badge/security_scan-not_set_up_yet-lightgrey)
@@ -61,13 +62,13 @@ no cloud option here, only a model running under my own roof.
 
 ## Tech stack
 
-| Component | Stack |
-| - | - |
-| Frontend | React 19, Vite, TypeScript |
-| API server | Node.js, TypeScript, Express 4, PostgreSQL 16, zod |
-| Vision server | Python, FastAPI, ONNX Runtime (self-hosted OpenCLIP-based model) |
-| Database | PostgreSQL 16 — `ltree` for the category tree, `pgvector` for embeddings |
-| Infra | Docker per service |
+| Component     | Stack                                                                    |
+| ------------- | ------------------------------------------------------------------------ |
+| Frontend      | React 19, Vite, TypeScript                                               |
+| API server    | Node.js, TypeScript, Express 4, PostgreSQL 16, zod                       |
+| Vision server | Python, FastAPI, ONNX Runtime (self-hosted OpenCLIP-based model)         |
+| Database      | PostgreSQL 16 — `ltree` for the category tree, `pgvector` for embeddings |
+| Infra         | Docker per service                                                       |
 
 ## Getting started
 
@@ -113,7 +114,7 @@ docs/, scripts/, todo/        General docs, repo maintenance, scratch notes
 - Passwords are hashed with Argon2id; a wrong password and an unknown user get the same answer.
 - The access token (10 minutes) lives only in memory; the refresh token is an HttpOnly, SameSite=Strict cookie
   that rotates on every use, and logout revokes the session row, so a stolen token dies at once.
-- Every file route checks ownership, and another user's id is a 404, not a 403.
+- Every file route checks ownership, and another user's id is a 404, not a 403. A share link is a 32-byte random token; a revoked, expired or unknown link is the same 404, and a user-restricted link asks anonymous visitors to sign in.
 - Served files carry `nosniff` and a sandboxing CSP, so an uploaded HTML or SVG file cannot run as part of the site.
 - The vision service has no database, no internet route and keeps no upload; secrets live in `.env`, never in git.
 - gitleaks, Trivy and CodeQL run in CI. Report a vulnerability as described in [SECURITY.md](SECURITY.md).

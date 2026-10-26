@@ -51,3 +51,31 @@ export interface Identity {
     provider: 'github' | 'google' | 'microsoft';
     email: string | null;
 }
+
+export interface ShareUser {
+    id: string;
+    username: string;
+    displayName: string;
+}
+
+export type ShareAccess = 'link' | 'users';
+
+export interface Share {
+    id: string;
+    token: string;
+    kind: 'file' | 'category';
+    targetId: string | number;
+    name: string;
+    owner: string;
+    access: ShareAccess;
+    expiresAt: string | null;
+    revoked: boolean;
+    expired: boolean;
+    createdAt: string;
+    users: ShareUser[];
+}
+
+/** The absolute address of a share link, built from where the app is served. */
+export function shareUrl(token: string): string {
+    return `${window.location.origin}/s/${token}`;
+}

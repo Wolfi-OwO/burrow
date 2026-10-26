@@ -162,6 +162,54 @@ const status: SortingStatus = {
     autoFileThreshold: 0.8,
 };
 
+interface MockShare {
+    id: string;
+    token: string;
+    kind: 'file' | 'category';
+    targetId: string | number;
+    access: 'link' | 'users';
+    expiresAt: string | null;
+    revoked: boolean;
+    userIds: string[];
+}
+const people = [
+    { id: 'u2', username: 'mira', displayName: 'Mira Fuchs' },
+    { id: 'u3', username: 'tobi', displayName: 'Tobias Wald' },
+    { id: 'u4', username: 'lena', displayName: 'Lena Berger' },
+];
+let shares: MockShare[] = [
+    {
+        id: 's1',
+        token: 'demo-token-holidays-0123456789abcdef',
+        kind: 'category',
+        targetId: 2,
+        access: 'link',
+        expiresAt: null,
+        revoked: false,
+        userIds: [],
+    },
+];
+function shareView(s: MockShare): Record<string, unknown> {
+    const name =
+        s.kind === 'file'
+            ? (files.find((f) => f.id === s.targetId)?.name ?? 'file')
+            : (categories.find((c) => c.id === s.targetId)?.name ?? 'category');
+    return {
+        id: s.id,
+        token: s.token,
+        kind: s.kind,
+        targetId: s.targetId,
+        name,
+        owner: owner.displayName,
+        access: s.access,
+        expiresAt: s.expiresAt,
+        revoked: s.revoked,
+        expired: s.expiresAt !== null && new Date(s.expiresAt).getTime() < Date.now(),
+        createdAt: new Date().toISOString(),
+        users: people.filter((p) => s.userIds.includes(p.id)),
+    };
+}
+
 function answer(method: string, url: URL, body: Record<string, unknown>): Response {
     const p = url.pathname;
     if (p === '/api/version') return json({ version: 'prototype' });
@@ -175,7 +223,7 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
         signedIn = false;
         return json({}, 204);
     }
-    if (!signedIn) return json({ message: 'Not signed in.' }, 401);
+    if (!signedIn && !p.startsWith('/api/s/')) return json({ message: 'Not signed in.' }, 401);
     if (p === '/api/me') return json(method === 'PATCH' ? Object.assign(owner, body) : owner);
     if (p === '/api/me/identities')
         return json({ identities: [{ provider: 'github', email: 'wolf@example.org' }] });
@@ -256,6 +304,64 @@ function answer(method: string, url: URL, body: Record<string, unknown>): Respon
             if (typeof body.name === 'string') file.name = body.name;
         }
         return json({ file });
+    }
+    if (p === '/api/shares' && method === 'GET') return json({ shares: shares.map(shareView) });
+    if (p === '/api/shares' && method === 'POST') {
+        const hours = body.expiresInHours as number | null;
+        const s: MockShare = {
+            id: `s${String(shares.length + 1)}`,
+            token: `demo-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
+            kind: body.fileId ? 'file' : 'category',
+            targetId: (body.fileId ?? body.categoryId) as string | number,
+            access: body.access as 'link' | 'users',
+            expiresAt: hours ? new Date(Date.now() + hours * 3_600_000).toISOString() : null,
+            revoked: false,
+            userIds: (body.userIds as string[] | undefined) ?? [],
+        };
+        shares.unshift(s);
+        return json({ share: shareView(s) }, 201);
+    }
+    const sh = /^\/api\/shares\/(s\d+)$/.exec(p);
+    if (sh) {
+        const s = shares.find((x) => x.id === sh[1]);
+        if (!s) return json({ message: 'Share not found.' }, 404);
+        if (method === 'DELETE') {
+            shares = shares.filter((x) => x !== s);
+            return json({}, 204);
+        }
+        if (body.access) s.access = body.access as 'link' | 'users';
+        if (body.userIds) s.userIds = body.userIds as string[];
+        if (typeof body.revoked === 'boolean') s.revoked = body.revoked;
+        if ('expiresInHours' in body) {
+            const h = body.expiresInHours as number | null;
+            s.expiresAt = h ? new Date(Date.now() + h * 3_600_000).toISOString() : null;
+        }
+        return json({ share: shareView(s) });
+    }
+    if (p === '/api/shared-with-me') return json({ shares: [] });
+    if (p === '/api/users/search') {
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        return json({
+            users: people.filter(
+                (u) => u.displayName.toLowerCase().includes(q) || u.username.includes(q),
+            ),
+        });
+    }
+    const pub = /^\/api\/s\/([^/]+)(?:\/files\/(f\d+)\/(content|thumbnail))?$/.exec(p);
+    if (pub) {
+        const s = shares.find((x) => x.token === pub[1]);
+        if (!s || s.revoked)
+            return json({ message: 'This link does not exist or has expired.' }, 404);
+        const covered = view().filter((f) =>
+            s.kind === 'file'
+                ? f.id === s.targetId
+                : f.categoryId !== null && inside(f.categoryId, s.targetId as number),
+        );
+        if (pub[2]) {
+            const file = covered.find((f) => f.id === pub[2]);
+            return file ? thumb(file) : json({ message: 'File not found.' }, 404);
+        }
+        return json({ share: shareView(s), files: covered });
     }
     if (p === '/api/review') return json({ files: view().filter((f) => f.status === 'review') });
     const review = /^\/api\/review\/(f\d+)$/.exec(p);
