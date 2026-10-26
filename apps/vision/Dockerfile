@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 # Stage 1 exports the models once. It needs torch; the runtime image never sees it.
-FROM python:3.11-slim AS export
+FROM python:3.12-slim AS export
 WORKDIR /export
 COPY requirements-export.txt .
 RUN pip install --no-cache-dir -r requirements-export.txt
 COPY scripts/export_models.py scripts/export_models.py
 RUN python scripts/export_models.py --out /export/models
 
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim AS runtime
 # Links the package to the repository, so it inherits the repository's access rules on ghcr.io.
 LABEL org.opencontainers.image.source="https://github.com/Wolfi-OwO/burrow"
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODELS_DIR=/app/models
