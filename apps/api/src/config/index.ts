@@ -104,6 +104,8 @@ export const config = {
         backlogForMaxRuns: Number(process.env.SCHEDULER_BACKLOG_FOR_MAX) || 500,
         /** Files looked at per run, so a run is bounded no matter how big the backlog is. */
         batchSize: Number(process.env.SCHEDULER_BATCH_SIZE) || 100,
+        /** Files classified at the same time during "Sort now". The vision service answers them in parallel. */
+        concurrency: Number(process.env.SORT_CONCURRENCY) || 3,
         /** Set to `false` on every replica but one (FR-042). */
         schedulerEnabled: (process.env.SCHEDULER_ENABLED ?? 'true') === 'true',
     },

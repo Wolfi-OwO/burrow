@@ -2093,3 +2093,17 @@ select.input {
         display: none;
     }
 }
+
+.sort-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+.sort-progress progress {
+    flex: 1;
+    height: 8px;
+    accent-color: var(--accent);
+}

@@ -24,6 +24,34 @@ const COMPETITORS = [
     'a room or building',
 ];
 
+/**
+ * Words the picture model reads poorly on their own, with phrasings it knows. Matched against a folder's name in
+ * lower case; every folder also gets two generic phrasings (an artwork of it, an illustration of it), because much of
+ * what people file is drawn, not photographed.
+ */
+const ALIASES: Record<string, string[]> = {
+    furry: [
+        'an anthropomorphic animal character',
+        'furry fandom artwork',
+        'a fursona character with fur and a tail',
+    ],
+    wolf: ['a wolf', 'an anthropomorphic wolf character'],
+    fox: ['a fox', 'an anthropomorphic fox character'],
+    dragon: ['a dragon', 'an anthropomorphic dragon character'],
+    anime: ['an anime character', 'manga artwork'],
+    cartoon: ['a cartoon character', 'a comic strip'],
+    meme: ['an internet meme image with text', 'a funny image macro'],
+    screenshot: ['a screenshot of an app or a website'],
+    nature: ['a landscape with trees and plants', 'wildlife in nature'],
+    food: ['a plate of food', 'a meal on a table'],
+};
+
+/** Every phrasing a folder is scored under; its score is the sum over them, as they all say the same thing. */
+export function labelsFor(name: string): string[] {
+    const aliases = ALIASES[name.trim().toLowerCase()] ?? [];
+    return [name, `${name} artwork`, `an illustration of ${name}`, ...aliases];
+}
+
 function competitorsFor(candidates: Category[]): string[] {
     const names = candidates.map((c) => c.name.toLowerCase().replace(/s$/, ''));
     return COMPETITORS.filter((label) => !names.some((n) => n.length > 2 && label.includes(n)));

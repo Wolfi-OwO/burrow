@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 
 /** What the server tells a signed-in user about, as it happens. */
 export interface UserEvent {
-    type: 'upload.progress' | 'upload.done' | 'upload.failed' | 'sorting.done';
+    type: 'upload.progress' | 'upload.done' | 'upload.failed' | 'sorting.done' | 'sorting.progress';
     data: Record<string, unknown>;
 }
 

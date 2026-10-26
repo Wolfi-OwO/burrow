@@ -6,6 +6,7 @@ import { fileRepository } from '../repository/file.repository.ts';
 import { sessionRepository } from '../repository/session.repository.ts';
 import { schedulerRepository } from '../repository/scheduler.repository.ts';
 import { classificationService } from './classification-service.ts';
+import { duplicateService } from './duplicate-service.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TICK_MS = 60 * 1000;
@@ -52,8 +53,24 @@ async function runBatch(): Promise<number> {
             perUser.set(file.userId, (perUser.get(file.userId) ?? 0) + 1);
         }
     }
+    for (const userId of perUser.keys())
+        await duplicateService.ratingFix(userId).catch(() => undefined);
     tell(perUser);
     return decided;
+}
+
+/** Once at start-up: pictures already filed on the wrong side of an SFW / NSFW pair are moved by their score. */
+async function startupRatingPass(): Promise<void> {
+    try {
+        const { rows } = await getPool().query('SELECT DISTINCT user_id FROM files');
+        for (const row of rows) {
+            const moved = await duplicateService.ratingFix(row.user_id as string);
+            if (moved.toExplicit + moved.toSafe > 0)
+                logger.info({ moved }, 'rating pass moved files');
+        }
+    } catch (error) {
+        logger.warn({ err: error }, 'rating pass failed');
+    }
 }
 
 /** Lets each owner's open pages know how many of their files the sorter just decided. */
@@ -89,7 +106,78 @@ async function runUntilEmpty(): Promise<{ decided: number; remaining: number }> 
     return { decided, remaining: await fileRepository.backlogSize() };
 }
 
+/** The one "Sort now" that may run at a time: the page shows its progress and reloads can find it again. */
+export interface SortJob {
+    running: boolean;
+    total: number;
+    done: number;
+}
+let job: SortJob = { running: false, total: 0, done: 0 };
+export const sortJob = (): SortJob => ({ ...job });
+
+/**
+ * Works through the whole backlog in the background, no time limit, a few files at a time, telling each owner how it
+ * goes. When it ends, every owner's SFW / NSFW folders are checked against the classifier's scores.
+ */
+async function runInBackground(): Promise<void> {
+    const tried: string[] = [];
+    const perUser = new Map<string, number>();
+    let lastTold = 0;
+    const work = async (): Promise<void> => {
+        for (;;) {
+            const [file] = await fileRepository.nextBacklog(1, tried);
+            if (!file) return;
+            tried.push(file.id);
+            if (await classificationService.classify(file))
+                perUser.set(file.userId, (perUser.get(file.userId) ?? 0) + 1);
+            job.done += 1;
+            if (Date.now() - lastTold > 1000) {
+                lastTold = Date.now();
+                for (const userId of new Set([...perUser.keys(), file.userId]))
+                    publish(userId, {
+                        type: 'sorting.progress',
+                        data: { done: job.done, total: job.total },
+                    });
+            }
+        }
+    };
+    try {
+        await getPool().transaction(async (tx) => {
+            if (!(await schedulerRepository.tryLock(tx))) return;
+            await schedulerRepository.markRun(tx);
+            await Promise.all(Array.from({ length: config.sorting.concurrency }, () => work()));
+        });
+        for (const userId of perUser.keys())
+            await duplicateService.ratingFix(userId).catch(() => undefined);
+        tell(perUser);
+    } catch (error) {
+        logger.error({ err: error }, 'sort now failed');
+    } finally {
+        for (const userId of perUser.keys())
+            publish(userId, {
+                type: 'sorting.progress',
+                data: { done: job.done, total: job.total, finished: true },
+            });
+        job = { running: false, total: job.total, done: job.done };
+    }
+}
+
 export const schedulerService = {
+    /**
+     * "Sort now" without waiting: starts the background run and answers at once. A run already going is joined, not
+     * started twice.
+     */
+    async startSortAll(): Promise<{ started: boolean; total: number; reason?: string }> {
+        if (!config.vision.url)
+            return { started: false, total: 0, reason: 'The vision service is not set up.' };
+        if (job.running) return { started: false, total: job.total, reason: 'Already sorting.' };
+        const total = await fileRepository.backlogSize();
+        if (total === 0) return { started: false, total: 0, reason: 'Nothing is waiting.' };
+        job = { running: true, total, done: 0 };
+        void runInBackground();
+        return { started: true, total };
+    },
+
     /**
      * "Sort now": classifies everything still waiting, not just one batch.
      *
@@ -132,6 +220,7 @@ export const schedulerService = {
             logger.info('scheduler disabled on this instance');
             return () => undefined;
         }
+        void startupRatingPass();
         let ticks = 0;
         const timer = setInterval(() => {
             ticks += 1;

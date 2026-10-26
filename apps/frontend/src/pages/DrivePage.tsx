@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSortRun } from '../lib/sort-run.ts';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     CheckCircle2,
     Copy,
@@ -68,14 +69,23 @@ export function DrivePage(): ReactNode {
         queryKey: ['tree'],
         queryFn: () => api<{ categories: CategoryNode[] }>('GET', '/api/categories'),
     });
-    const files = useQuery({
+    const PAGE = 200;
+    const filesQuery = useInfiniteQuery({
         queryKey: ['files', category ?? 'all', kind ?? 'any'],
-        queryFn: () =>
+        initialPageParam: 0,
+        queryFn: ({ pageParam }) =>
             api<{ files: FileItem[] }>(
                 'GET',
-                `/api/files?limit=200${category === undefined ? '' : `&category=${String(category)}&subtree=true`}${kind ? `&type=${kind}` : ''}`,
+                `/api/files?limit=${String(PAGE)}&offset=${String(pageParam)}${category === undefined ? '' : `&category=${String(category)}&subtree=true`}${kind ? `&type=${kind}` : ''}`,
             ),
+        getNextPageParam: (last, all) => (last.files.length < PAGE ? undefined : all.length * PAGE),
     });
+    // The rest of the page reads one flat list, as it did before the list was paged.
+    const files = {
+        data: filesQuery.data
+            ? { files: filesQuery.data.pages.flatMap((p) => p.files) }
+            : undefined,
+    };
     const counts = useQuery({
         queryKey: ['types'],
         queryFn: () => api<{ counts: Record<string, number> }>('GET', '/api/files/types'),
@@ -225,22 +235,7 @@ export function DrivePage(): ReactNode {
         void client.invalidateQueries({ queryKey: ['tree'] });
         void client.invalidateQueries({ queryKey: ['sorting'] });
     };
-    const sortNow = useMutation({
-        mutationFn: () =>
-            api<{ ran: boolean; decided: number; remaining: number }>('POST', '/api/sorting/run'),
-        onSuccess: (r) => {
-            for (const key of ['review', 'tree', 'files', 'sorting'])
-                void client.invalidateQueries({ queryKey: [key] });
-            toast.say(
-                !r.ran
-                    ? 'Another sorter is already running.'
-                    : r.remaining > 0
-                      ? `Sorted ${String(r.decided)}, ${String(r.remaining)} still waiting. Press again to continue.`
-                      : `Sorted ${String(r.decided)} file${r.decided === 1 ? '' : 's'}.`,
-            );
-        },
-        onError: (e: Error) => toast.say(e.message),
-    });
+    const sortRun = useSortRun();
     const onDrop = (event: DragEvent): void => {
         event.preventDefault();
         setOver(false);
@@ -275,13 +270,11 @@ export function DrivePage(): ReactNode {
                     </div>
                 </div>
                 {category === 'unsorted' ? (
-                    <button
-                        className="btn"
-                        disabled={sortNow.isPending}
-                        onClick={() => sortNow.mutate()}
-                    >
-                        {sortNow.isPending ? <Spinner /> : <Play size={16} />}
-                        Sort all now
+                    <button className="btn" disabled={sortRun.running} onClick={sortRun.start}>
+                        {sortRun.running ? <Spinner /> : <Play size={16} />}
+                        {sortRun.running && sortRun.progress
+                            ? `Sorting ${String(sortRun.progress.done)} / ${String(sortRun.progress.total)}`
+                            : 'Sort all now'}
                     </button>
                 ) : null}
                 <form
@@ -405,7 +398,7 @@ export function DrivePage(): ReactNode {
                 </div>
             ) : null}
 
-            {files.isLoading ? (
+            {filesQuery.isLoading ? (
                 <p className="muted" style={{ marginTop: 24 }}>
                     <Spinner /> Loading files
                 </p>
@@ -431,6 +424,17 @@ export function DrivePage(): ReactNode {
                     />
                 ))}
             </div>
+            {filesQuery.hasNextPage ? (
+                <div className="row" style={{ justifyContent: 'center', margin: '20px 0' }}>
+                    <button
+                        className="btn"
+                        disabled={filesQuery.isFetchingNextPage}
+                        onClick={() => void filesQuery.fetchNextPage()}
+                    >
+                        {filesQuery.isFetchingNextPage ? <Spinner /> : null}Load more
+                    </button>
+                </div>
+            ) : null}
 
             {unzipping ? <UnzipDialog ids={unzipping} onClose={() => setUnzipping(null)} /> : null}
             {viewing ? (

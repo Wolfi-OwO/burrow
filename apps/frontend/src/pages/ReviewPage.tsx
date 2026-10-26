@@ -1,3 +1,4 @@
+import { useSortRun } from '../lib/sort-run.ts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FolderInput, Play, ShieldCheck, Undo2 } from 'lucide-react';
 import { useState } from 'react';
@@ -77,21 +78,7 @@ export function ReviewPage(): ReactNode {
         onSuccess: refresh,
         onError: (e: Error) => toast.say(e.message),
     });
-    const sortNow = useMutation({
-        mutationFn: () =>
-            api<{ ran: boolean; decided: number; remaining: number }>('POST', '/api/sorting/run'),
-        onSuccess: (r) => {
-            refresh();
-            toast.say(
-                !r.ran
-                    ? 'Another sorter is already running.'
-                    : r.remaining > 0
-                      ? `Sorted ${String(r.decided)}, ${String(r.remaining)} still waiting. Press again to continue.`
-                      : `Sorted ${String(r.decided)} file${r.decided === 1 ? '' : 's'}.`,
-            );
-        },
-        onError: (e: Error) => toast.say(e.message),
-    });
+    const sortRun = useSortRun();
 
     return (
         <>
@@ -109,13 +96,24 @@ export function ReviewPage(): ReactNode {
                         <UnsortAll />
                         <button
                             className="btn"
-                            disabled={sortNow.isPending || !status.data?.visionHealthy}
-                            onClick={() => sortNow.mutate()}
+                            disabled={sortRun.running || !status.data?.visionHealthy}
+                            onClick={sortRun.start}
                         >
-                            {sortNow.isPending ? <Spinner /> : <Play size={16} />}Sort now
+                            {sortRun.running ? <Spinner /> : <Play size={16} />}Sort now
                         </button>
                     </div>
                 </div>
+                {sortRun.running && sortRun.progress ? (
+                    <div className="sort-progress" role="status">
+                        <progress
+                            value={sortRun.progress.done}
+                            max={Math.max(1, sortRun.progress.total)}
+                        />
+                        <span>
+                            {sortRun.progress.done} of {sortRun.progress.total} sorted
+                        </span>
+                    </div>
+                ) : null}
                 {status.data ? (
                     <dl className="kv" style={{ gridTemplateColumns: '170px 1fr' }}>
                         <dt>Waiting to be sorted</dt>

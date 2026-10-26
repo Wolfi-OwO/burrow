@@ -196,7 +196,7 @@ function putWithProgress(
 
 /** Files at least this large go up in pieces; smaller ones in one request. */
 export const CHUNKED_FROM_BYTES = 48 * 1024 * 1024;
-const PARALLEL_PIECES = 4;
+const PARALLEL_PIECES = 8;
 const PIECE_TRIES = 4;
 
 /**

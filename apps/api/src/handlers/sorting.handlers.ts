@@ -7,7 +7,12 @@ import { categoryRepository } from '../repository/category.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { schedulerRepository } from '../repository/scheduler.repository.ts';
 import { fileService } from '../services/file-service.ts';
-import { intervalMs, runsPerDay, schedulerService } from '../services/scheduler-service.ts';
+import {
+    intervalMs,
+    runsPerDay,
+    schedulerService,
+    sortJob,
+} from '../services/scheduler-service.ts';
 
 const uid = (req: Request): string => (req.user as { sub: string }).sub;
 
@@ -41,7 +46,12 @@ export const reviewResolve = asyncHandler(async (req, res) => {
 });
 
 /** "Sort now": works through everything waiting in unsorted, regardless of the schedule. */
-export const sortNow = asyncHandler(async (_req, res) => {
+export const sortNow = asyncHandler(async (req, res) => {
+    // The page asks for ?async=1: the sorter runs in the background and the page follows it on the event stream.
+    if (req.query.async === '1') {
+        res.status(202).json(await schedulerService.startSortAll());
+        return;
+    }
     const result = await schedulerService.sortAll();
     res.json({
         ran: result !== null,
@@ -61,5 +71,7 @@ export const status = asyncHandler(async (req, res) => {
         visionConfigured: Boolean(config.vision.url),
         visionHealthy: await visionClient.isHealthy(),
         autoFileThreshold: config.sorting.autoFileThreshold,
+        running: sortJob().running,
+        progress: sortJob(),
     });
 });
