@@ -2107,3 +2107,127 @@ select.input {
     height: 8px;
     accent-color: var(--accent);
 }
+
+/* Route preview: drawn from the file itself, in the theme's own colours. */
+.geo-map {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.geo-bg {
+    fill: var(--surface-2);
+}
+.geo-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.geo-line.thin {
+    stroke-width: 1.5;
+    opacity: 0.6;
+}
+.geo-fill {
+    fill: color-mix(in srgb, var(--accent) 18%, transparent);
+    stroke: none;
+}
+.geo-start {
+    fill: var(--live);
+    stroke: var(--surface);
+    stroke-width: 2;
+}
+.geo-end {
+    fill: var(--danger);
+    stroke: var(--surface);
+    stroke-width: 2;
+}
+.geo-place {
+    fill: var(--accent);
+    stroke: var(--surface);
+    stroke-width: 2;
+}
+.geo-label {
+    fill: var(--text);
+    font-size: 14px;
+    font-family: var(--font-body);
+}
+.geo-profile {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-top: 12px;
+}
+.geo-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+.geo-stats dt {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+.geo-stats dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+/* Highlighted source (highlight.js class names). */
+.preview-text.hljs {
+    background: var(--surface-2);
+    color: var(--text);
+    padding: 16px;
+    border-radius: var(--r-s);
+    overflow: auto;
+}
+.hljs-comment,
+.hljs-quote {
+    color: var(--muted);
+    font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag {
+    color: var(--accent);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+    color: #15803d;
+}
+.hljs-number,
+.hljs-built_in,
+.hljs-type,
+.hljs-attr,
+.hljs-attribute {
+    color: #1d4ed8;
+}
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+    color: #7c3aed;
+}
+.hljs-deletion {
+    color: var(--danger);
+}
+html[data-theme='dark'] .hljs-string,
+html[data-theme='dark'] .hljs-regexp,
+html[data-theme='dark'] .hljs-addition {
+    color: #4ade80;
+}
+html[data-theme='dark'] .hljs-number,
+html[data-theme='dark'] .hljs-built_in,
+html[data-theme='dark'] .hljs-type,
+html[data-theme='dark'] .hljs-attr,
+html[data-theme='dark'] .hljs-attribute {
+    color: #93c5fd;
+}
+html[data-theme='dark'] .hljs-title,
+html[data-theme='dark'] .hljs-section,
+html[data-theme='dark'] .hljs-name {
+    color: #c4b5fd;
+}

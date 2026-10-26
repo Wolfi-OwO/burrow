@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { fetchBlob } from '../lib/api.ts';
 import { formatBytes } from '../lib/format.ts';
+import type { GeoData } from '../lib/geo.ts';
+import { GeoPreview } from './GeoPreview.tsx';
 import { Spinner } from './ui.tsx';
 
 /** How much of a text file is shown; the rest is one Download away. */
@@ -12,6 +14,10 @@ const SHEET_ROWS = 300;
 
 const TEXT_EXT =
     /\.(txt|md|markdown|json|jsonl|csv|tsv|log|xml|yml|yaml|ini|toml|cfg|conf|env|js|mjs|ts|tsx|jsx|py|java|kt|c|h|cpp|hpp|cs|go|rs|rb|php|sh|bash|zsh|sql|css|scss|html|htm|svg|tex|rtf|srt|vtt|gitignore)$/i;
+
+/** Files shown as highlighted source; the language is the extension, which highlight.js knows by name or alias. */
+const CODE_EXT =
+    /\.(json|jsonl|xml|ya?ml|toml|ini|js|mjs|cjs|ts|tsx|jsx|py|java|kt|c|h|cpp|hpp|cs|go|rs|rb|php|sh|bash|zsh|sql|css|scss|html?|svg|swift|lua|r|pl|dart|gradle|dockerfile|makefile|vue|svelte)$/i;
 
 type Kind =
     | 'pdf'
@@ -25,6 +31,9 @@ type Kind =
     | 'ppt'
     | 'odf'
     | 'zip'
+    | 'geo'
+    | 'markdown'
+    | 'code'
     | 'audio'
     | 'video'
     | 'other';
@@ -41,9 +50,12 @@ export function kindOf(name: string, mime: string): Kind {
     if (n.endsWith('.ppt') || n.endsWith('.pps')) return 'ppt';
     if (/\.(odt|ods|odp)$/.test(n)) return 'odf';
     if (/\.(csv|tsv)$/.test(n)) return 'csv';
+    if (/\.(gpx|tcx|kml|geojson)$/.test(n)) return 'geo';
+    if (/\.(md|markdown)$/.test(n)) return 'markdown';
     if (n.endsWith('.zip') || mime === 'application/zip') return 'zip';
     if (mime.startsWith('audio/')) return 'audio';
     if (mime.startsWith('video/')) return 'video';
+    if (CODE_EXT.test(n) || mime === 'application/json') return 'code';
     if (mime.startsWith('text/') || TEXT_EXT.test(n) || mime === 'application/json') return 'text';
     return 'other';
 }
@@ -56,6 +68,8 @@ type Loaded =
     | { kind: 'url'; url: string }
     | { kind: 'text'; text: string; truncated: boolean }
     | { kind: 'html'; html: string }
+    | { kind: 'code'; html: string; truncated: boolean }
+    | { kind: 'geo'; data: GeoData }
     | { kind: 'table'; sheets: { name: string; rows: string[][] }[] }
     | { kind: 'slides'; slides: string[] }
     | { kind: 'list'; entries: { name: string; size: number }[] }
@@ -114,6 +128,40 @@ async function load(path: string, name: string, mime: string, kind: Kind): Promi
         case 'audio':
         case 'video':
             return { kind: 'url', url: URL.createObjectURL(new Blob([blob], { type: mime })) };
+        case 'geo': {
+            const { parseGeo } = await import('../lib/geo.ts');
+            return { kind: 'geo', data: parseGeo(await blob.text(), name) };
+        }
+        case 'markdown': {
+            const [{ marked }, { default: DOMPurify }] = await Promise.all([
+                import('marked'),
+                import('dompurify'),
+            ]);
+            const text = await blob.slice(0, TEXT_LIMIT).text();
+            return { kind: 'html', html: DOMPurify.sanitize(await marked.parse(text)) };
+        }
+        case 'code': {
+            const [{ default: hljs }, { default: DOMPurify }] = await Promise.all([
+                import('highlight.js/lib/common'),
+                import('dompurify'),
+            ]);
+            let text = await blob.slice(0, TEXT_LIMIT).text();
+            const ext = (/\.([a-z0-9]+)$/i.exec(name)?.[1] ?? '').toLowerCase();
+            if (ext === 'json') {
+                try {
+                    if (blob.size <= TEXT_LIMIT) text = JSON.stringify(JSON.parse(text), null, 2);
+                } catch {
+                    // not valid JSON: shown as it is
+                }
+            }
+            const language = hljs.getLanguage(ext) ? ext : undefined;
+            const out = language ? hljs.highlight(text, { language }) : hljs.highlightAuto(text);
+            return {
+                kind: 'code',
+                html: DOMPurify.sanitize(out.value),
+                truncated: blob.size > TEXT_LIMIT,
+            };
+        }
         case 'text': {
             const text = await blob.slice(0, TEXT_LIMIT).text();
             return { kind: 'text', text, truncated: blob.size > TEXT_LIMIT };
@@ -331,6 +379,19 @@ export function FilePreview({
             return (
                 <div className="preview-doc">
                     <pre className="preview-text">{state.text}</pre>
+                    {state.truncated ? (
+                        <p className="muted small">Showing the first part of the file.</p>
+                    ) : null}
+                </div>
+            );
+        case 'geo':
+            return <GeoPreview data={state.data} />;
+        case 'code':
+            return (
+                <div className="preview-doc wide">
+                    <pre className="preview-text hljs">
+                        <code dangerouslySetInnerHTML={{ __html: state.html }} />
+                    </pre>
                     {state.truncated ? (
                         <p className="muted small">Showing the first part of the file.</p>
                     ) : null}

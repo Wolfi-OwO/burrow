@@ -97,6 +97,8 @@ export const FILE_KINDS: { key: string; label: string }[] = [
     { key: 'document', label: 'Documents' },
     { key: 'spreadsheet', label: 'Spreadsheets' },
     { key: 'presentation', label: 'Presentations' },
+    { key: 'code', label: 'Code' },
+    { key: 'route', label: 'Routes' },
     { key: 'archive', label: 'Archives' },
     { key: 'audio', label: 'Audio' },
     { key: 'video', label: 'Video' },

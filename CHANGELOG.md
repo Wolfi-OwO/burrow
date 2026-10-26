@@ -10,7 +10,12 @@ first release is cut.
 
 ### Added
 
-- Big uploads: files of 48 MB and more go up in 16 MB pieces, four at a time, each retried on its own and written straight into place on the server, so a 5 GB file is sent as fast as the line allows (measured locally: 5 GB in 14 seconds) and finishes in seconds. Files up to 20 GB and zips unpacking to 32 GB are accepted (`MAX_FILE_GB`, `ZIP_MAX_TOTAL_MB`).
+- "Sort all now" runs in the background without a time limit (it used to stop after four minutes, about 200 files); the button shows `done / total`, the Review page a progress bar, and it can be left and come back to. `SORT_CONCURRENCY` sets how many files are classified at once.
+- The ratings are fixed automatically after every sorting run and once at start-up: pictures the NSFW model scores as explicit leave SFW, and the reverse.
+- Folders are scored under several phrasings (the name, "<name> artwork", "an illustration of <name>", plus aliases such as an anthropomorphic animal character for Furry), summed, so drawn pictures land in the right folder more often.
+- The drive loads 200 files at a time with a Load more button instead of stopping at 200.
+- The viewer opens routes (GPX, TCX, KML, GeoJSON) with a drawn map, distance, climb, time and elevation profile; source files with syntax highlighting; Markdown rendered; JSON pretty-printed. The drive has Code and Routes filters.
+- Big uploads: files of 48 MB and more go up in 16 MB pieces, eight at a time, each retried on its own and written straight into place on the server, so a 5 GB file is sent as fast as the line allows (measured locally: 5 GB in 14 seconds) and finishes in seconds. Files up to 20 GB and zips unpacking to 32 GB are accepted (`MAX_FILE_GB`, `ZIP_MAX_TOTAL_MB`).
 
 - The left sidebar is resizable: drag its edge (or use the arrow keys when it is focused, double-click to reset); the width is remembered.
 

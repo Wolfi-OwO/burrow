@@ -248,6 +248,8 @@ const KINDS: Record<string, RegExp> = {
     spreadsheet: /\.(xlsx?|ods|csv)$/i,
     presentation: /\.(pptx?|odp)$/i,
     archive: /\.(zip|7z|rar|tar|gz)$/i,
+    code: /\.(json|xml|ya?ml|toml|js|ts|tsx|py|java|go|rs|sh|sql|css|html?)$/i,
+    route: /\.(gpx|tcx|kml|geojson)$/i,
 };
 function kindOf(name: string): string {
     return Object.entries(KINDS).find(([, re]) => re.test(name))?.[0] ?? 'other';

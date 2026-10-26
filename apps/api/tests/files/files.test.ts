@@ -172,6 +172,8 @@ describe('files', () => {
         await upload(token, 'p.png', await png(20));
         await upload(token, 'notes.txt', new Blob(['hello'], { type: 'text/plain' }));
         await upload(token, 'sheet.xlsx', new Blob(['x'], { type: 'application/octet-stream' }));
+        await upload(token, 'main.py', new Blob(['print(1)'], { type: 'text/x-python' }));
+        await upload(token, 'ride.gpx', new Blob(['<gpx/>'], { type: 'application/gpx+xml' }));
         await upload(token, 'weird.bin', new Blob(['x'], { type: 'application/octet-stream' }));
         const names = async (type: string): Promise<string[]> => {
             const reply = await api('GET', `/api/files?type=${type}&limit=50`, { token });
@@ -180,9 +182,12 @@ describe('files', () => {
         assert.deepEqual(await names('image'), ['p.png']);
         assert.deepEqual(await names('document'), ['notes.txt']);
         assert.deepEqual(await names('spreadsheet'), ['sheet.xlsx']);
+        assert.deepEqual(await names('code'), ['main.py']);
+        assert.deepEqual(await names('route'), ['ride.gpx']);
         assert.deepEqual(await names('other'), ['weird.bin']);
         const counts = (await api('GET', '/api/files/types', { token })).json.counts;
-        assert.equal(counts.all, 4);
+        assert.equal(counts.all, 6);
+        assert.equal(counts.route, 1);
         assert.equal(counts.image, 1);
         assert.equal(counts.other, 1);
     });
