@@ -2,6 +2,8 @@ name: Release
 
 # Publishing a GitHub Release builds both images, pushes them under the release tag, and deploys that tag.
 # workflow_dispatch redeploys any existing tag, which is also the rollback path.
+# The deploy job sits behind the `production` environment, whose required reviewer is the owner: a release builds
+# straight away, then waits for one approval before anything touches the server.
 
 on:
   release:

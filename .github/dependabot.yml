@@ -1,70 +1,43 @@
 version: 2
 
-# Monthly, grouped, one open PR per ecosystem. Majors are a decision, not a chore.
+# Monthly, and a single pull request for everything: the multi-ecosystem group folds npm, pip, Docker and the
+# workflow actions into one PR per month. Majors stay ignored for the language ecosystems, where they are real
+# migrations; Action bumps are always major (v4 -> v5), so those are not ignored.
+multi-ecosystem-groups:
+  monthly:
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
-    labels:
-      - dependencies
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      npm:
-        patterns: ["*"]
+    multi-ecosystem-group: monthly
+    patterns: ['*']
     ignore:
-      - dependency-name: "*"
+      - dependency-name: '*'
         update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
-    # Action bumps are always major (v4 -> v5), so a semver-major ignore here
-    # means they never update and deprecation warnings become hard failures on
-    # GitHub's schedule. Majors stay ignored for npm, where they are real
-    # migrations; not here.
     directory: /
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
-    labels:
-      - dependencies
-    commit-message:
-      prefix: ci
-    groups:
-      github-actions:
-        patterns: ["*"]
+    multi-ecosystem-group: monthly
+    patterns: ['*']
 
   - package-ecosystem: pip
     directory: /apps/vision
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
-    labels:
-      - dependencies
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      pip:
-        patterns: ["*"]
+    multi-ecosystem-group: monthly
+    patterns: ['*']
     ignore:
-      - dependency-name: "*"
+      - dependency-name: '*'
         update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directory: /apps/vision
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
-    labels:
-      - dependencies
+    multi-ecosystem-group: monthly
+    patterns: ['*']
 
   - package-ecosystem: docker
     directory: /apps/api
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
-    labels:
-      - dependencies
+    multi-ecosystem-group: monthly
+    patterns: ['*']
