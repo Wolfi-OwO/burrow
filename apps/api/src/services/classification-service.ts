@@ -113,13 +113,19 @@ export async function descend(
         }
 
         const scores = await score([
-            ...candidates.map((c) => c.name),
+            ...candidates.flatMap((c) => labelsFor(c.name)),
             ...competitorsFor(candidates),
         ]);
         const best = candidates
             .map((c) => ({
                 category: c,
-                score: scores.find((s) => s.label === c.name)?.score ?? 0,
+                score: Math.min(
+                    1,
+                    labelsFor(c.name).reduce(
+                        (sum, label) => sum + (scores.find((s) => s.label === label)?.score ?? 0),
+                        0,
+                    ),
+                ),
             }))
             .sort((a, b) => b.score - a.score)[0];
         if (!best) break;

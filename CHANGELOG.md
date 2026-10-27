@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-27
+
+### Fixed
+
+- Drawn pictures stayed in Unsorted: the folder names were still scored on their own, so a competitor label such as "a screenshot" beat `Furry` on artwork. Every folder is now scored under its several phrasings, summed, as the 0.5.0 notes said it was.
+
 ## [0.6.0] - 2026-10-27
 
 ### Added

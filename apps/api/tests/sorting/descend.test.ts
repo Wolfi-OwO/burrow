@@ -121,3 +121,21 @@ describe('scheduler timing (FR-040)', () => {
         assert.equal(isDue(null, 0, now), false);
     });
 });
+
+describe('a folder is scored under every phrasing, summed', () => {
+    it('files drawn artwork the bare folder name would lose to a competitor label', async () => {
+        const d = await descend(
+            children,
+            scorer({
+                Furry: 0.2,
+                'an illustration of Furry': 0.15,
+                'a fursona character with fur and a tail': 0.35,
+                'a screenshot': 0.25,
+            }),
+            0.6,
+            0.03,
+        );
+        assert.equal(d.category?.name, 'SFW');
+        assert.equal(d.status, 'sorted');
+    });
+});
