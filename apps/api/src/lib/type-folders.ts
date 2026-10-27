@@ -12,6 +12,7 @@ const KIND_NAMES: Partial<Record<FileType, string[]>> = {
     archive: ['archive', 'archives', 'zip', 'zips', 'compressed'],
     audio: ['audio', 'music', 'sounds', 'songs'],
     video: ['video', 'videos', 'movies', 'clips'],
+    other: ['other', 'misc', 'miscellaneous', 'various'],
 };
 
 const SAME_EXT: Record<string, string> = { jpeg: 'jpg', htm: 'html', yml: 'yaml', markdown: 'md' };
@@ -35,6 +36,20 @@ const depth = (c: Category): number => c.path.split('.').length;
  * (DOCX, GPX) wins over one named after the kind (Documents, Routes); the deeper folder wins a tie. Pictures are only
  * filed by an extension folder, because what is in them is the picture model's job. Null when nothing matches.
  */
+/** The folder name offered for a kind that has none yet. */
+export const KIND_FOLDER_NAME: Record<FileType, string> = {
+    image: 'Pictures',
+    document: 'Documents',
+    spreadsheet: 'Spreadsheets',
+    presentation: 'Presentations',
+    code: 'Code',
+    route: 'Routes',
+    archive: 'Archives',
+    audio: 'Audio',
+    video: 'Video',
+    other: 'Other',
+};
+
 export function folderForFile(
     file: { name: string; mime: string },
     categories: Category[],
@@ -45,7 +60,7 @@ export function folderForFile(
         list.sort((a, b) => depth(b) - depth(a))[0] ?? null;
     const byExt = ext ? categories.filter((c) => folderExt(c.name) === ext) : [];
     if (byExt.length > 0) return deepest(byExt);
-    if (kind === 'image' || kind === 'other') return null;
+    if (kind === 'image') return null;
     const names = KIND_NAMES[kind] ?? [];
     return deepest(categories.filter((c) => names.includes(c.name.trim().toLowerCase())));
 }

@@ -1,3 +1,4 @@
+import { sniffMime } from '../lib/sniff.ts';
 import { folderForFile } from '../lib/type-folders.ts';
 import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
@@ -200,8 +201,16 @@ export const classificationService = {
      */
     async classify(file: FileRecord): Promise<Decision | null> {
         // A folder named after the file's type (DOCX, Documents, GPX) takes it before anything is looked at.
-        const byType = folderForFile(file, await categoryRepository.listAll(file.userId));
-        if (byType || !file.mime.startsWith('image/')) {
+        const categories = await categoryRepository.listAll(file.userId);
+        let mime = file.mime;
+        if (mime === 'application/octet-stream') {
+            // "media-5" with no extension and no type: the first bytes usually say what it is.
+            mime =
+                (await sniffMime(await blobStore.ensureLocal(file.blobSha256)).catch(() => null)) ??
+                mime;
+        }
+        const byType = folderForFile({ name: file.name, mime }, categories);
+        if (byType || !mime.startsWith('image/')) {
             const decision: Decision = byType
                 ? { status: 'sorted', category: byType, confidence: 1 }
                 : { status: 'unsorted', category: null, confidence: null };

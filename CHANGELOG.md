@@ -12,6 +12,8 @@ first release is cut.
 
 ### Added
 
+- Files that no folder fits by type (mp3, mp4, py, html, zip, no extension) are listed on the Unsorted page with one button, "Create the folders and sort", that makes an Audio, Video, Code, Archives and so on folder for exactly the kinds that have none and files them.
+- Files without an extension or with a generic type are recognised from their first bytes (mp4, mp3, zip, pdf, ogg, flac, wav, webm, 7z, rar, gzip), when uploaded and when sorted.
 - Test coverage is measured (API through Node's built-in coverage, vision through pytest-cov) and uploaded to Codecov from CI.
 - A README in the shape of the other projects: demo clip, a screenshot per feature, test and CI tables.
 

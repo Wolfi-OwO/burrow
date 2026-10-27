@@ -101,6 +101,29 @@ export function DrivePage(): ReactNode {
 
     const { upload } = useUploads();
     const sortRun = useSortRun();
+    const client = useQueryClient();
+    const unplaced = useQuery({
+        queryKey: ['sorting', 'unplaced'],
+        queryFn: () =>
+            api<{ total: number; kinds: { kind: string; name: string; count: number }[] }>(
+                'GET',
+                '/api/sorting/unplaced',
+            ),
+        enabled: category === 'unsorted',
+    });
+    const makeTypeFolders = useMutation({
+        mutationFn: () => api<{ created: string[] }>('POST', '/api/sorting/type-folders'),
+        onSuccess: (r) => {
+            for (const key of ['tree', 'files', 'sorting', 'types'])
+                void client.invalidateQueries({ queryKey: [key] });
+            toast.say(
+                r.created.length > 0
+                    ? `Made ${r.created.join(', ')}; sorting them now.`
+                    : 'Sorting them now.',
+            );
+        },
+        onError: (e: Error) => toast.say(e.message),
+    });
     const onDrop = (event: DragEvent): void => {
         event.preventDefault();
         setOver(false);
@@ -225,6 +248,30 @@ export function DrivePage(): ReactNode {
                     event.target.value = '';
                 }}
             />
+            {category === 'unsorted' && unplaced.data && unplaced.data.total > 0 ? (
+                <div className="notice" role="status">
+                    <div>
+                        <strong>
+                            {unplaced.data.total} file{unplaced.data.total === 1 ? '' : 's'} have no
+                            folder for their type.
+                        </strong>
+                        <span className="muted small">
+                            {' '}
+                            {unplaced.data.kinds
+                                .map((k) => `${String(k.count)} for ${k.name}`)
+                                .join(', ')}
+                        </span>
+                    </div>
+                    <button
+                        className="btn primary"
+                        disabled={makeTypeFolders.isPending || sortRun.running}
+                        onClick={() => makeTypeFolders.mutate()}
+                    >
+                        {makeTypeFolders.isPending ? <Spinner /> : <FolderOpen size={16} />}
+                        Create the folders and sort
+                    </button>
+                </div>
+            ) : null}
             {filesQuery.isLoading ? (
                 <p className="muted" style={{ marginTop: 24 }}>
                     <Spinner /> Loading files

@@ -1,3 +1,4 @@
+import { sniffMime } from '../lib/sniff.ts';
 import { tidyFileName } from '../lib/file-name.ts';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -42,7 +43,9 @@ async function detectMime(path: string, claimed: string): Promise<string> {
     } catch {
         // not an image
     }
-    return /^[\w.+-]+\/[\w.+-]+$/.test(claimed) ? claimed : 'application/octet-stream';
+    const valid = /^[\w.+-]+\/[\w.+-]+$/.test(claimed) ? claimed : 'application/octet-stream';
+    if (valid !== 'application/octet-stream') return valid;
+    return (await sniffMime(path).catch(() => null)) ?? valid;
 }
 
 export interface ArchiveResult {

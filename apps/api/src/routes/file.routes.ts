@@ -49,3 +49,5 @@ fileRouter.post(
 
 fileRouter.get('/sorting/status', sorting.status);
 fileRouter.post('/sorting/run', sorting.sortNow);
+fileRouter.get('/sorting/unplaced', sorting.unplacedKinds);
+fileRouter.post('/sorting/type-folders', sorting.createTypeFolders);

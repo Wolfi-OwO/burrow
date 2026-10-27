@@ -506,6 +506,16 @@ function answer(
         }
         return json({});
     }
+    if (p === '/api/sorting/unplaced')
+        return json({
+            total: 14,
+            kinds: [
+                { kind: 'audio', name: 'Audio', count: 9 },
+                { kind: 'code', name: 'Code', count: 5 },
+            ],
+        });
+    if (p === '/api/sorting/type-folders' && method === 'POST')
+        return json({ created: ['Audio', 'Code'], sorting: { started: false, total: 0 } }, 201);
     if (p === '/api/sorting/status')
         return json({ ...status, backlog: files.filter((f) => f.status === 'review').length });
     if (p === '/api/sorting/run') return json({ ran: true, decided: 0 });

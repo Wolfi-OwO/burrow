@@ -239,6 +239,24 @@ export const fileRepository = {
         return (rowCount ?? 0) > 0;
     },
 
+    /** Everything in Unsorted that is not a picture: the files only a folder for their type can place. */
+    async listUnfiledNonPictures(
+        userId: string,
+        db: Queryable = getPool(),
+    ): Promise<{ id: string; name: string; mime: string; blobSha256: string }[]> {
+        const { rows } = await db.query(
+            `SELECT f.id, f.name, f.mime, f.blob_sha256 FROM files f
+             WHERE f.user_id = $1 AND f.status = 'unsorted' AND f.category_id IS NULL AND f.mime NOT LIKE 'image/%'`,
+            [userId],
+        );
+        return rows.map((r) => ({
+            id: r.id as string,
+            name: r.name as string,
+            mime: r.mime as string,
+            blobSha256: r.blob_sha256 as string,
+        }));
+    },
+
     /** Names that still carry percent escapes, for the start-up tidy. */
     async namesWithEscapes(db: Queryable = getPool()): Promise<{ id: string; name: string }[]> {
         const { rows } = await db.query(`SELECT id, name FROM files WHERE name ~* '%[0-9a-f]{2}'`);
