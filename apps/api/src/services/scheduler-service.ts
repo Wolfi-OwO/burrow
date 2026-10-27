@@ -171,6 +171,7 @@ export const schedulerService = {
         if (!config.vision.url)
             return { started: false, total: 0, reason: 'The vision service is not set up.' };
         if (job.running) return { started: false, total: job.total, reason: 'Already sorting.' };
+        await fileRepository.requeueUnsorted();
         const total = await fileRepository.backlogSize();
         if (total === 0) return { started: false, total: 0, reason: 'Nothing is waiting.' };
         job = { running: true, total, done: 0 };

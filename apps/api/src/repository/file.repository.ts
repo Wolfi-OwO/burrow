@@ -158,6 +158,18 @@ export const fileRepository = {
         return rows.map(toRecord);
     },
 
+    /**
+     * "Sort all now" looks at everything still in Unsorted again, because folders may have been made since the last
+     * look. Review items are left alone. @returns How many files were queued.
+     */
+    async requeueUnsorted(db: Queryable = getPool()): Promise<number> {
+        const { rowCount } = await db.query(
+            `UPDATE files SET classified_at = NULL
+             WHERE status = 'unsorted' AND category_id IS NULL AND classified_at IS NOT NULL`,
+        );
+        return rowCount ?? 0;
+    },
+
     /** @returns How many files still wait for a scheduler run; it sets the run frequency (FR-040). */
     async backlogSize(db: Queryable = getPool()): Promise<number> {
         const { rows } = await db.query(

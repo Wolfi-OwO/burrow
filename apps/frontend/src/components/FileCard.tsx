@@ -1,9 +1,10 @@
-import { FileText, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { formatBytes } from '../lib/format.ts';
 import type { FileItem } from '../lib/types.ts';
 import { DRAG_FILE } from './Tree.tsx';
+import { TypeIcon } from './TypeIcon.tsx';
 import { ProtectedImage } from './ui.tsx';
 
 /** One file as a raised card; draggable onto any category in the tree. */
@@ -29,7 +30,7 @@ export function FileCard({
                 {isImage ? (
                     <ProtectedImage path={`/api/files/${file.id}/thumbnail`} alt="" />
                 ) : (
-                    <FileText size={34} aria-hidden="true" />
+                    <TypeIcon name={file.name} mime={file.mime} />
                 )}
             </span>
             <span className="fname" title={file.name}>

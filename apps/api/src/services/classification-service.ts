@@ -1,3 +1,4 @@
+import { folderForFile } from '../lib/type-folders.ts';
 import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
@@ -184,17 +185,22 @@ export const classificationService = {
      * @returns The decision, or null when the file could not be processed this time.
      */
     async classify(file: FileRecord): Promise<Decision | null> {
-        if (!file.mime.startsWith('image/')) {
-            // Nothing to look at: mark it seen so it is not retried forever.
+        // A folder named after the file's type (DOCX, Documents, GPX) takes it before anything is looked at.
+        const byType = folderForFile(file, await categoryRepository.listAll(file.userId));
+        if (byType || !file.mime.startsWith('image/')) {
+            const decision: Decision = byType
+                ? { status: 'sorted', category: byType, confidence: 1 }
+                : { status: 'unsorted', category: null, confidence: null };
+            // Nothing to look at otherwise: mark it seen so it is not retried forever.
             await fileRepository.setClassification(file.id, {
-                status: 'unsorted',
-                categoryId: null,
+                status: decision.status,
+                categoryId: byType?.id ?? null,
                 suggestedCategoryId: null,
-                confidence: null,
+                confidence: decision.confidence,
                 nsfwScore: null,
                 embedding: null,
             });
-            return { status: 'unsorted', category: null, confidence: null };
+            return decision;
         }
 
         try {

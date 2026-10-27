@@ -8,6 +8,17 @@ first release is cut.
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Added
+
+- Every file in the drive has a page icon in its kind's colour with its extension on it (DOCX blue, XLSX green, PPTX orange, PDF red, code violet, routes teal, and so on).
+- The sorter files by type: a folder named after an extension (DOCX, GPX, "png files") or after a kind (Documents, Code, Routes, Archives, Spreadsheets, Presentations, Audio, Video) takes matching files, the extension folder first.
+
+### Fixed
+
+- "Sort all now" said nothing was waiting for files the sorter had already looked at and left in Unsorted; it now looks at everything in Unsorted again, so new folders take effect.
+
 ## [0.5.0] - 2026-10-26
 
 ### Added
