@@ -50,3 +50,4 @@ test-results/
 apps/api/data/
 apps/api/data-test/
 apps/api/public/
+coverage.xml

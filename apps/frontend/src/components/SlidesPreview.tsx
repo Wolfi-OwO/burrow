@@ -65,14 +65,19 @@ export function SlidesPreview({ deck }: { deck: Deck }): ReactNode {
     const [at, setAt] = useState(0);
     const last = deck.slides.length - 1;
     useEffect(() => {
+        // Captured before the lightbox sees the key: arrows turn slides first and only move to the next file once
+        // the first or last slide is reached.
         const onKey = (e: KeyboardEvent): void => {
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown')
-                setAt((v) => Math.min(last, v + 1));
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') setAt((v) => Math.max(0, v - 1));
+            const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+            const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+            if ((forward && at < last) || (back && at > 0)) {
+                e.stopImmediatePropagation();
+                setAt(at + (forward ? 1 : -1));
+            }
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [last]);
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [at, last]);
     const slide = deck.slides[at];
     if (!slide) return <p className="muted">No slides found in this presentation.</p>;
     return (

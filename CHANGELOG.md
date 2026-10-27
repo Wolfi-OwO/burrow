@@ -8,6 +8,18 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-27
+
+### Added
+
+- Test coverage is measured (API through Node's built-in coverage, vision through pytest-cov) and uploaded to Codecov from CI.
+- A README in the shape of the other projects: demo clip, a screenshot per feature, test and CI tables.
+
+### Fixed
+
+- Pictures of scenery with a person in them (a summit photo) stayed in Unsorted; `Nature` and `Documents` folders are now also scored under mountain-scenery and scanned-page phrasings.
+- In the slide viewer the arrow keys moved to the next file instead of the next slide.
+
 ## [0.7.1] - 2026-10-27
 
 ### Changed

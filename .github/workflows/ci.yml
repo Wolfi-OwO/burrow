@@ -129,7 +129,16 @@ jobs:
       - run: npm run typecheck
       - run: npm run build -w apps/frontend
       - run: npm run database:migrate -w apps/api
-      - run: npm test -w apps/api
+      - run: npm run test:coverage -w apps/api
+      # Codecov hosts the number and draws the README badge. fail_ci_if_error is false so a Codecov hiccup cannot fail
+      # the required check; the upload needs the CODECOV_TOKEN repository secret.
+      - name: Upload API coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/api/coverage/lcov.info
+          flags: api
+          fail_ci_if_error: false
 
   vision:
     name: apps/vision
@@ -163,7 +172,14 @@ jobs:
         working-directory: apps/vision
         run: |
           pip install -r requirements-dev.txt
-          python -m pytest -q
+          python -m pytest -q --cov=app --cov-report=xml
+      - name: Upload vision coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/vision/coverage.xml
+          flags: vision
+          fail_ci_if_error: false
 
   smoke:
     name: End-to-end smoke

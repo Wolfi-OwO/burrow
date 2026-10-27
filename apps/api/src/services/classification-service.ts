@@ -43,7 +43,15 @@ const ALIASES: Record<string, string[]> = {
     cartoon: ['a cartoon character', 'a comic strip'],
     meme: ['an internet meme image with text', 'a funny image macro'],
     screenshot: ['a screenshot of an app or a website'],
-    nature: ['a landscape with trees and plants', 'wildlife in nature'],
+    nature: [
+        'a landscape with trees and plants',
+        'wildlife in nature',
+        'a mountain landscape',
+        'a hiker on a mountain summit',
+        'a view over mountains and valleys',
+        'a photo taken outdoors in nature',
+    ],
+    documents: ['a photo or scan of a paper document', 'a page of text, a form or a table'],
     food: ['a plate of food', 'a meal on a table'],
 };
 

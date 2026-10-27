@@ -11,6 +11,7 @@
     "start": "node --env-file-if-exists=.env dist/server.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --env-file-if-exists=.env.test --experimental-strip-types --test-concurrency=1 --test",
+    "test:coverage": "node --env-file-if-exists=.env.test --experimental-strip-types --test-concurrency=1 --experimental-test-coverage --test-coverage-include='src/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --test",
     "database:migrate": "node --env-file-if-exists=.env scripts/run-migrations.mjs"
   },
   "dependencies": {
