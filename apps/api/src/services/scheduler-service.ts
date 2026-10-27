@@ -1,3 +1,4 @@
+import { tidyFileName } from '../lib/file-name.ts';
 import { publish } from '../lib/events.ts';
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
@@ -70,6 +71,23 @@ async function startupRatingPass(): Promise<void> {
         }
     } catch (error) {
         logger.warn({ err: error }, 'rating pass failed');
+    }
+}
+
+/** Once at start-up: names stored with %20 and the like (uploaded before names were tidied) are rewritten. */
+async function startupNameTidy(): Promise<void> {
+    try {
+        let changed = 0;
+        for (const row of await fileRepository.namesWithEscapes()) {
+            const tidy = tidyFileName(row.name).slice(0, 255);
+            if (tidy && tidy !== row.name) {
+                await fileRepository.renameById(row.id, tidy);
+                changed += 1;
+            }
+        }
+        if (changed > 0) logger.info({ changed }, 'file names tidied');
+    } catch (error) {
+        logger.warn({ err: error }, 'file name tidy failed');
     }
 }
 
@@ -222,6 +240,7 @@ export const schedulerService = {
             return () => undefined;
         }
         void startupRatingPass();
+        void startupNameTidy();
         let ticks = 0;
         const timer = setInterval(() => {
             ticks += 1;

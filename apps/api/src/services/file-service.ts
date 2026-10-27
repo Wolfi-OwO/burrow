@@ -1,3 +1,4 @@
+import { tidyFileName } from '../lib/file-name.ts';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
@@ -29,10 +30,7 @@ export interface UploadResult {
 export function cleanFileName(raw: string): string {
     const utf8 = Buffer.from(raw, 'latin1').toString('utf8');
     const base = (utf8.includes('\uFFFD') ? raw : utf8).split(/[\\/]/).pop() ?? '';
-    const cleaned = base
-        .replace(/\p{Cc}/gu, '')
-        .trim()
-        .slice(0, 255);
+    const cleaned = tidyFileName(base).slice(0, 255);
     return cleaned || 'unnamed';
 }
 

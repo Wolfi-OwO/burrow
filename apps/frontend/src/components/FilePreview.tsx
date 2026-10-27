@@ -5,12 +5,15 @@ import type { ReactNode } from 'react';
 import { fetchBlob } from '../lib/api.ts';
 import { formatBytes } from '../lib/format.ts';
 import type { GeoData } from '../lib/geo.ts';
+import type { Deck } from '../lib/pptx-render.ts';
 import { GeoPreview } from './GeoPreview.tsx';
+import { SheetGrid } from './SheetGrid.tsx';
+import { SlidesPreview } from './SlidesPreview.tsx';
 import { Spinner } from './ui.tsx';
 
 /** How much of a text file is shown; the rest is one Download away. */
 const TEXT_LIMIT = 400_000;
-const SHEET_ROWS = 300;
+const SHEET_ROWS = 500;
 
 const TEXT_EXT =
     /\.(txt|md|markdown|json|jsonl|csv|tsv|log|xml|yml|yaml|ini|toml|cfg|conf|env|js|mjs|ts|tsx|jsx|py|java|kt|c|h|cpp|hpp|cs|go|rs|rb|php|sh|bash|zsh|sql|css|scss|html|htm|svg|tex|rtf|srt|vtt|gitignore)$/i;
@@ -72,6 +75,7 @@ type Loaded =
     | { kind: 'geo'; data: GeoData }
     | { kind: 'table'; sheets: { name: string; rows: string[][] }[] }
     | { kind: 'slides'; slides: string[] }
+    | { kind: 'deck'; deck: Deck }
     | { kind: 'list'; entries: { name: string; size: number }[] }
     | { kind: 'none'; reason: string };
 
@@ -108,9 +112,6 @@ function parseDelimited(text: string, delimiter: string): string[][] {
     if (field !== '' || row.length > 0) rows.push([...row, field]);
     return rows;
 }
-
-const textOf = (xml: string, tag: RegExp): string =>
-    [...xml.matchAll(tag)].map((m) => (m[1] ?? '').replace(/<[^>]+>/g, '')).join(' ');
 
 async function load(path: string, name: string, mime: string, kind: Kind): Promise<Loaded> {
     const blob = await fetchBlob(path);
@@ -246,16 +247,11 @@ async function load(path: string, name: string, mime: string, kind: Kind): Promi
             const { unzipSync, strFromU8 } = await import('fflate');
             const files = unzipSync(new Uint8Array(await blob.arrayBuffer()));
             if (kind === 'pptx') {
-                const slides = Object.keys(files)
-                    .filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
-                    .sort(
-                        (a, b) =>
-                            Number(/(\d+)\.xml/.exec(a)?.[1]) - Number(/(\d+)\.xml/.exec(b)?.[1]),
-                    )
-                    .map((f) =>
-                        textOf(strFromU8(files[f] as Uint8Array), /<a:t>([\s\S]*?)<\/a:t>/g),
-                    );
-                return { kind: 'slides', slides };
+                const { readDeck } = await import('../lib/pptx-render.ts');
+                const deck = readDeck(new Uint8Array(await blob.arrayBuffer()));
+                return deck.slides.length === 0
+                    ? { kind: 'none', reason: 'No readable slides in this presentation.' }
+                    : { kind: 'deck', deck };
             }
             const content = files['content.xml'];
             if (!content) return { kind: 'none', reason: 'No readable content in this document.' };
@@ -319,16 +315,16 @@ export function FilePreview({
 }): ReactNode {
     const kind = kindOf(name, mime);
     const [state, setState] = useState<Loaded | 'loading' | 'failed'>('loading');
-    const [sheet, setSheet] = useState(0);
     useEffect(() => {
         let live = true;
         let url: string | null = null;
+        let deckUrls: string[] = [];
         setState('loading');
-        setSheet(0);
         load(path, name, mime, kind).then(
             (loaded) => {
                 if (!live) return;
                 if (loaded.kind === 'url') url = loaded.url;
+                if (loaded.kind === 'deck') deckUrls = loaded.deck.urls;
                 setState(loaded);
             },
             () => live && setState('failed'),
@@ -336,6 +332,7 @@ export function FilePreview({
         return () => {
             live = false;
             if (url) URL.revokeObjectURL(url);
+            for (const u of deckUrls) URL.revokeObjectURL(u);
         };
     }, [path, name, mime, kind]);
 
@@ -406,46 +403,10 @@ export function FilePreview({
                     />
                 </div>
             );
-        case 'table': {
-            const current = state.sheets[sheet] ?? state.sheets[0];
-            return (
-                <div className="preview-doc wide">
-                    {state.sheets.length > 1 ? (
-                        <div className="segmented sheets" role="tablist" aria-label="Sheets">
-                            {state.sheets.map((s, i) => (
-                                <button
-                                    key={s.name}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={i === sheet}
-                                    aria-checked={i === sheet}
-                                    onClick={() => setSheet(i)}
-                                >
-                                    {s.name}
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
-                    <div className="preview-table-wrap">
-                        <table className="preview-table">
-                            <tbody>
-                                {(current?.rows ?? []).map((row, r) => (
-                                    <tr key={r}>
-                                        <th scope="row">{r + 1}</th>
-                                        {row.map((c, i) => (
-                                            <td key={i}>{c}</td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    {(current?.rows.length ?? 0) >= SHEET_ROWS ? (
-                        <p className="muted small">Showing the first {SHEET_ROWS} rows.</p>
-                    ) : null}
-                </div>
-            );
-        }
+        case 'table':
+            return <SheetGrid sheets={state.sheets} limit={SHEET_ROWS} />;
+        case 'deck':
+            return <SlidesPreview deck={state.deck} />;
         case 'slides':
             return (
                 <div className="preview-doc">

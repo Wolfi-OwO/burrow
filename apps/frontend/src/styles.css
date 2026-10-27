@@ -2231,3 +2231,246 @@ html[data-theme='dark'] .hljs-section,
 html[data-theme='dark'] .hljs-name {
     color: #c4b5fd;
 }
+
+/* Spreadsheet preview: laid out like a spreadsheet, in the theme's colours with Excel's green for the selection. */
+.xl {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: calc(100vh - 150px);
+    min-height: 320px;
+    border-radius: var(--r-s);
+    box-shadow: inset 0 0 0 1px var(--line);
+    background: var(--surface);
+    overflow: hidden;
+    font-size: 0.8125rem;
+}
+.xl-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+}
+.xl-name {
+    min-width: 56px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-family: var(--font-mono);
+    text-align: center;
+}
+.xl-fx {
+    color: #1d7a46;
+    font-style: italic;
+    font-weight: 700;
+}
+.xl-formula {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.xl-scroll {
+    overflow: auto;
+}
+.xl-grid {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.xl-grid th,
+.xl-grid td {
+    padding: 3px 8px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 72px;
+    height: 24px;
+}
+.xl-grid thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 500;
+    text-align: center;
+}
+.xl-grid tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 40px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 500;
+    text-align: center;
+}
+.xl-grid .corner {
+    left: 0;
+    z-index: 3;
+    min-width: 40px;
+}
+.xl-grid th.on {
+    background: color-mix(in srgb, #1d7a46 22%, var(--surface-2));
+    color: var(--text);
+}
+.xl-grid td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.xl-grid td.sel {
+    outline: 2px solid #1d7a46;
+    outline-offset: -2px;
+}
+.xl-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    overflow-x: auto;
+}
+.xl-tabs button {
+    padding: 6px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+.xl-tabs button.on {
+    background: var(--surface);
+    color: #1d7a46;
+    font-weight: 600;
+    border-bottom-color: #1d7a46;
+}
+.xl-tabs button:hover {
+    color: var(--text);
+}
+
+/* Slide preview: every slide is a container, so sizes in cqw scale with it. */
+.slides {
+    display: grid;
+    grid-template-columns: 168px 1fr;
+    gap: 16px;
+    height: calc(100vh - 150px);
+    min-height: 320px;
+}
+.slide-strip {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow: auto;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+}
+.slide-strip button {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--line);
+}
+.slide-strip button.sel {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+.slide-strip .slide-no {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    z-index: 1;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: color-mix(in srgb, #000 55%, transparent);
+    color: #fff;
+    font-size: 0.7rem;
+}
+.slide-stage {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    overflow: auto;
+}
+.slide-canvas {
+    position: relative;
+    container-type: inline-size;
+    overflow: hidden;
+    width: 100%;
+    border-radius: 6px;
+    box-shadow:
+        0 0 0 1px var(--line),
+        var(--pop);
+}
+.slide-strip .slide-canvas {
+    box-shadow: none;
+    pointer-events: none;
+}
+.slide-shape {
+    position: absolute;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    line-height: 1.2;
+}
+.slide-shape.title {
+    justify-content: center;
+}
+.slide-shape p {
+    margin: 0;
+}
+.slide-shape p.bullet::before {
+    content: '\2022\00a0';
+}
+.slide-shape img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.slide-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+@media (max-width: 720px) {
+    .slides {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .slide-strip {
+        grid-auto-flow: column;
+        grid-auto-columns: 120px;
+    }
+}
+.xl,
+.slides {
+    width: 100%;
+}
+.lightbox-doc > .xl,
+.lightbox-doc > .slides {
+    align-self: stretch;
+    justify-self: stretch;
+    height: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+}
+.lightbox-doc > .xl {
+    height: calc(100% - 32px);
+    margin: 16px;
+    padding: 0;
+    width: auto;
+}
