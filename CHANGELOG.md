@@ -10,6 +10,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-27
+
 ### Added
 
 - Every file in the drive has a page icon in its kind's colour with its extension on it (DOCX blue, XLSX green, PPTX orange, PDF red, code violet, routes teal, and so on).
