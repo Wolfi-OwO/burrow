@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { UploadTray } from './UploadTray.tsx';
 import { ThemeToggle } from './ThemeToggle.tsx';
 import {
     ClipboardCheck,
@@ -199,6 +200,7 @@ export function Shell(): ReactNode {
             </aside>
             <main className="main">
                 <Outlet />
+                <UploadTray />
             </main>
         </div>
     );

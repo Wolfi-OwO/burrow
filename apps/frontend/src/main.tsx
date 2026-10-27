@@ -7,6 +7,7 @@ import { App } from './App.tsx';
 import { ToastProvider } from './components/ui.tsx';
 import { AuthProvider } from './lib/auth.tsx';
 import { EventsProvider } from './lib/events.tsx';
+import { UploadsProvider } from './lib/uploads.tsx';
 import './styles.css';
 
 const client = new QueryClient({
@@ -23,7 +24,9 @@ createRoot(root).render(
                 <ToastProvider>
                     <AuthProvider>
                         <EventsProvider>
-                            <App />
+                            <UploadsProvider>
+                                <App />
+                            </UploadsProvider>
                         </EventsProvider>
                     </AuthProvider>
                 </ToastProvider>

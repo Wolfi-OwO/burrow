@@ -192,7 +192,11 @@ export function readDeck(data: Uint8Array): Deck {
         for (const el of tree ? [...tree.children] : []) {
             if (el.localName === 'sp') {
                 const ph = placeholder(el);
-                const role0 = ph ? (/^(title|ctrTitle)$/.test(ph.type) ? 'title' : 'body') : 'other';
+                const role0 = ph
+                    ? /^(title|ctrTitle)$/.test(ph.type)
+                        ? 'title'
+                        : 'body'
+                    : 'other';
                 // No position anywhere in the file (generated decks): title on top, the rest below it.
                 const fallback: Frame =
                     role0 === 'title'

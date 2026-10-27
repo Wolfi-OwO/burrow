@@ -2474,3 +2474,35 @@ html[data-theme='dark'] .hljs-name {
     padding: 0;
     width: auto;
 }
+
+/* Upload panel: fixed in the corner so it follows you across pages. */
+.upload-tray {
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--footer-h) + 16px);
+    z-index: 40;
+    width: min(420px, calc(100vw - 32px));
+    max-height: 50vh;
+    overflow: auto;
+    padding: 12px;
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--pop);
+}
+.upload-tray header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.875rem;
+}
+.upload-tray .uploads {
+    margin-top: 0;
+}
+.upload-tray .upload-row {
+    background: var(--surface-2);
+    flex-wrap: wrap;
+}
+.upload-tray .upload-row .bar {
+    flex-basis: 100%;
+}
