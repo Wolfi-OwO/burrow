@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-27
+
+### Changed
+
+- Every scrollbar is the same thin, arrowless bar in the theme's colours, and the folder tree no longer scrolls sideways.
+
 ## [0.6.1] - 2026-10-27
 
 ### Fixed

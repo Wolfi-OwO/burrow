@@ -345,7 +345,8 @@ textarea.input {
     display: grid;
     align-content: start;
     gap: 2px;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     margin: 0 -6px;
     padding: 6px;
     flex: 1;
@@ -2505,4 +2506,11 @@ html[data-theme='dark'] .hljs-name {
 }
 .upload-tray .upload-row .bar {
     flex-basis: 100%;
+}
+
+/* One scrollbar everywhere: thin, no arrow buttons, a quiet thumb that follows the theme. The standard properties
+   replace the browser's chunky bars in Chromium and Firefox alike. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
 }
