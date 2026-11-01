@@ -1,0 +1,20 @@
+# The root is a sign-in gate and the legal pages are public; everything else is a private drive behind a login.
+# Share links (/s/<token>) are secret URLs, so they must never be listed by a crawler.
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /s/
+Disallow: /oauth/
+Disallow: /login
+Disallow: /search
+Disallow: /review
+Disallow: /duplicates
+Disallow: /shared
+Disallow: /profile
+Disallow: /health
+Disallow: /livez
+Disallow: /readyz
+Disallow: /metrics
+
+Sitemap: https://burrow.woofi-developments.at/sitemap.xml

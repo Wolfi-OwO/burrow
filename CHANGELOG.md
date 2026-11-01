@@ -8,6 +8,14 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-01
+
+### Added
+
+- `robots.txt` and `sitemap.xml` so search engines can find the sign-in page and the legal pages; share links and
+  every signed-in route are disallowed.
+- Meta description, canonical link and Open Graph tags on the page shell.
+
 ## [0.7.2] - 2026-10-27
 
 ### Added
