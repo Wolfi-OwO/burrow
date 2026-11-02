@@ -14,8 +14,11 @@ burrow.woofi-developments.at {
 
     header {
         -Server
-        X-Robots-Tag "noindex, nofollow"
     }
+
+    # Only the sign-in page and the legal pages may be indexed; share links, the API and every signed-in view stay out.
+    @private not path / /impressum /privacy /terms
+    header @private X-Robots-Tag "noindex, nofollow"
 
     import access_log
     import error_pages
