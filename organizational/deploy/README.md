@@ -126,7 +126,7 @@ release contains a new migration.
 
 ## First account
 
-The first account becomes the admin, and registration is closed afterwards (`REGISTRATION_OPEN=false`). Nothing else
+The first account becomes the admin, and registration is closed afterwards unless `REGISTRATION_OPEN=true` (the production deployment sets it to true, so anyone can register; `PRIVACY.md` § 1 and § 4 say what that means). Nothing else
 guards the unclaimed site, and a new hostname is public as soon as its certificate is issued, so create the owner
 account right after the first deploy: open `https://burrow.woofi-developments.at`, either sign in with GitHub,
 Microsoft or Google (that creates the account) or choose "New here? Create an account" and register with a username

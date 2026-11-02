@@ -8,6 +8,14 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-02
+
+### Changed
+
+- Privacy policy and terms of use rewritten for open registration: the operator is the controller, DSGVO applies in
+  full, and the missing self-service export, account deletion and per-account NSFW opt-out are stated plainly.
+- README and deploy notes no longer say registration stays closed after the first account.
+
 ## [0.7.3] - 2026-11-01
 
 ### Added
