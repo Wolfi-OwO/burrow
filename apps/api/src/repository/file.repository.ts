@@ -289,6 +289,14 @@ export const fileRepository = {
         return (rows[0]?.blob_sha256 as string | undefined) ?? null;
     },
 
+    /** Forgets every stored NSFW score of one account (it withdrew the opt-in); filing decisions stay as they are. */
+    async clearNsfwScores(userId: string, db: Queryable = getPool()): Promise<void> {
+        await db.query(
+            'UPDATE files SET nsfw_score = NULL WHERE user_id = $1 AND nsfw_score IS NOT NULL',
+            [userId],
+        );
+    },
+
     /** @returns How many files (and avatars) still reference a blob. */
     async blobReferences(sha256: string, db: Queryable = getPool()): Promise<number> {
         const { rows } = await db.query(

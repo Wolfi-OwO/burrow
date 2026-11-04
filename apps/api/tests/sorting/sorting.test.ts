@@ -13,6 +13,7 @@ import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../
 let vision: Server;
 let behaviour = { nsfw: 0.01, scores: {} as Record<string, number> };
 let embedCalls = 0;
+let nsfwCalls = 0;
 let seenToken: string | undefined;
 
 before(() => {
@@ -32,7 +33,10 @@ before(() => {
                     }),
                 );
             }
-            if (req.url === '/nsfw') return void res.end(JSON.stringify({ nsfw: behaviour.nsfw }));
+            if (req.url === '/nsfw') {
+                nsfwCalls += 1;
+                return void res.end(JSON.stringify({ nsfw: behaviour.nsfw }));
+            }
             const labels = JSON.parse(
                 /name="labels"\r\n\r\n([^\r]*)/.exec(body)?.[1] ?? '[]',
             ) as string[];
@@ -53,6 +57,7 @@ beforeEach(async () => {
     await resetDatabase();
     behaviour = { nsfw: 0.01, scores: {} };
     embedCalls = 0;
+    nsfwCalls = 0;
 });
 
 const category = async (
@@ -229,6 +234,7 @@ describe('sorting', () => {
 
     it('never auto-files an NSFW file into a category that may be previewed publicly (FR-037)', async () => {
         const { token } = await registerOwner();
+        await api('PATCH', '/api/me', { token, body: { nsfwOptIn: true } });
         const shown = await category(token, 'Showcase', null, true);
         behaviour.scores = { Showcase: 0.99 };
         behaviour.nsfw = 0.97;
@@ -241,8 +247,48 @@ describe('sorting', () => {
         assert.ok(after.nsfwScore > 0.9);
     });
 
+    it('does not run the NSFW pass for an account that has not opted in (Art 9 DSGVO)', async () => {
+        const { token } = await registerOwner();
+        assert.equal((await api('GET', '/api/me', { token })).json.nsfwOptIn, false);
+        await category(token, 'Wolves');
+        behaviour.scores = { Wolves: 0.99 };
+        const { file } = (await upload(token, 'a.png', await png(40))).json;
+        await api('POST', '/api/sorting/run', { token });
+        const after = await fileOf(token, file.id as string);
+        assert.equal(nsfwCalls, 0);
+        assert.equal(after.nsfwScore, null);
+        assert.equal(after.status, 'sorted');
+    });
+
+    it('sends a file with no NSFW score to review instead of a public-preview category', async () => {
+        const { token } = await registerOwner();
+        const shown = await category(token, 'Showcase', null, true);
+        behaviour.scores = { Showcase: 0.99 };
+        const { file } = (await upload(token, 'a.png', await png(41))).json;
+        await api('POST', '/api/sorting/run', { token });
+        const after = await fileOf(token, file.id as string);
+        assert.equal(after.status, 'review');
+        assert.equal(after.suggestedCategoryId, shown);
+    });
+
+    it('forgets stored scores when the opt-in is withdrawn', async () => {
+        const { token } = await registerOwner();
+        await api('PATCH', '/api/me', { token, body: { nsfwOptIn: true } });
+        await category(token, 'Wolves');
+        behaviour.scores = { Wolves: 0.99 };
+        const { file } = (await upload(token, 'a.png', await png(42))).json;
+        await api('POST', '/api/sorting/run', { token });
+        assert.ok((await fileOf(token, file.id as string)).nsfwScore !== null);
+        assert.equal(
+            (await api('PATCH', '/api/me', { token, body: { nsfwOptIn: false } })).json.nsfwOptIn,
+            false,
+        );
+        assert.equal((await fileOf(token, file.id as string)).nsfwScore, null);
+    });
+
     it('files a SFW file into the same public category normally', async () => {
         const { token } = await registerOwner();
+        await api('PATCH', '/api/me', { token, body: { nsfwOptIn: true } });
         await category(token, 'Showcase', null, true);
         behaviour.scores = { Showcase: 0.99 };
         const { file } = (await upload(token, 'a.png', await png(5))).json;

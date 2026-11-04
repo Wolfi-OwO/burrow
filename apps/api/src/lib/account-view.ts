@@ -9,6 +9,7 @@ export function toAccount(user: User): {
     hasAvatar: boolean;
     hasPassword: boolean;
     role: string;
+    nsfwOptIn: boolean;
 } {
     return {
         id: user.id,
@@ -18,6 +19,7 @@ export function toAccount(user: User): {
         hasAvatar: user.avatarSha256 !== null,
         hasPassword: user.passwordHash !== null,
         role: user.role,
+        nsfwOptIn: user.nsfwOptIn,
     };
 }
 

@@ -8,6 +8,22 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-04
+
+### Added
+
+- Profile, "Your data": a switch for the NSFW check (off for new accounts; withdrawing it deletes the stored scores), a
+  zip export of everything an account holds, and self-service account deletion that also removes blobs no other
+  account uses. The only admin account cannot delete itself.
+- `GET /api/me/export` and `DELETE /api/me`; `nsfwOptIn` on `PATCH /api/me`.
+
+### Changed
+
+- The NSFW model no longer runs for accounts that did not opt in, and a picture without a score is never auto-filed into
+  a category with a public preview link.
+- Privacy policy and terms describe the above instead of listing it as missing.
+- Updated `katex` to 0.18.2 (Dependabot alert).
+
 ## [0.7.4] - 2026-11-02
 
 ### Changed

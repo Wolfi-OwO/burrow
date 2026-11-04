@@ -1,6 +1,6 @@
 # Terms of Use — burrow
 
-Published in the app at `/terms`. Last reviewed 2026-11-02.
+Published in the app at `/terms`. Last reviewed 2026-11-04.
 
 > Compliance draft, not legal advice. Not reviewed by a Rechtsanwalt.
 
@@ -22,13 +22,14 @@ rewrite, not a patch.
 - You must be an adult. burrow does not verify age; an account that belongs to a minor is deleted on request.
 - One account per person. Keep your credentials confidential.
 - The operator may suspend or delete an account that breaks these terms, and may close registration.
-- To have your account and data deleted, write to the contact in `PRIVACY.md` § 9. There is no self-service deletion
-  yet; the operator does it by hand.
+- You can delete your account yourself at any time in Profile, "Delete my account", and download everything first with
+  "Download all my data". Both are described in `PRIVACY.md` § 7.
 
 ## 4. AI-Assisted Sorting
 
 The scheduled vision job sorts uploaded files into the category tree, including into an NSFW branch, automatically.
-It runs on every account's files; there is no per-account switch yet (see `PRIVACY.md` § 4). Classification is a
+The NSFW part of it is off by default and only runs on your files if you switch it on in Profile (see
+`PRIVACY.md` § 4). Classification is a
 best-effort automated estimate and can be wrong (misfiled file, wrong subcategory); it is not a moderation or
 content-removal decision, so a misclassified file is only misfiled, not deleted or restricted. You can always correct it:
 drag the file to another category, change its category in the details panel, or resolve it from the review queue
