@@ -1,6 +1,6 @@
 # Privacy Policy — burrow
 
-Published in the app at `/privacy`. Last reviewed 2026-11-02. This file states
+Published in the app at `/privacy`. Last reviewed 2026-11-04. This file states
 what the system does today and what applies if its shape changes; it does not
 claim a legal review has taken place.
 
@@ -29,7 +29,7 @@ deleted on request.
 
 | Data | Where it lives | Legal basis |
 | - | - | - |
-| Username, Argon2id password hash, linked provider ids and the email the provider confirmed | PostgreSQL on the VPS | Art 6(1)(b): needed to give the account holder the service they asked for |
+| Username, Argon2id password hash, linked provider ids, the email the provider confirmed, and whether the NSFW check is switched on | PostgreSQL on the VPS | Art 6(1)(b): needed to give the account holder the service they asked for |
 | Active sessions: user agent, creation and expiry time | PostgreSQL | Art 6(1)(f): keeping the account secure and letting a user end a session |
 | Profile: display name, bio, avatar | PostgreSQL, avatar in the blob store | Art 6(1)(b) |
 | Uploaded files and the category tree | Metadata in PostgreSQL, bytes in `/opt/burrow/data` on the VPS, plus an encrypted copy in an Azure container (§ 5) | Art 6(1)(b) |
@@ -45,19 +45,21 @@ people by whether they depict nudity or sexual content is **inference over perso
 special-category data (data concerning a person's sex life), and depending on the model, arguably biometric data. This is
 a real Art 9 risk, not "just a filename tag."
 
-**What is true today, stated plainly:**
+**How it is handled:**
 
-- The vision job runs on **every account's** files. There is **no per-account switch** and **no separate consent step**
-  for it yet. The operator has not built the opt-in that Art 9(2)(a) would call for, and this is an open gap, not a
-  solved question.
-- **What you can do:** do not upload files you do not want an automated classifier, including an NSFW category, to
-  look at. You can delete any file at any time, which removes its scores and embedding with it.
+- **Opt-in, per account.** The NSFW check is **off for every new account**. It runs on an account's pictures only after
+  its owner switches it on in Profile, "Your data", which is the consent under Art 9(2)(a). Accounts that already
+  existed on 2026-11-04 were created before this switch and kept the check on.
+- **Withdrawing.** Switching it off stops the check at once and deletes the NSFW scores already stored for that account.
+  Files stay where they were filed. A picture with no score never files itself into a category that has a public preview
+  link; it waits in the review queue instead, because nothing can vouch for it.
+- **What you can also do:** delete any file at any time, which removes its scores and embedding with it.
 - **What is stored:** the result is not a separate record. A category, a confidence, an NSFW probability and an image
   embedding live as columns of the file's own row, so deleting the file deletes all of them. The NSFW probability is used
   for one purpose: keeping a file out of any category marked as possibly publicly previewable. Nothing is sent to anyone.
 - **Models:** both run on the VPS (`apps/vision`) and the service keeps no upload and no result after answering.
 
-Art 9 attaches to the nature of the data, not to audience size.
+Art 9 attaches to the nature of the data, not to audience size, which is why the check is opt-in.
 
 ## 5. Recipients and Third-Country Transfers
 
@@ -111,6 +113,7 @@ Art 9 attaches to the nature of the data, not to audience size.
   encrypted bytes therefore remain in the backup container, unreadable without the operator's keys, until the container
   is purged; erasure from the backups means deleting those blobs from the container, which the operator can do from the
   Azure portal.
+- **Account deletion:** removes the account's rows and every blob no other account uses at once; see § 7 for the backups.
 - **Sessions:** a session row is deleted 7 days after it expired or was revoked.
 - **Logs:** the container log keeps three files of 10 MB and overwrites the oldest.
 - **Thumbnails** are derived data in `/opt/burrow/data/thumbs`; they can be deleted at any time.
@@ -118,11 +121,15 @@ Art 9 attaches to the nature of the data, not to audience size.
 ## 7. Rights
 
 Each data subject has the rights under Art 15 to 21 (access, rectification, erasure, portability, objection) and the right
-to withdraw consent where consent is the basis. Individual files can be downloaded and deleted by their owner at any time
-in the app. **There is no self-service account export or account deletion screen yet.** Send such requests to the
-contact in § 9: the operator carries them out by hand, directly in the database and the backup container, and answers
-within one month as Art 12(3) requires. Deleting an account removes its row, files, sorter output and sessions; the
-encrypted backup copies described in § 6 follow the schedule given there.
+to withdraw consent where consent is the basis.
+
+- **Access and portability (Art 15, 20):** Profile, "Download all my data" gives a zip with the account, the folders,
+  `files.json` (every field burrow stored about each file, including scores and place guesses) and the files themselves.
+- **Erasure (Art 17):** Profile, "Delete my account" removes the account, its files, folders, share links, sign-in methods
+  and sessions at once, and deletes every stored file that no other account still uses. The only admin account cannot
+  delete itself. Encrypted backup copies follow the schedule in § 6.
+- **Rectification and objection:** names, bio and the NSFW opt-in are editable in Profile. Anything else goes to the
+  contact in § 9, and the operator answers within one month as Art 12(3) requires.
 
 ## 8. Breach Notification
 

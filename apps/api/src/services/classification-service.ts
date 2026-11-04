@@ -10,6 +10,7 @@ import type { Category } from '../models/category.model.ts';
 import type { FileRecord } from '../models/file.model.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
+import { userRepository } from '../repository/user.repository.ts';
 
 /**
  * Competitor labels at every level, so a category cannot win just by being one of the few the user has made
@@ -228,13 +229,17 @@ export const classificationService = {
 
         try {
             const path = await blobStore.ensureLocal(file.blobSha256);
+            // The NSFW pass can be special-category data (Art 9 DSGVO), so it only runs for accounts that opted in.
+            const optedIn = (await userRepository.findById(file.userId))?.nsfwOptIn ?? false;
             const [embedding, nsfw] = await Promise.all([
                 visionClient.embed(path),
-                visionClient.nsfw(path),
+                optedIn ? visionClient.nsfw(path) : Promise.resolve(null),
             ]);
             // Explicit pictures are not worth a landmark guess.
             const { place, score: placeScore } =
-                nsfw >= 0.5 ? { place: null, score: null } : await guessPlace(path);
+                nsfw !== null && nsfw >= 0.5
+                    ? { place: null, score: null }
+                    : await guessPlace(path);
             const decision = placeDecision(
                 await descend(
                     (parentId) => categoryRepository.listChildren(file.userId, parentId),
@@ -248,10 +253,11 @@ export const classificationService = {
                 await categoryRepository.listAll(file.userId),
             );
 
-            // FR-037: an NSFW file never auto-files into a category that may sit behind a preview link.
+            // FR-037: an NSFW file never auto-files into a category that may sit behind a preview link. Without a
+            // score (the account did not opt in) nothing can vouch for the picture, so those files go to review too.
             const gated =
                 decision.status === 'sorted' &&
-                nsfw >= config.sorting.nsfwThreshold &&
+                (nsfw === null || nsfw >= config.sorting.nsfwThreshold) &&
                 decision.category?.publicPreview === true;
             const final: Decision = gated
                 ? { status: 'review', category: decision.category, confidence: decision.confidence }
