@@ -45,8 +45,8 @@ intended. Items marked **operator** need an account or a secret that the reposit
 
 - [ ] Publish the GitHub Release `v0.1.0`; the release workflow builds, pushes and deploys.
 - [ ] `curl -fsS https://burrow.woofi-developments.at/readyz` answers 200 and `/api/version` shows `v0.1.0`.
-- [ ] Create the owner account in the browser; confirm registration is then closed (`POST /api/auth/register`
-      returns 403 for a second account).
+- [ ] Create an account in the browser; confirm a second one can register too (`POST /api/auth/register`
+      returns 201 for a new username).
 - [ ] Upload a photo, press "Sort now" on the Review page, see it filed or queued.
 - [ ] `sudo systemctl start burrow-backup.service` finishes, and `restore-drill.sh` restores the new dump.
 - [ ] The three containers appear in metrion (`deploy/metrion-onboarding.md`).

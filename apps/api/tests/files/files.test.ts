@@ -132,10 +132,7 @@ describe('files', () => {
             body: new Uint8Array(10),
         });
         assert.equal(short.status, 400);
-        const { config } = await import('../../src/config/index.ts');
-        config.registrationOpen = true;
         const other = await registerOwner('other');
-        config.registrationOpen = false;
         assert.equal((await api('GET', `/api/uploads/${id}`, { token: other.token })).status, 403);
     });
 

@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import impressum from '../../../../IMPRESSUM.md?raw';
 import privacy from '../../../../PRIVACY.md?raw';
 import terms from '../../../../TERMS_OF_USE.md?raw';
-import { Mark } from '../components/Shell.tsx';
+import { Mark } from '../components/Masthead.tsx';
 
 const DOCUMENTS = { impressum, privacy, terms } as const;
 export type LegalDocument = keyof typeof DOCUMENTS;

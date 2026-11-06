@@ -1,6 +1,5 @@
-import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
-import { BadRequestError, ConflictError, ForbiddenError } from '../lib/errors.ts';
+import { BadRequestError, ConflictError } from '../lib/errors.ts';
 import type { OAuthProfile } from '../lib/oauth-providers.ts';
 import type { Provider, User, UserIdentity } from '../models/user.model.ts';
 import { identityRepository } from '../repository/identity.repository.ts';
@@ -34,10 +33,9 @@ export const oauthService = {
     /**
      * Logs a provider account in (FR-006 to FR-008, one code path for all three providers): an existing
      * link wins; otherwise a VERIFIED email matching a linked identity links to that account; otherwise a
-     * new account is created, which only the first account or an open registration may do.
+     * new account is created (registration is open to everyone).
      *
      * @throws {BadRequestError} When the provider shares no email.
-     * @throws {ForbiddenError} When a new account is needed but registration is closed.
      */
     async resolveLogin(provider: Provider, profile: OAuthProfile): Promise<User> {
         const link = await identityRepository.find(provider, profile.providerUserId);
@@ -68,17 +66,13 @@ export const oauthService = {
             }
         }
 
-        const accounts = await userRepository.count();
-        if (accounts > 0 && !config.registrationOpen)
-            throw new ForbiddenError('Registration is closed.');
-
         return getPool().transaction(async (tx) => {
             const user = await userRepository.create(
                 {
                     username: await freeUsername(profile),
                     passwordHash: null,
                     displayName: profile.displayName,
-                    role: accounts === 0 ? 'admin' : 'user',
+                    role: 'user',
                 },
                 tx,
             );

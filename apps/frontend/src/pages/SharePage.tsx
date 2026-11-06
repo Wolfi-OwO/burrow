@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router';
 
 import { previewable } from '../components/FilePreview.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
-import { Mark } from '../components/Shell.tsx';
+import { Mark } from '../components/Masthead.tsx';
 import { ProtectedImage, Spinner } from '../components/ui.tsx';
 import { api, ApiError, fetchBlob } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
@@ -18,11 +18,29 @@ export function SharePage(): ReactNode {
     const { token = '' } = useParams();
     const { user } = useAuth();
     const [open, setOpen] = useState<FileItem | null>(null);
-    const page = useQuery({
+    const pages = useInfiniteQuery({
         queryKey: ['share', token, user?.id ?? 'guest'],
         retry: false,
-        queryFn: () => api<{ share: Share; files: FileItem[] }>('GET', `/api/s/${token}`),
+        initialPageParam: 0,
+        queryFn: ({ pageParam }) =>
+            api<{ share: Share; files: FileItem[]; hasMore: boolean }>(
+                'GET',
+                `/api/s/${token}?offset=${String(pageParam)}`,
+            ),
+        getNextPageParam: (last, all) =>
+            last.hasMore ? all.reduce((n, p) => n + p.files.length, 0) : undefined,
     });
+    // The rest of the page reads one flat list, as it did before the link was paged.
+    const page = {
+        isLoading: pages.isLoading,
+        error: pages.error,
+        data: pages.data
+            ? {
+                  share: pages.data.pages[0]?.share as Share,
+                  files: pages.data.pages.flatMap((p) => p.files),
+              }
+            : undefined,
+    };
     const failure = page.error instanceof ApiError ? page.error : null;
     const images = (page.data?.files ?? []).filter((f) => previewable(f.name, f.mime));
     const at = open ? images.findIndex((f) => f.id === open.id) : -1;
@@ -103,6 +121,20 @@ export function SharePage(): ReactNode {
                                 </button>
                             ))}
                         </div>
+                        {pages.hasNextPage ? (
+                            <div
+                                className="row"
+                                style={{ justifyContent: 'center', margin: '20px 0' }}
+                            >
+                                <button
+                                    className="btn"
+                                    disabled={pages.isFetchingNextPage}
+                                    onClick={() => void pages.fetchNextPage()}
+                                >
+                                    {pages.isFetchingNextPage ? <Spinner /> : null}Load more
+                                </button>
+                            </div>
+                        ) : null}
                     </>
                 ) : null}
             </main>

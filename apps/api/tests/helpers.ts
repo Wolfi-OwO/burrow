@@ -70,7 +70,7 @@ export async function resetDatabase(): Promise<void> {
     await getPool().query('UPDATE scheduler_state SET last_run_at = NULL');
 }
 
-/** Registers (the first account is the owner) and returns its access token. */
+/** Registers an account and returns its access token. */
 export async function registerOwner(
     username = 'owner',
 ): Promise<{ token: string; id: string; cookie: string }> {

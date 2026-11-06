@@ -15,12 +15,12 @@ after(closeServer);
 describe('auth', () => {
     beforeEach(resetDatabase);
 
-    it('registers the owner as admin and never returns a hash or the refresh token in the body', async () => {
+    it('registers a plain user and never returns a hash or the refresh token in the body', async () => {
         const reply = await api('POST', '/api/auth/register', {
             body: { username: 'wolf', password: 'correct horse battery' },
         });
         assert.equal(reply.status, 201);
-        assert.equal(reply.json.user.role, 'admin');
+        assert.equal(reply.json.user.role, 'user');
         assert.ok(!JSON.stringify(reply.json).includes('$argon2'));
         assert.ok(!('refreshToken' in reply.json));
         const cookie = reply.headers.getSetCookie().find((c) => c.startsWith('burrow_rt='));
@@ -35,12 +35,12 @@ describe('auth', () => {
         assert.match(rows[0]?.password_hash as string, /^\$argon2id\$/);
     });
 
-    it('closes registration once the owner exists', async () => {
+    it('keeps registration open after the first account', async () => {
         await registerOwner();
         const reply = await api('POST', '/api/auth/register', {
             body: { username: 'second', password: 'correct horse battery' },
         });
-        assert.equal(reply.status, 403);
+        assert.equal(reply.status, 201);
     });
 
     it('rejects short passwords', async () => {
@@ -169,10 +169,10 @@ describe('session retention', () => {
     });
 });
 
-describe('first account', () => {
+describe('open registration', () => {
     beforeEach(resetDatabase);
 
-    it('makes the first account the admin, whether it comes from a password or a provider', async () => {
+    it('lets anyone register and gives every account the same role, whether it comes from a password or a provider', async () => {
         const { oauthService } = await import('../../src/services/oauth-service.ts');
         const user = await oauthService.resolveLogin('github', {
             providerUserId: 'x',
@@ -181,10 +181,11 @@ describe('first account', () => {
             displayName: 'A',
             pictureUrl: null,
         });
-        assert.equal(user.role, 'admin');
+        assert.equal(user.role, 'user');
         const second = await api('POST', '/api/auth/register', {
             body: { username: 'wolf', password: 'correct horse battery' },
         });
-        assert.equal(second.status, 403);
+        assert.equal(second.status, 201);
+        assert.equal(second.json.user.role, 'user');
     });
 });

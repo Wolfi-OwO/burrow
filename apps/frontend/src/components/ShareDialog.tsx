@@ -316,13 +316,15 @@ export function ShareRow({ share, onEdit }: { share: Share; onEdit: () => void }
     );
 }
 
-/** Create links to a file or a whole category, and manage the ones that already exist. */
+/** Create links to a file, a whole category or the whole drive, and manage the ones that already exist. */
 export function ShareDialog({
     target,
     onClose,
 }: {
     target:
-        { kind: 'file'; id: string; name: string } | { kind: 'category'; id: number; name: string };
+        | { kind: 'file'; id: string; name: string }
+        | { kind: 'category'; id: number; name: string }
+        | { kind: 'drive'; id: 'drive'; name: string };
     onClose: () => void;
 }): ReactNode {
     const toast = useToast();
@@ -343,7 +345,11 @@ export function ShareDialog({
             users: ShareUser[];
         }) =>
             api<{ share: Share }>('POST', '/api/shares', {
-                ...(target.kind === 'file' ? { fileId: target.id } : { categoryId: target.id }),
+                ...(target.kind === 'file'
+                    ? { fileId: target.id }
+                    : target.kind === 'drive'
+                      ? { drive: true }
+                      : { categoryId: target.id }),
                 access: v.access,
                 expiresInHours: v.expiresInHours ?? null,
                 userIds: v.users.map((u) => u.id),

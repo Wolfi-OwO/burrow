@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-28
+
+### Added
+
+- Share your whole drive: one link to everything you have, from the Drive page ("Share my drive") or the Shared page, with the same options as any link (anyone with it or specific people, permanent or expiring, revocable). The public page and the viewer work as before, and a big drive or category is read 200 files at a time with a Load more button, where a link used to stop at 500 files.
+
 ## [0.7.2] - 2026-10-27
 
 ### Added

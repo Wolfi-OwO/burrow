@@ -58,7 +58,6 @@ encrypted nightly backup on Azure).
    INTERNAL_SERVICE_TOKEN=<openssl rand -base64 36>
    CORS_ALLOWED_ORIGINS=https://burrow.woofi-developments.at
    OAUTH_FRONTEND_BASE_URL=https://burrow.woofi-developments.at
-   REGISTRATION_OPEN=false
    GITHUB_CLIENT_ID=...    GITHUB_CLIENT_SECRET=...
    MICROSOFT_CLIENT_ID=... MICROSOFT_CLIENT_SECRET=...
    GOOGLE_CLIENT_ID=...    GOOGLE_CLIENT_SECRET=...      # optional until the Google client exists
@@ -124,14 +123,12 @@ also runnable on its own as the "Registry tidy" workflow).
 The first start applies the schema (`scripts/run-migrations.mjs` runs before the server). Take a backup first whenever a
 release contains a new migration.
 
-## First account
+## Accounts
 
-The first account becomes the admin, and registration is closed afterwards (`REGISTRATION_OPEN=false`). Nothing else
-guards the unclaimed site, and a new hostname is public as soon as its certificate is issued, so create the owner
-account right after the first deploy: open `https://burrow.woofi-developments.at`, either sign in with GitHub,
-Microsoft or Google (that creates the account) or choose "New here? Create an account" and register with a username
-and a password of 12 or more characters. Link further providers from the Profile page. Nothing is reachable without
-signing in.
+Registration is open to everyone and every account is equal: there is no owner and no setup step. Anyone can sign in
+with GitHub, Microsoft or Google (that creates the account) or choose "New here? Create an account" and register with
+a username and a password of 12 or more characters. Link further providers from the Profile page. Nothing is reachable
+without signing in. An old `REGISTRATION_OPEN` line in `/opt/burrow/.env` is ignored and can be deleted.
 
 ## Restoring
 

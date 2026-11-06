@@ -1,42 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { UploadTray } from './UploadTray.tsx';
-import { ThemeToggle } from './ThemeToggle.tsx';
-import {
-    ClipboardCheck,
-    Copy,
-    FolderTree,
-    HardDrive,
-    LogOut,
-    Share2,
-    UserRound,
-} from 'lucide-react';
+import { FolderTree } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import type { ReactNode } from 'react';
-import { NavLink, Outlet, useNavigate, useSearchParams } from 'react-router';
+import { Outlet, useNavigate, useSearchParams } from 'react-router';
 
 import { api } from '../lib/api.ts';
-import { useAuth } from '../lib/auth.tsx';
 import type { FileItem } from '../lib/types.ts';
-import { ProtectedImage } from './ui.tsx';
+import { Masthead } from './Masthead.tsx';
 import { Tree } from './Tree.tsx';
-
-/** The burrow's mouth: an arch over a dark tunnel. */
-export function Mark({ size = 34 }: { size?: number }): ReactNode {
-    return (
-        <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-            <rect width="64" height="64" rx="18" fill="var(--accent)" />
-            <ellipse cx="32" cy="38" rx="17" ry="13" fill="var(--text)" opacity="0.88" />
-            <path
-                d="M12 38c0-14 9-24 20-24s20 10 20 24"
-                fill="none"
-                stroke="var(--on-accent)"
-                strokeWidth="4"
-                strokeLinecap="round"
-            />
-        </svg>
-    );
-}
+import { UploadTray } from './UploadTray.tsx';
 
 const RAIL_MIN = 200;
 const RAIL_MAX = 560;
@@ -88,7 +61,6 @@ function useRailWidth(): {
 
 /** Left rail on every page: navigation, then the category tree that is the heart of the drive. */
 export function Shell(): ReactNode {
-    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const raw = params.get('c');
@@ -106,12 +78,13 @@ export function Shell(): ReactNode {
 
     return (
         <div className="shell" style={{ '--rail-w': `${String(rail.width)}px` } as CSSProperties}>
+            <Masthead waiting={waiting} folder={typeof selected === 'number' ? selected : undefined} />
             <aside className="rail">
                 <div
                     className="rail-resizer"
                     role="separator"
                     aria-orientation="vertical"
-                    aria-label="Resize the sidebar"
+                    aria-label="Resize the index"
                     aria-valuemin={RAIL_MIN}
                     aria-valuemax={RAIL_MAX}
                     aria-valuenow={rail.width}
@@ -122,37 +95,7 @@ export function Shell(): ReactNode {
                     onDoubleClick={rail.reset}
                     title="Drag to resize, double-click to reset"
                 />
-                <NavLink to="/" className="brand">
-                    <Mark />
-                    burrow
-                </NavLink>
-                <nav className="nav" aria-label="Main">
-                    <NavLink to="/" end>
-                        <HardDrive size={18} />
-                        Drive
-                    </NavLink>
-                    <NavLink to="/review">
-                        <ClipboardCheck size={18} />
-                        Review
-                        {waiting > 0 ? (
-                            <span className="count" aria-label={`${String(waiting)} waiting`}>
-                                {waiting}
-                            </span>
-                        ) : null}
-                    </NavLink>
-                    <NavLink to="/duplicates">
-                        <Copy size={18} />
-                        Duplicates
-                    </NavLink>
-                    <NavLink to="/shared">
-                        <Share2 size={18} />
-                        Shared
-                    </NavLink>
-                    <NavLink to="/profile">
-                        <UserRound size={18} />
-                        Profile
-                    </NavLink>
-                </nav>
+                <p className="rail-title">Index</p>
                 <button
                     className="btn ghost sm tree-toggle"
                     aria-expanded={treeOpen}
@@ -170,32 +113,6 @@ export function Shell(): ReactNode {
                             navigate(value === null ? '/' : `/?c=${String(value)}`);
                         }}
                     />
-                </div>
-                <div className="rail-foot">
-                    <span className="avatar">
-                        {user?.hasAvatar ? (
-                            <ProtectedImage path={`/api/users/${user.id}/avatar`} alt="" />
-                        ) : (
-                            (user?.displayName[0] ?? '?').toUpperCase()
-                        )}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                        <strong
-                            style={{
-                                display: 'block',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {user?.displayName}
-                        </strong>
-                        <span className="muted small">@{user?.username}</span>
-                    </span>
-                    <ThemeToggle />
-                    <button className="tool" aria-label="Sign out" onClick={() => void logout()}>
-                        <LogOut size={17} />
-                    </button>
                 </div>
             </aside>
             <main className="main">

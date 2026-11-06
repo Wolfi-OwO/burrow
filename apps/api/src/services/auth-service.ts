@@ -2,7 +2,7 @@ import argon2 from 'argon2';
 
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
-import { ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.ts';
+import { ConflictError, UnauthorizedError } from '../lib/errors.ts';
 import { signAccessToken } from '../lib/jwt.ts';
 import type { User } from '../models/user.model.ts';
 import { sessionRepository } from '../repository/session.repository.ts';
@@ -52,9 +52,8 @@ async function startSession(user: User, userAgent: string | null): Promise<Sessi
 
 export const authService = {
     /**
-     * Creates the first account (the owner, an admin). Later accounts need REGISTRATION_OPEN=true.
+     * Creates an account. Registration is open to everyone and every account is equal: there is no owner.
      *
-     * @throws {ForbiddenError} When registration is closed.
      * @throws {ConflictError} When the username is taken.
      */
     async register(
@@ -63,9 +62,6 @@ export const authService = {
         displayName: string,
         userAgent: string | null,
     ): Promise<SessionTokens> {
-        const existing = await userRepository.count();
-        if (existing > 0 && !config.registrationOpen)
-            throw new ForbiddenError('Registration is closed.');
         if (await userRepository.findByUsername(username))
             throw new ConflictError('That username is taken.');
 
@@ -73,7 +69,7 @@ export const authService = {
             username,
             passwordHash: await hashPassword(password),
             displayName,
-            role: existing === 0 ? 'admin' : 'user',
+            role: 'user',
         });
         return startSession(user, userAgent);
     },

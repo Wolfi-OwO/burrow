@@ -1,44 +1,49 @@
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/fraunces/full.css';
 
-/* Clean and quiet: neutral grey surfaces, hairline borders instead of shadows, small radii, one terracotta accent.
-   Every colour below is a token; the light and dark looks swap them, so nothing hard-codes a hue. */
+/* The Archive: a catalogue room. Paper and ink by day, olive night by evening, one vermilion accent for what needs a decision.
+   Files are specimens with an accession number; the sorter is the archivist. Every colour is a token; light and dark swap
+   them, so nothing hard-codes a hue. Corners stay at 4px and rules at 1px: that is the identity, do not soften it. */
 :root {
-    --bg: #fafafa;
-    --surface: #ffffff;
-    --surface-2: #f4f4f5;
-    --text: #18181b;
-    --muted: #5b5b66;
-    --line: #e4e4e7;
-    --accent: #c2410c;
-    --on-accent: #ffffff;
-    --live: #16a34a;
-    --danger: #dc2626;
+    --bg: #eee7d6;
+    --surface: #f6f1e3;
+    --surface-2: #e7dfca;
+    --text: #16130e;
+    --muted: #5e5648;
+    --line: #cfc6b0;
+    --accent: #b8381a;
+    --on-accent: #fbf6ea;
+    --live: #2f6b3a;
+    --danger: #a82b14;
     --footer-h: 0px;
-    --r: 12px;
-    --r-s: 8px;
-    --font-display: 'Geist Variable', system-ui, sans-serif;
+    --mast-h: 58px;
+    --r: 4px;
+    --r-s: 3px;
+    --font-display: 'Fraunces Variable', Georgia, serif;
     --font-body: 'Geist Variable', system-ui, sans-serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
-    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-    --dur: 140ms;
-    /* Hairlines, not shadows: raised things get a border, pressed things an inner border. */
+    /* One curve for every transition in the product, so the page settles as a single movement. */
+    --ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+    --dur: 160ms;
+    /* Rules, not shadows: raised things get a border, pressed things an inner border. */
     --inset: inset 0 0 0 1px var(--line);
     --raise: 0 0 0 1px var(--line);
-    --pop: 0 8px 28px -8px color-mix(in srgb, #000 28%, transparent), 0 0 0 1px var(--line);
+    --pop: 0 10px 30px -10px color-mix(in srgb, #16130e 35%, transparent), 0 0 0 1px var(--line);
     color-scheme: light;
 }
 html[data-theme='dark'] {
-    --bg: #0b0b0d;
-    --surface: #141417;
-    --surface-2: #1a1a1e;
-    --text: #ededef;
-    --muted: #a1a1aa;
-    --line: #27272a;
-    --accent: #fb923c;
-    --on-accent: #1a0f05;
-    --live: #4ade80;
-    --danger: #f87171;
+    --bg: #11130e;
+    --surface: #181b13;
+    --surface-2: #20231a;
+    --text: #ece6d3;
+    --muted: #a39c86;
+    --line: #2d3024;
+    --accent: #e8683f;
+    --on-accent: #1d0d06;
+    --live: #8ccf8f;
+    --danger: #f08a6c;
+    --pop: 0 10px 30px -10px #000, 0 0 0 1px var(--line);
     color-scheme: dark;
 }
 
@@ -58,21 +63,25 @@ body {
     color: var(--text);
     font: 400 1rem/1.5 var(--font-body);
     -webkit-font-smoothing: antialiased;
+    /* Faint paper grain; one tiny tile, no network request. */
+    background-image: radial-gradient(color-mix(in srgb, var(--text) 5%, transparent) 0.6px, transparent 0.7px);
+    background-size: 5px 5px;
 }
 h1,
 h2,
 h3 {
     font-family: var(--font-display);
-    font-weight: 600;
-    line-height: 1.2;
+    font-weight: 560;
+    line-height: 1.12;
     margin: 0;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
+    font-variation-settings: 'opsz' 96, 'SOFT' 30;
 }
 h1 {
-    font-size: 1.5rem;
+    font-size: 2.35rem;
 }
 h2 {
-    font-size: 1.125rem;
+    font-size: 1.35rem;
 }
 h3 {
     font-size: 1rem;
@@ -128,7 +137,8 @@ textarea {
     border-radius: var(--r-s);
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+    letter-spacing: 0.01em;
     background: var(--accent);
     color: var(--on-accent);
     box-shadow: var(--raise);
@@ -138,8 +148,7 @@ textarea {
         box-shadow var(--dur) var(--ease);
 }
 .btn:hover:not(:disabled) {
-    filter: brightness(1.06);
-    transform: translateY(-1px);
+    filter: brightness(1.08);
 }
 .btn:active:not(:disabled) {
     transform: translateY(1px);
@@ -225,10 +234,13 @@ textarea.input {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--surface-2);
-    font-size: 0.8125rem;
+    padding: 2px 8px;
+    border-radius: var(--r-s);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
+    font: 500 0.6875rem/1.5 var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--muted);
 }
 .chip.live {
@@ -238,78 +250,242 @@ textarea.input {
     color: var(--danger);
 }
 
-/* ---- shell ---- */
+/* ---- shell: masthead on top, the category index on the left ---- */
 .shell {
     display: grid;
     grid-template-columns: var(--rail-w, 300px) minmax(0, 1fr);
+    grid-template-rows: var(--mast-h) minmax(0, 1fr);
     min-height: calc(100vh - var(--footer-h));
 }
-.rail {
+.mast {
+    grid-column: 1 / -1;
     position: sticky;
     top: 0;
-    height: calc(100vh - var(--footer-h));
+    z-index: 20;
     display: flex;
-    flex-direction: column;
-    gap: 18px;
-    padding: 22px 16px 18px 20px;
-    background: var(--surface-2);
-    box-shadow: inset -1px 0 0 var(--line);
+    align-items: center;
+    gap: 14px;
+    padding: 0 clamp(16px, 3vw, 40px);
+    background: var(--bg);
+    box-shadow: inset 0 -1px 0 var(--text);
 }
 .brand {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-right: 10px;
     font-family: var(--font-display);
-    font-weight: 650;
-    font-size: 1.375rem;
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
     text-decoration: none;
 }
 .brand svg {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
 }
-.nav {
-    display: grid;
-    gap: 4px;
-}
-.nav a {
+/* The tabs are one control: a ruled strip where the page you are on is the inverted block. */
+.tabs {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
+    padding: 3px;
+    gap: 2px;
+    border-radius: var(--r);
+    box-shadow: inset 0 0 0 1px var(--line);
+}
+.tabs a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
     border-radius: var(--r-s);
     text-decoration: none;
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 550;
+    font-size: 0.9375rem;
     transition:
-        background var(--dur),
-        color var(--dur);
+        background var(--dur) var(--ease),
+        color var(--dur) var(--ease);
 }
-.nav a:hover {
-    background: color-mix(in srgb, var(--surface) 60%, transparent);
+.tabs a:hover {
     color: var(--text);
+    background: var(--surface-2);
 }
-.nav a.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--raise);
+.tabs a.active {
+    background: var(--text);
+    color: var(--bg);
 }
-.nav .count {
-    margin-left: auto;
-    font-size: 0.75rem;
-    padding: 1px 8px;
-    border-radius: 999px;
+.tabs .count {
+    font: 600 0.6875rem/1 var(--font-mono);
+    padding: 3px 6px;
+    border-radius: var(--r-s);
     background: var(--accent);
     color: var(--on-accent);
 }
-.rail-foot {
-    margin-top: auto;
+/* Search is the one thing everyone does from every page, so it sits in the bar and takes whatever room is left. */
+.mast-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 220px;
+    max-width: 460px;
+    margin-left: auto;
+}
+.mast-search svg {
+    position: absolute;
+    left: 12px;
+    color: var(--muted);
+    pointer-events: none;
+}
+.mast-search input {
+    width: 100%;
+    height: 38px;
+    padding: 0 40px 0 38px;
+    border: 0;
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9375rem;
+    transition: box-shadow var(--dur) var(--ease);
+}
+.mast-search input::placeholder {
+    color: var(--muted);
+}
+.mast-search input:focus {
+    outline: none;
+    box-shadow:
+        inset 0 0 0 1.5px var(--text),
+        0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.mast-search kbd {
+    position: absolute;
+    right: 10px;
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: var(--r-s);
+    box-shadow: inset 0 0 0 1px var(--line);
+    font: 500 0.75rem/1.3 var(--font-mono);
+    color: var(--muted);
+    text-align: center;
+}
+.mast-search input:focus ~ kbd {
+    opacity: 0;
+}
+.mast-search-open {
+    display: none;
+}
+.mast-upload {
+    flex: none;
+}
+.usermenu {
+    position: relative;
+    flex: none;
+}
+.usermenu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px 3px 3px;
+    border: 0;
+    border-radius: var(--r);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--line);
+    cursor: pointer;
+    color: var(--muted);
+    transition: box-shadow var(--dur) var(--ease);
+}
+.usermenu-trigger:hover,
+.usermenu-trigger[aria-expanded='true'] {
+    box-shadow: inset 0 0 0 1px var(--text);
+    color: var(--text);
+}
+.usermenu .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-s);
+    background: var(--surface-2);
+    font: 600 0.875rem var(--font-body);
+    color: var(--text);
+}
+.usermenu-pop {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    min-width: 220px;
+    display: grid;
+    padding: 6px;
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--pop);
+    animation: pop-in 140ms var(--ease);
+}
+@keyframes pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+.usermenu-who {
+    display: grid;
+    padding: 8px 10px 10px;
+    margin-bottom: 4px;
+    box-shadow: inset 0 -1px 0 var(--line);
+}
+.usermenu-pop a,
+.usermenu-pop button {
     display: flex;
     align-items: center;
     gap: 10px;
+    height: 38px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--r-s);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+}
+.usermenu-pop a:hover,
+.usermenu-pop button:hover,
+.usermenu-pop a:focus-visible,
+.usermenu-pop button:focus-visible {
+    background: var(--surface-2);
+}
+/* Mid widths: only the open page keeps its word, the others shrink to icons. */
+@media (max-width: 1180px) {
+    .tabs a:not(.active) .tab-label {
+        display: none;
+    }
+    .tabs a:not(.active) {
+        padding: 0 11px;
+    }
+}
+.rail {
+    position: sticky;
+    top: var(--mast-h);
+    height: calc(100vh - var(--mast-h) - var(--footer-h));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px 16px 18px clamp(16px, 3vw, 40px);
+    box-shadow: inset -1px 0 0 var(--line);
+}
+.rail-title {
+    font: 500 0.6875rem/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 .main {
-    padding: 28px clamp(16px, 3vw, 40px) 120px;
+    padding: 34px clamp(16px, 3vw, 44px) 120px;
     min-width: 0;
 }
 .page-head {
@@ -318,7 +494,9 @@ textarea.input {
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 24px;
+    margin-bottom: 26px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
 }
 .page-head p {
     color: var(--muted);
@@ -451,8 +629,11 @@ textarea.input {
     display: grid;
     place-items: center;
     text-align: center;
-    gap: 4px;
-    padding: 22px 18px;
+    grid-auto-flow: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
     border-radius: var(--r);
     background: transparent;
     border: 1.5px dashed color-mix(in srgb, var(--text) 22%, var(--line));
@@ -511,32 +692,43 @@ textarea.input {
 }
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-    gap: 6px;
-    margin-top: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+    gap: 22px 18px;
+    margin-top: 22px;
 }
 .card {
     position: relative;
     display: grid;
-    gap: 8px;
-    padding: 6px 6px 8px;
-    border-radius: var(--r);
+    align-content: start;
+    gap: 7px;
+    padding: 0;
     background: transparent;
     text-align: left;
     border: 0;
     cursor: pointer;
-    transition: background var(--dur) var(--ease);
 }
-.card:hover {
-    background: var(--surface-2);
+/* The first specimen of a listing is shown large, like the plate that opens a catalogue chapter. */
+.card.lead {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+.acc {
+    font: 500 0.6875rem/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+.card.sel .acc,
+.card:hover .acc {
+    color: var(--accent);
 }
 .card.sel {
-    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-    box-shadow: 0 0 0 2px var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
 }
 .thumb {
+    position: relative;
     aspect-ratio: 1;
-    border-radius: var(--r-s);
+    border-radius: var(--r);
     background: var(--surface-2);
     box-shadow: var(--inset);
     display: grid;
@@ -544,23 +736,61 @@ textarea.input {
     overflow: hidden;
     color: var(--muted);
 }
+.card.lead .thumb {
+    aspect-ratio: auto;
+    min-height: 0;
+    height: 100%;
+}
 .thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* Specimen plate: pictures rest in a warm, low-saturation tone and wake to full colour on hover or selection. */
+    filter: grayscale(0.55) sepia(0.25) contrast(1.05);
+    transition: filter 420ms var(--ease), transform 600ms var(--ease);
+}
+html[data-theme='dark'] .thumb img {
+    filter: grayscale(0.55) sepia(0.25) contrast(1.02) brightness(0.86);
+}
+.thumb::after {
+    /* Halftone screen over the plate; it thins out on hover, the way the specimen is "developed". */
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(color-mix(in srgb, var(--text) 38%, transparent) 0.9px, transparent 1.1px);
+    background-size: 4px 4px;
+    mix-blend-mode: multiply;
+    opacity: 0.32;
+    transition: opacity 420ms var(--ease);
+}
+html[data-theme='dark'] .thumb::after {
+    mix-blend-mode: soft-light;
+}
+.card:hover .thumb img,
+.card.sel .thumb img,
+.card:focus-visible .thumb img {
+    filter: none;
+    transform: scale(1.025);
+}
+.card:hover .thumb::after,
+.card.sel .thumb::after,
+.card:focus-visible .thumb::after {
+    opacity: 0.06;
 }
 .card .fname {
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .card .meta {
-    font-size: 0.75rem;
+    font: 400 0.75rem/1.2 var(--font-mono);
     color: var(--muted);
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 6px;
 }
 .empty {
@@ -636,7 +866,7 @@ textarea.input {
 }
 .review-item {
     display: grid;
-    grid-template-columns: 120px 1fr auto;
+    grid-template-columns: 120px 1fr auto auto;
     gap: 16px;
     align-items: center;
     padding: 12px;
@@ -648,8 +878,8 @@ textarea.input {
     width: 120px;
 }
 .meter {
-    height: 8px;
-    border-radius: 999px;
+    height: 4px;
+    border-radius: 0;
     background: var(--surface-2);
     box-shadow: var(--inset);
     overflow: hidden;
@@ -660,6 +890,29 @@ textarea.input {
     height: 100%;
     background: var(--accent);
     border-radius: inherit;
+}
+.kicker {
+    margin: 0 0 8px !important;
+    font: 500 0.6875rem/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent) !important;
+}
+/* The sorter's confidence as the largest thing on the row: it is the number the decision hangs on. */
+.conf {
+    display: grid;
+    justify-items: end;
+    font: 560 2.6rem/0.9 var(--font-display);
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.03em;
+    font-feature-settings: 'tnum';
+}
+.conf small {
+    font: 500 0.625rem/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 6px;
 }
 .panel {
     padding: 18px;
@@ -776,26 +1029,105 @@ textarea.input {
 @media (max-width: 880px) {
     .shell {
         grid-template-columns: 1fr;
+        grid-template-rows: var(--mast-h) auto minmax(0, 1fr);
+    }
+    .mast {
+        gap: 10px;
+    }
+    .brand {
+        margin-right: auto;
+    }
+    .mast-search {
+        display: none;
+    }
+    .mast-search-open {
+        display: inline-grid;
+    }
+    /* Typing a search takes the whole bar: the field replaces the brand and the buttons until it loses focus. */
+    .mast.searching .mast-search {
+        display: flex;
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        max-width: none;
+        margin: 0;
+        padding: 10px 16px;
+        background: var(--bg);
+    }
+    .mast.searching .mast-search svg {
+        left: 28px;
+    }
+    .mast.searching .mast-search input {
+        height: 100%;
+    }
+    .mast-upload span {
+        display: none;
+    }
+    .mast-upload {
+        width: 38px;
+        padding: 0;
+        justify-content: center;
+    }
+    .usermenu-chevron {
+        display: none;
+    }
+    .tabs {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        height: calc(60px + env(safe-area-inset-bottom));
+        padding: 0 0 env(safe-area-inset-bottom);
+        gap: 0;
+        border-radius: 0;
+        background: var(--bg);
+        box-shadow: inset 0 1px 0 var(--text);
+    }
+    .tabs a,
+    .tabs a:not(.active) {
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        height: auto;
+        align-self: stretch;
+        padding: 0 2px;
+        border-radius: 0;
+        font-size: 0.6875rem;
+        background: transparent;
+        color: var(--muted);
+    }
+    .tabs a:not(.active) .tab-label {
+        display: inline;
+    }
+    .tabs a.active {
+        background: transparent;
+        color: var(--text);
+    }
+    .tabs a.active::before {
+        content: '';
+        position: absolute;
+        top: -1px;
+        left: 22%;
+        right: 22%;
+        height: 3px;
+        background: var(--accent);
+    }
+    .tabs .count {
+        position: absolute;
+        top: 7px;
+        left: calc(50% + 6px);
     }
     .rail {
         position: static;
         height: auto;
-        gap: 12px;
-        padding: 14px 16px;
+        gap: 10px;
+        padding: 12px 16px;
         box-shadow: inset 0 -1px 0 var(--line);
     }
-    .rail .nav {
-        grid-auto-flow: column;
-        grid-auto-columns: 1fr;
-    }
-    .rail .nav a {
-        justify-content: center;
-        padding: 8px 6px;
-    }
-    .rail .nav a svg {
-        display: none;
-    }
-    .rail-foot {
+    .rail-title,
+    .rail-resizer {
         display: none;
     }
     .tree-toggle {
@@ -812,6 +1144,17 @@ textarea.input {
     .tree {
         max-height: 46vh;
     }
+    .main {
+        padding-bottom: 150px;
+    }
+    .card.lead {
+        grid-column: span 2;
+        grid-row: span 1;
+    }
+    .card.lead .thumb {
+        aspect-ratio: 2 / 1;
+        height: auto;
+    }
     .review-item {
         grid-template-columns: 80px 1fr;
     }
@@ -820,6 +1163,16 @@ textarea.input {
     }
     .review-item .acts {
         grid-column: 1 / -1;
+    }
+}
+@media (max-width: 640px) {
+    .hole {
+        grid-auto-flow: row;
+        gap: 4px;
+    }
+    .review-item .conf {
+        grid-column: 2;
+        justify-items: start;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1113,13 +1466,38 @@ a.btn {
     display: flex;
     align-items: center;
 }
+.gate-art svg.cross-phone {
+    display: none;
+}
 @media (max-width: 860px) {
     .gate-split {
         height: auto;
         grid-template-columns: 1fr;
     }
+    /* On a phone the portrait scene replaces the wide one; the headline sits in the sky, the burrow fills the rest. */
     .gate-art {
-        min-height: 260px;
+        height: 520px;
+        min-height: 0;
+    }
+    .gate-art svg.cross-desktop {
+        display: none;
+    }
+    .gate-art svg.cross-phone {
+        display: block;
+    }
+    .gate-art .claim {
+        left: 20px;
+        right: 20px;
+        top: 18px;
+        max-width: none;
+    }
+    .gate-art .claim h2 {
+        font-size: 1.55rem;
+        max-width: 15ch;
+    }
+    .gate-art .claim p {
+        max-width: 24ch;
+        font-size: 0.9rem;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2030,7 +2408,7 @@ select.input {
     min-height: 30px;
     padding: 0 12px;
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: var(--r-s);
     background: transparent;
     color: var(--muted);
     font-size: 0.8125rem;
@@ -2060,9 +2438,6 @@ select.input {
 }
 
 /* ---- resizable sidebar ---- */
-.rail {
-    position: sticky;
-}
 .rail-resizer {
     position: absolute;
     top: 0;

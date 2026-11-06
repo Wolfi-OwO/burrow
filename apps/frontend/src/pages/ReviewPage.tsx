@@ -84,6 +84,7 @@ export function ReviewPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
+                    <p className="kicker">The review desk</p>
                     <h1>Review</h1>
                     <p>Files the sorter was not sure about. It never files these on its own.</p>
                 </div>
@@ -209,9 +210,6 @@ function ReviewItem({
                     ) : (
                         'No guess'
                     )}
-                    {file.confidence !== null ? (
-                        <> &middot; {Math.round(file.confidence * 100)}% sure</>
-                    ) : null}
                 </span>
                 {file.confidence !== null ? (
                     <span className="meter" aria-hidden="true">
@@ -219,6 +217,12 @@ function ReviewItem({
                     </span>
                 ) : null}
             </div>
+            {file.confidence !== null ? (
+                <span className="conf" title="How sure the sorter is">
+                    {Math.round(file.confidence * 100)}
+                    <small>% sure</small>
+                </span>
+            ) : null}
             <div className="acts row" style={{ justifyContent: 'flex-end' }}>
                 {file.suggestedCategoryId !== null ? (
                     <button

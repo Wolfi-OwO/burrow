@@ -22,9 +22,9 @@ after(closeServer);
 describe('OIDC login and linking (FR-006 to FR-009)', () => {
     beforeEach(resetDatabase);
 
-    it('creates the owner account from a first provider login and recognises the same login next time', async () => {
+    it('creates an account from a provider login and recognises the same login next time', async () => {
         const first = await oauthService.resolveLogin('github', profile());
-        assert.equal(first.role, 'admin');
+        assert.equal(first.role, 'user');
         assert.equal(first.passwordHash, null);
         assert.equal((await oauthService.resolveLogin('github', profile())).id, first.id);
     });
@@ -45,14 +45,13 @@ describe('OIDC login and linking (FR-006 to FR-009)', () => {
     });
 
     it('never merges on an UNVERIFIED email: that would let someone claim an address they do not own', async () => {
-        await oauthService.resolveLogin('github', profile());
-        await assert.rejects(
-            oauthService.resolveLogin(
-                'google',
-                profile({ providerUserId: 'evil', emailVerified: false }),
-            ),
-            /Registration is closed/,
+        const first = await oauthService.resolveLogin('github', profile());
+        const stranger = await oauthService.resolveLogin(
+            'google',
+            profile({ providerUserId: 'evil', emailVerified: false }),
         );
+        assert.notEqual(stranger.id, first.id);
+        assert.equal((await oauthService.listIdentities(first.id)).length, 1);
     });
 
     it('refuses a provider that shares no email', async () => {
@@ -62,18 +61,14 @@ describe('OIDC login and linking (FR-006 to FR-009)', () => {
         );
     });
 
-    it('opens a new account only when registration is open', async () => {
-        await oauthService.resolveLogin('github', profile());
-        config.registrationOpen = true;
-        try {
-            const second = await oauthService.resolveLogin(
-                'google',
-                profile({ providerUserId: 'g-2', email: 'other@example.org' }),
-            );
-            assert.equal(second.role, 'user');
-        } finally {
-            config.registrationOpen = false;
-        }
+    it('opens a separate account for a different person', async () => {
+        const first = await oauthService.resolveLogin('github', profile());
+        const second = await oauthService.resolveLogin(
+            'google',
+            profile({ providerUserId: 'g-2', email: 'other@example.org' }),
+        );
+        assert.notEqual(second.id, first.id);
+        assert.equal(second.role, 'user');
     });
 
     it('links a second provider only when its email is verified (FR-009)', async () => {
@@ -91,12 +86,10 @@ describe('OIDC login and linking (FR-006 to FR-009)', () => {
 
     it('refuses to link a provider account that already belongs to someone else', async () => {
         const user = await oauthService.resolveLogin('github', profile());
-        config.registrationOpen = true;
         const other = await oauthService.resolveLogin(
             'google',
             profile({ providerUserId: 'g-5', email: 'b@example.org' }),
         );
-        config.registrationOpen = false;
         await assert.rejects(oauthService.link(other.id, 'github', profile()), /already linked/);
         assert.ok(user.id !== other.id);
     });

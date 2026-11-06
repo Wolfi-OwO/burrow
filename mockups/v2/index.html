@@ -1,0 +1,49 @@
+<title>Burrow · Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a quiet specimen sheet. Direction and palette first, then every screen at the three widths, light beside dark. */
+:root{
+  --bg:#eee7d6; --surface:#f6f1e3; --fg:#16130e; --muted:#5e5648; --rule:#cfc6b0; --accent:#b8381a; --on-accent:#fbf6ea;
+  --display:'Fraunces',Georgia,serif; --body:'Geist',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#11130e;--surface:#181b13;--fg:#ece6d3;--muted:#a39c86;--rule:#2d3024;--accent:#e8683f;--on-accent:#1d0d06;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11130e;--surface:#181b13;--fg:#ece6d3;--muted:#a39c86;--rule:#2d3024;--accent:#e8683f;--on-accent:#1d0d06;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 1rem/1.55 var(--body);padding-block:40px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:56px}
+header{display:grid;gap:12px;padding-bottom:28px;border-bottom:2px solid var(--fg)}
+.kicker{font:500 .75rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+h1{font:560 clamp(2.4rem,6vw,4.2rem)/1 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font:560 1.6rem/1.15 var(--display);margin:0 0 6px;text-wrap:balance}
+p{margin:0;max-width:66ch}.lede{font-size:1.125rem;color:var(--muted);max-width:60ch}
+section{display:grid;gap:20px;min-width:0}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.sw{display:grid;gap:6px;min-width:0}.chip{height:64px;border:1px solid var(--rule)}
+.sw b{font-weight:600;font-size:.875rem}.sw code{font:400 .75rem var(--mono);color:var(--muted)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px;min-width:0}
+figure{margin:0;display:grid;gap:8px;min-width:0;align-content:start}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--rule);background:var(--surface)}
+figcaption{font:400 .8125rem/1.45 var(--body);color:var(--muted)}
+figcaption b{color:var(--fg);font-weight:600}
+.phones{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}.phones figure{flex:0 1 300px}.tab{flex:0 1 420px!important}
+.note{border-left:3px solid var(--accent);padding:4px 0 4px 14px;color:var(--muted);max-width:70ch}
+.type{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px}
+.type div{border-top:1px solid var(--fg);padding-top:10px;display:grid;gap:4px;min-width:0}
+.type .d{font:560 2.2rem/1.1 var(--display)}.type .b{font:400 1.05rem/1.4 var(--body)}.type .m{font:500 .85rem var(--mono);letter-spacing:.06em}
+.type small{color:var(--muted);font:400 .75rem var(--mono)}
+footer{border-top:1px solid var(--rule);padding-top:16px;color:var(--muted);font-size:.8125rem;max-width:70ch}
+</style>
+<div class="wrap">
+<header><span class="kicker">Burrow · Direction A, The Archive</span><h1>A catalogue room for your files</h1><p class="lede">Files are specimens with an accession number. The sorter is the archivist, and what it is unsure about goes to a review desk.</p></header>
+
+<section><h2>Direction</h2><p>The top bar is a working bar. Four tabs (Drive, Review, Duplicates, Shared) sit in one ruled strip with the open page inverted and a count on Review. Search is always in the bar and opens with / or Cmd+K. Upload is one button, and everything personal (profile, light or dark look, sign out) lives in an account menu. The category tree is an index column. The first picture of a listing is shown large like the plate that opens a catalogue chapter, and thumbnails rest in a halftone tone and develop to full colour on hover. Corners stay at 4px and rules at 1px.</p><div class="note">Rejected: Organic Burrow (soft shapes hurt the dense review and duplicate screens) and Spatial Vault (WebGL on the main list, and the generic futuristic dark look).</div></section>
+
+<section><h2>Palette</h2><div class="swatches"><div class="sw"><div class="chip" style="background:#eee7d6"></div><b>Paper</b><code>#eee7d6</code></div><div class="sw"><div class="chip" style="background:#f6f1e3"></div><b>Surface</b><code>#f6f1e3</code></div><div class="sw"><div class="chip" style="background:#16130e"></div><b>Ink</b><code>#16130e</code></div><div class="sw"><div class="chip" style="background:#cfc6b0"></div><b>Rule</b><code>#cfc6b0</code></div><div class="sw"><div class="chip" style="background:#b8381a"></div><b>Vermilion</b><code>#b8381a</code></div><div class="sw"><div class="chip" style="background:#11130e"></div><b>Night olive</b><code>#11130e</code></div><div class="sw"><div class="chip" style="background:#181b13"></div><b>Night surface</b><code>#181b13</code></div><div class="sw"><div class="chip" style="background:#e8683f"></div><b>Night accent</b><code>#e8683f</code></div></div></section>
+
+<section><h2>Type</h2><div class="type"><div><span class="d">Fraunces</span><small>Display: page titles, sorter confidence figures</small></div><div><span class="b">Geist for interface text and body copy.</span><small>Body and controls</small></div><div><span class="m">№0001 · 164 KB</span><small>Geist Mono: accession numbers, sizes, labels</small></div></div></section>
+
+<section><h2>Drive</h2><p>The collection as a contact sheet. Light and dark share one layout; the dark theme dims images so they do not glow against the olive.</p><div class="row"><figure class=""><img src="captures/burrow-drive-light-1440.jpg" alt="<b>Paper</b>, 1440px. Tabs, search and upload in one bar; specimen numbers above each plate." loading="lazy"><figcaption><b>Paper</b>, 1440px. Tabs, search and upload in one bar; specimen numbers above each plate.</figcaption></figure><figure class=""><img src="captures/burrow-drive-dark-1440.jpg" alt="<b>Night olive</b>, 1440px. Same composition, vermilion lifted to stay at contrast." loading="lazy"><figcaption><b>Night olive</b>, 1440px. Same composition, vermilion lifted to stay at contrast.</figcaption></figure><figure class=""><img src="captures/burrow-menu-dark-1440.jpg" alt="<b>Account menu</b>, open. Profile, light or dark look, sign out." loading="lazy"><figcaption><b>Account menu</b>, open. Profile, light or dark look, sign out.</figcaption></figure></div></section><section><h2>Review desk</h2><p>The sorter’s confidence is the largest thing on each row, because it is the number the decision hangs on.</p><div class="row"><figure class=""><img src="captures/burrow-review-light-1440.jpg" alt="<b>Paper</b>, 1440px. Status block and the empty state when nothing needs review." loading="lazy"><figcaption><b>Paper</b>, 1440px. Status block and the empty state when nothing needs review.</figcaption></figure><figure class=""><img src="captures/burrow-review-dark-1440.jpg" alt="<b>Night olive</b>, 1440px." loading="lazy"><figcaption><b>Night olive</b>, 1440px.</figcaption></figure></div></section><section><h2>Tablet and phone</h2><p>Between 880 and 1180px the inactive tabs shrink to icons. Below 880px the tabs become a bottom bar, search becomes an icon that takes the whole top bar when opened, and Upload becomes an icon button. The index opens as a sheet that pushes the page down.</p><div class="phones"><figure class="tab"><img src="captures/burrow-drive-light-768.jpg" alt="<b>768px</b>, light." loading="lazy"><figcaption><b>768px</b>, light.</figcaption></figure><figure class=""><img src="captures/burrow-drive-light-390.jpg" alt="<b>390px</b>, light." loading="lazy"><figcaption><b>390px</b>, light.</figcaption></figure><figure class=""><img src="captures/burrow-drive-dark-390.jpg" alt="<b>390px</b>, dark." loading="lazy"><figcaption><b>390px</b>, dark.</figcaption></figure><figure class=""><img src="captures/burrow-search-dark-390.jpg" alt="<b>390px</b>, search open." loading="lazy"><figcaption><b>390px</b>, search open.</figcaption></figure></div></section><section><h2>Sign-in on a phone</h2><p>The burrow cross-section is turned portrait: a sun rises behind the horizon and breathes, one shaft runs down, and three rooms sit in a row. Files slide in and the room they reach lights up. The scene is animated on every screen size.</p><div class="phones"><figure class=""><img src="captures/burrow-gate-light-390.jpg" alt="<b>390px</b>, light." loading="lazy"><figcaption><b>390px</b>, light.</figcaption></figure><figure class=""><img src="captures/burrow-gate-dark-390.jpg" alt="<b>390px</b>, dark." loading="lazy"><figcaption><b>390px</b>, dark.</figcaption></figure></div></section>
+
+<footer>Captured from the running build with sample data on 2026-11-04. Wireframes for this app are in <code>wireframes/</code>; the direction and its alternatives are written up in <code>_design-research/phase-3-directions.md</code>.</footer>
+</div>

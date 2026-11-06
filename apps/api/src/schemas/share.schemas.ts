@@ -13,14 +13,19 @@ export const shareCreateSchema = z
     .object({
         fileId: z.uuid().optional(),
         categoryId: z.number().int().positive().optional(),
+        drive: z.literal(true).optional(),
         access,
         expiresInHours: expiresInHours.default(null),
         userIds: z.array(z.uuid()).max(100).default([]),
     })
     .strict()
-    .refine((v) => (v.fileId === undefined) !== (v.categoryId === undefined), {
-        message: 'Share either a file or a category.',
-    });
+    .refine(
+        (v) =>
+            [v.fileId !== undefined, v.categoryId !== undefined, v.drive !== undefined].filter(
+                Boolean,
+            ).length === 1,
+        { message: 'Share either a file, a category or the whole drive.' },
+    );
 
 export const sharePatchSchema = z
     .object({

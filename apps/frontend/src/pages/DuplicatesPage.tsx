@@ -56,6 +56,7 @@ export function DuplicatesPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
+                    <p className="kicker">Identical specimens</p>
                     <h1>Duplicates</h1>
                     <p>
                         Find copies of the same picture and keep one. The copy that is already

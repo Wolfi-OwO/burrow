@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Burrow · Wireframes v2</title>
+<style>
+/* Structure only: no colour, no type styling beyond size and weight. */
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,sans-serif;color:#222;background:#fff}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:0 0 8px}.wrap{padding:24px;max-width:1500px;margin:auto}
+.note{color:#555;margin:0 0 24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px}
+.frame{border:2px solid #222;padding:0}.cap{padding:6px 10px;border-bottom:2px solid #222;font-weight:700;background:#eee}
+.mast{display:flex;gap:16px;align-items:center;border-bottom:1px solid #222;padding:8px 12px}.mast b{margin-right:auto}
+.body{display:grid;grid-template-columns:130px 1fr;min-height:260px}.idx{border-right:1px solid #222;padding:10px}
+.idx i{display:block;border:1px dashed #666;padding:4px;margin-bottom:6px}.main{padding:12px}
+.sheet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.sheet div{border:1px solid #222;aspect-ratio:1;display:grid;place-items:center;font-size:11px}
+.sheet .lead{grid-column:span 2;grid-row:span 2}.row{display:flex;gap:10px;border:1px solid #222;padding:8px;margin-bottom:8px;align-items:center}
+.row .img{width:56px;height:56px;border:1px solid #222}.row .t{flex:1}.btn{border:1px solid #222;padding:3px 8px}
+.mob{max-width:260px;margin:auto}.tabs{display:flex;justify-content:space-around;border-top:1px solid #222;padding:8px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}.box{border:1px solid #222;padding:10px;min-height:70px}
+</style></head><body><div class="wrap">
+<h1>Burrow · Wireframes v2</h1><p class="note">Information architecture, navigation and hierarchy for the Archive direction. Same features as today; the left nav becomes a numbered masthead, the category tree becomes an index column.</p>
+<div class="grid">
+
+<section class="frame"><div class="cap">1 Drive (desktop)</div>
+<div class="mast"><b>burrow</b><span>I Drive</span><span>II Review (3)</span><span>III Duplicates</span><span>IV Shared</span><span>Profile</span></div>
+<div class="body"><div class="idx"><i>Everything 25</i><i>Unsorted</i><i>Photos 6</i><i>&nbsp;&nbsp;Holidays</i><i>Documents 13</i><i>+ New category</i></div>
+<div class="main"><h2>Everything · 25 files</h2><div class="btn" style="margin-bottom:8px">Search by name</div>
+<div class="sheet"><div class="lead">lead specimen</div><div>file</div><div>file</div><div>file</div><div>file</div><div>file</div><div>file</div><div>file</div><div>file</div></div></div></div></section>
+
+<section class="frame"><div class="cap">2 Review desk</div>
+<div class="mast"><b>burrow</b><span>I</span><span><u>II Review</u></span><span>III</span><span>IV</span></div>
+<div class="main"><h2>The sorter (status block: waiting, schedule, last run, service)</h2><div class="box" style="margin-bottom:10px">Sort now · Unsort everything</div>
+<div class="row"><div class="img"></div><div class="t">name · best guess · confidence bar</div><span class="btn">Accept</span><span class="btn">Another…</span><span class="btn">Leave</span></div>
+<div class="row"><div class="img"></div><div class="t">name · best guess · confidence bar</div><span class="btn">Accept</span><span class="btn">Another…</span><span class="btn">Leave</span></div></div></section>
+
+<section class="frame"><div class="cap">3 Duplicates</div>
+<div class="mast"><b>burrow</b><span>I</span><span>II</span><span><u>III Duplicates</u></span><span>IV</span></div>
+<div class="main"><h2>Groups of identical files</h2><div class="cols"><div class="box">keep this</div><div class="box">remove this</div></div><div class="cols" style="margin-top:8px"><div class="box">keep</div><div class="box">remove</div></div></div></section>
+
+<section class="frame"><div class="cap">4 Shared links</div>
+<div class="mast"><b>burrow</b><span>I</span><span>II</span><span>III</span><span><u>IV Shared</u></span></div>
+<div class="main"><h2>Links you have shared</h2><div class="row"><div class="t">file · expires · views</div><span class="btn">Copy</span><span class="btn">Revoke</span></div><div class="row"><div class="t">file · expires · views</div><span class="btn">Copy</span><span class="btn">Revoke</span></div></div></section>
+
+<section class="frame"><div class="cap">5 Viewer (full screen)</div><div class="main" style="min-height:300px"><div class="box" style="min-height:200px">document / sheet / slides / image / GPX</div><div class="cols" style="margin-top:8px"><div class="box">details</div><div class="box">actions: share · move · delete</div></div></div></section>
+
+<section class="frame"><div class="cap">6 Sign-in</div><div class="cols" style="min-height:300px"><div class="box">statement + archive drawer illustration</div><div class="box">Google · Microsoft · key<br><br>name / password</div></div></section>
+
+<section class="frame mob"><div class="cap">7 Drive (mobile)</div><div class="main"><div class="mast" style="padding:4px 0"><b>burrow</b><span>⌕</span></div><div class="btn">Everything ▾ (index sheet)</div><div class="sheet" style="grid-template-columns:1fr 1fr;margin-top:8px"><div class="lead" style="grid-column:span 2;aspect-ratio:2/1">lead</div><div>file</div><div>file</div></div></div><div class="tabs"><span>Drive</span><span>Review</span><span>Dupes</span><span>Shared</span><span>Me</span></div></section>
+
+</div></div></body></html>

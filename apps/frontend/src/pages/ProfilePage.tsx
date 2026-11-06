@@ -105,6 +105,7 @@ export function ProfilePage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
+                    <p className="kicker">The keeper</p>
                     <h1>Profile</h1>
                     <p>How you appear, and how you sign in.</p>
                 </div>
