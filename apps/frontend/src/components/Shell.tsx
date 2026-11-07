@@ -78,7 +78,10 @@ export function Shell(): ReactNode {
 
     return (
         <div className="shell" style={{ '--rail-w': `${String(rail.width)}px` } as CSSProperties}>
-            <Masthead waiting={waiting} folder={typeof selected === 'number' ? selected : undefined} />
+            <Masthead
+                waiting={waiting}
+                folder={typeof selected === 'number' ? selected : undefined}
+            />
             <aside className="rail">
                 <div
                     className="rail-resizer"

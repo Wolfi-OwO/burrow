@@ -29,9 +29,17 @@ const ROOMS = [
 /* Phone scene: the same burrow turned portrait. A sun rising behind the horizon, one shaft down, three rooms in a row.
    Everything is drawn on a 390 x 520 board and anchored to the bottom, so only the soil edges crop on narrow screens. */
 const PHONE_ROOMS = [
-    { x: 90, label: 'Photos', icon: 'M-12 7 L-4 -3 L1 3 L5 -1 L12 7 Z M-8 -7 a2.6 2.6 0 1 0 0.01 0' },
+    {
+        x: 90,
+        label: 'Photos',
+        icon: 'M-12 7 L-4 -3 L1 3 L5 -1 L12 7 Z M-8 -7 a2.6 2.6 0 1 0 0.01 0',
+    },
     { x: 195, label: 'Screenshots', icon: 'M-11 -8 H11 V8 H-11 Z M-11 -3 H11 M-8 -5.5 h.01' },
-    { x: 300, label: 'Documents', icon: 'M-8 -11 H2 L9 -4 V11 H-8 Z M2 -11 V-4 H9 M-4 1 H5 M-4 5 H5' },
+    {
+        x: 300,
+        label: 'Documents',
+        icon: 'M-8 -11 H2 L9 -4 V11 H-8 Z M2 -11 V-4 H9 M-4 1 H5 M-4 5 H5',
+    },
 ] as const;
 const PHONE_ROOM_Y = 408;
 /** Each file leaves the entrance, drops down the shaft and is swallowed by one room; the room lights up on arrival. */
@@ -51,13 +59,33 @@ function GateArtPhone(): ReactNode {
             preserveAspectRatio="xMidYMax slice"
         >
             <defs>
-                <linearGradient id="gate-sky-p" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="230">
+                <linearGradient
+                    id="gate-sky-p"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="230"
+                >
                     <stop offset="0" stopColor="color-mix(in srgb, var(--accent) 26%, var(--bg))" />
                     <stop offset="1" stopColor="color-mix(in srgb, var(--accent) 12%, var(--bg))" />
                 </linearGradient>
-                <linearGradient id="gate-soil-p" gradientUnits="userSpaceOnUse" x1="0" y1="230" x2="0" y2="520">
-                    <stop offset="0" stopColor="color-mix(in srgb, var(--text) 9%, var(--surface-2))" />
-                    <stop offset="1" stopColor="color-mix(in srgb, var(--bg) 60%, var(--surface-2))" />
+                <linearGradient
+                    id="gate-soil-p"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="230"
+                    x2="0"
+                    y2="520"
+                >
+                    <stop
+                        offset="0"
+                        stopColor="color-mix(in srgb, var(--text) 9%, var(--surface-2))"
+                    />
+                    <stop
+                        offset="1"
+                        stopColor="color-mix(in srgb, var(--bg) 60%, var(--surface-2))"
+                    />
                 </linearGradient>
             </defs>
             <rect x="-800" y="-100" width="1990" height="340" fill="url(#gate-sky-p)" />
@@ -66,9 +94,17 @@ function GateArtPhone(): ReactNode {
                 <animate attributeName="r" values="58;70;58" dur="6s" repeatCount="indefinite" />
             </circle>
             <circle cx="312" cy="222" r="34" fill="var(--accent)" opacity=".42">
-                <animate attributeName="cy" values="226;214;226" dur="6s" repeatCount="indefinite" />
+                <animate
+                    attributeName="cy"
+                    values="226;214;226"
+                    dur="6s"
+                    repeatCount="indefinite"
+                />
             </circle>
-            <path d="M-800 232 H-10 C70 218 130 240 195 232 S330 220 400 232 H1190 V1000 H-800 Z" fill="url(#gate-soil-p)" />
+            <path
+                d="M-800 232 H-10 C70 218 130 240 195 232 S330 220 400 232 H1190 V1000 H-800 Z"
+                fill="url(#gate-soil-p)"
+            />
             <path
                 d="M-800 232 H-10 C70 218 130 240 195 232 S330 220 400 232 H1190"
                 fill="none"
@@ -77,7 +113,12 @@ function GateArtPhone(): ReactNode {
                 strokeLinecap="round"
             />
             {/* strata, so the ground has depth below the rooms too */}
-            <g fill="none" stroke="color-mix(in srgb, var(--text) 8%, transparent)" strokeWidth="2" strokeLinecap="round">
+            <g
+                fill="none"
+                stroke="color-mix(in srgb, var(--text) 8%, transparent)"
+                strokeWidth="2"
+                strokeLinecap="round"
+            >
                 <path d="M-20 470 C80 456 150 482 240 468 S360 456 420 472" />
                 <path d="M-20 500 C60 492 140 508 230 498 S350 490 420 502" />
             </g>
