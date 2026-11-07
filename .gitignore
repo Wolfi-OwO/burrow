@@ -52,3 +52,4 @@ apps/api/data-test/
 apps/api/data-local/
 apps/api/public/
 coverage.xml
+apps/api/data-e2e/
