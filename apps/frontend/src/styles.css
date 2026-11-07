@@ -64,7 +64,10 @@ body {
     font: 400 1rem/1.5 var(--font-body);
     -webkit-font-smoothing: antialiased;
     /* Faint paper grain; one tiny tile, no network request. */
-    background-image: radial-gradient(color-mix(in srgb, var(--text) 5%, transparent) 0.6px, transparent 0.7px);
+    background-image: radial-gradient(
+        color-mix(in srgb, var(--text) 5%, transparent) 0.6px,
+        transparent 0.7px
+    );
     background-size: 5px 5px;
 }
 h1,
@@ -75,7 +78,9 @@ h3 {
     line-height: 1.12;
     margin: 0;
     letter-spacing: -0.015em;
-    font-variation-settings: 'opsz' 96, 'SOFT' 30;
+    font-variation-settings:
+        'opsz' 96,
+        'SOFT' 30;
 }
 h1 {
     font-size: 2.35rem;
@@ -238,7 +243,7 @@ textarea.input {
     border-radius: var(--r-s);
     background: transparent;
     box-shadow: inset 0 0 0 1px currentColor;
-    font: 500 0.6875rem/1.5 var(--font-mono);
+    font: 500 0.76rem/1.5 var(--font-mono);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
@@ -318,7 +323,7 @@ textarea.input {
     color: var(--bg);
 }
 .tabs .count {
-    font: 600 0.6875rem/1 var(--font-mono);
+    font: 600 0.76rem/1 var(--font-mono);
     padding: 3px 6px;
     border-radius: var(--r-s);
     background: var(--accent);
@@ -479,7 +484,7 @@ textarea.input {
     box-shadow: inset -1px 0 0 var(--line);
 }
 .rail-title {
-    font: 500 0.6875rem/1 var(--font-mono);
+    font: 500 0.76rem/1 var(--font-mono);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
@@ -713,7 +718,7 @@ textarea.input {
     grid-row: span 2;
 }
 .acc {
-    font: 500 0.6875rem/1 var(--font-mono);
+    font: 500 0.76rem/1 var(--font-mono);
     letter-spacing: 0.1em;
     color: var(--muted);
 }
@@ -747,7 +752,9 @@ textarea.input {
     object-fit: cover;
     /* Specimen plate: pictures rest in a warm, low-saturation tone and wake to full colour on hover or selection. */
     filter: grayscale(0.55) sepia(0.25) contrast(1.05);
-    transition: filter 420ms var(--ease), transform 600ms var(--ease);
+    transition:
+        filter 420ms var(--ease),
+        transform 600ms var(--ease);
 }
 html[data-theme='dark'] .thumb img {
     filter: grayscale(0.55) sepia(0.25) contrast(1.02) brightness(0.86);
@@ -758,7 +765,10 @@ html[data-theme='dark'] .thumb img {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background-image: radial-gradient(color-mix(in srgb, var(--text) 38%, transparent) 0.9px, transparent 1.1px);
+    background-image: radial-gradient(
+        color-mix(in srgb, var(--text) 38%, transparent) 0.9px,
+        transparent 1.1px
+    );
     background-size: 4px 4px;
     mix-blend-mode: multiply;
     opacity: 0.32;
@@ -893,7 +903,7 @@ html[data-theme='dark'] .thumb::after {
 }
 .kicker {
     margin: 0 0 8px !important;
-    font: 500 0.6875rem/1 var(--font-mono);
+    font: 500 0.76rem/1 var(--font-mono);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--accent) !important;
@@ -1094,7 +1104,7 @@ html[data-theme='dark'] .thumb::after {
         align-self: stretch;
         padding: 0 2px;
         border-radius: 0;
-        font-size: 0.6875rem;
+        font-size: 0.76rem;
         background: transparent;
         color: var(--muted);
     }
@@ -1192,6 +1202,14 @@ html[data-theme='dark'] .thumb::after {
     display: grid;
     gap: 28px;
 }
+/* A grid item will not shrink below its content by default, so one long word widened the whole page on a phone. */
+.legal > * {
+    min-width: 0;
+}
+.legal > header {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
 .legal-nav,
 .legal-links {
     display: flex;
@@ -1220,6 +1238,7 @@ html[data-theme='dark'] .thumb::after {
     box-shadow: var(--raise);
     padding: clamp(18px, 4vw, 36px);
     line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 .prose h1 {
     font-size: 1.75rem;
@@ -1572,7 +1591,7 @@ html[data-theme='dark'] .theme-toggle .sun {
     justify-content: center;
     margin: 0;
     padding: 2px 0 6px;
-    font-size: 0.6875rem;
+    font-size: 0.76rem;
     color: var(--muted);
 }
 .footer-copy .nowrap {
@@ -1953,6 +1972,7 @@ html[data-theme='dark'] .theme-toggle .sun {
 }
 .share-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
@@ -1967,6 +1987,7 @@ html[data-theme='dark'] .theme-toggle .sun {
     display: grid;
     gap: 2px;
     min-width: 0;
+    flex: 1 1 9rem;
 }
 .share-row .grow span {
     overflow: hidden;

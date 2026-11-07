@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-maintained: only routes an anonymous visitor can open. The drive itself needs a login. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://burrow.woofi-developments.at/</loc></url>
+  <url><loc>https://burrow.woofi-developments.at/impressum</loc></url>
+  <url><loc>https://burrow.woofi-developments.at/privacy</loc></url>
+  <url><loc>https://burrow.woofi-developments.at/terms</loc></url>
+</urlset>

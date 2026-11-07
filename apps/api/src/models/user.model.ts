@@ -9,6 +9,8 @@ export interface User {
     bio: string;
     avatarSha256: string | null;
     role: Role;
+    /** Whether the NSFW classifier may look at this account's pictures (Art 9 DSGVO); off until the owner asks. */
+    nsfwOptIn: boolean;
     createdAt: Date;
 }
 

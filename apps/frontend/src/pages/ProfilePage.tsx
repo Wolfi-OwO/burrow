@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Image as ImageIcon, Link2, Unlink } from 'lucide-react';
+import { Camera, Download, Image as ImageIcon, Link2, Trash2, Unlink } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { DrivePicker } from '../components/DrivePicker.tsx';
-import { ProtectedImage, useToast } from '../components/ui.tsx';
-import { api, uploadForm } from '../lib/api.ts';
+import { Dialog, ProtectedImage, useToast } from '../components/ui.tsx';
+import { api, fetchBlob, uploadForm } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
 import { forgetImage } from '../lib/blob.ts';
 import type { Account, Identity } from '../lib/types.ts';
@@ -36,6 +36,50 @@ export function ProfilePage(): ReactNode {
         queryFn: () => api<{ providers: string[] }>('GET', '/api/auth/providers'),
     });
     const fail = (e: Error): void => toast.say(e.message);
+
+    // Art 9 DSGVO: the NSFW pass looks at people's pictures for nudity, so it runs only when the owner asks for it.
+    const nsfw = useMutation({
+        mutationFn: (nsfwOptIn: boolean) => api<Account>('PATCH', '/api/me', { nsfwOptIn }),
+        onSuccess: (u) => {
+            setUser(u);
+            toast.say(
+                u.nsfwOptIn
+                    ? 'NSFW check is on.'
+                    : 'NSFW check is off; stored scores were deleted.',
+            );
+        },
+        onError: fail,
+    });
+    // Art 15 and 20 DSGVO: everything this account holds, as one zip.
+    const exportData = useMutation({
+        mutationFn: async () => {
+            const blob = await fetchBlob('/api/me/export');
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `burrow-export-${new Date().toISOString().slice(0, 10)}.zip`;
+            link.click();
+            URL.revokeObjectURL(url);
+        },
+        onSuccess: () => toast.say('Your export was downloaded.'),
+        onError: fail,
+    });
+    // Art 17 DSGVO: deletes the account and everything it owns.
+    const [deleting, setDeleting] = useState(false);
+    const [confirmName, setConfirmName] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const removeAccount = useMutation({
+        mutationFn: () =>
+            api<void>('DELETE', '/api/me', {
+                username: confirmName,
+                ...(user?.hasPassword ? { password: confirmPassword } : {}),
+            }),
+        // The account is gone, so this only clears the local session; the server call it makes may answer 401.
+        onSuccess: async () => {
+            await logout();
+        },
+        onError: fail,
+    });
 
     const save = useMutation({
         mutationFn: () => api<Account>('PATCH', '/api/me', { displayName, bio }),
@@ -279,7 +323,124 @@ export function ProfilePage(): ReactNode {
                         </div>
                     </form>
                 </section>
+
+                <section className="panel" aria-labelledby="data">
+                    <h2 id="data">Your data</h2>
+                    <div style={{ display: 'grid', gap: 18 }}>
+                        <div>
+                            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={user?.nsfwOptIn ?? false}
+                                    disabled={nsfw.isPending}
+                                    onChange={(e) => nsfw.mutate(e.target.checked)}
+                                />
+                                <span>
+                                    Check my pictures for nudity (NSFW)
+                                    <span className="muted small" style={{ display: 'block' }}>
+                                        Off by default. When on, a separate model scores every
+                                        picture so explicit ones are kept out of public previews and
+                                        can be filed under an SFW / NSFW folder. Turning it off
+                                        deletes the scores already stored. The model runs on this
+                                        server and nothing is sent elsewhere.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                        <div>
+                            <button
+                                className="btn"
+                                onClick={() => exportData.mutate()}
+                                disabled={exportData.isPending}
+                            >
+                                <Download size={16} aria-hidden="true" />{' '}
+                                {exportData.isPending ? 'Preparing…' : 'Download all my data'}
+                            </button>
+                            <span
+                                className="muted small"
+                                style={{ display: 'block', marginTop: 8 }}
+                            >
+                                A zip with your account, your folders, a list of every file with
+                                what burrow stored about it, and the files themselves. A large drive
+                                takes a while.
+                            </span>
+                        </div>
+                        <div>
+                            <button className="btn danger" onClick={() => setDeleting(true)}>
+                                <Trash2 size={16} aria-hidden="true" /> Delete my account
+                            </button>
+                            <span
+                                className="muted small"
+                                style={{ display: 'block', marginTop: 8 }}
+                            >
+                                Removes your account, files, folders and share links for good.
+                            </span>
+                        </div>
+                    </div>
+                </section>
             </div>
+            {deleting ? (
+                <Dialog title="Delete your account?" onClose={() => setDeleting(false)}>
+                    <p>
+                        This deletes your account, every file and folder, and your share links. It
+                        cannot be undone. Encrypted backup copies age out within 30 days.
+                    </p>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            removeAccount.mutate();
+                        }}
+                        style={{ display: 'grid', gap: 14 }}
+                    >
+                        <div className="field">
+                            <label htmlFor="del-name">
+                                Type your username ({user?.username}) to confirm
+                            </label>
+                            <input
+                                id="del-name"
+                                className="input"
+                                autoComplete="off"
+                                value={confirmName}
+                                onChange={(e) => setConfirmName(e.target.value)}
+                            />
+                        </div>
+                        {user?.hasPassword ? (
+                            <div className="field">
+                                <label htmlFor="del-pw">Your password</label>
+                                <input
+                                    id="del-pw"
+                                    className="input"
+                                    type="password"
+                                    autoComplete="current-password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                />
+                            </div>
+                        ) : null}
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button
+                                type="button"
+                                className="btn ghost"
+                                onClick={() => setDeleting(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn danger"
+                                disabled={
+                                    removeAccount.isPending ||
+                                    confirmName.trim().toLowerCase() !==
+                                        (user?.username ?? '').toLowerCase() ||
+                                    (user?.hasPassword === true && confirmPassword === '')
+                                }
+                            >
+                                Delete everything
+                            </button>
+                        </div>
+                    </form>
+                </Dialog>
+            ) : null}
         </>
     );
 }

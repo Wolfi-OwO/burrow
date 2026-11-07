@@ -8,11 +8,57 @@ first release is cut.
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-10-28
+## [0.9.0] - 2026-11-06
 
 ### Added
 
 - Share your whole drive: one link to everything you have, from the Drive page ("Share my drive") or the Shared page, with the same options as any link (anyone with it or specific people, permanent or expiring, revocable). The public page and the viewer work as before, and a big drive or category is read 200 files at a time with a Load more button, where a link used to stop at 500 files.
+- Registration is open to everyone and every account is equal: there is no owner, no admin and no setup step.
+  `REGISTRATION_OPEN` is gone from the configuration.
+- Account deletion is no longer refused for the first account, since nothing treats it as special any more.
+
+### Changed
+
+- New look, "The Archive": serif display type with a paper and olive palette and a vermilion accent, a masthead with
+  tabs, search (`/` or Cmd/Ctrl+K), Upload and the account menu, a bottom tab bar on phones, and new sign-in art.
+
+### Fixed
+
+- The Shared page's link rows no longer run off the right edge of a phone screen; their buttons wrap.
+- The legal pages no longer grow wider than a phone screen (long words wrap, the header wraps).
+- The small uppercase labels, phone tab labels and footer text were about 10px and are now 11px.
+
+## [0.8.0] - 2026-11-04
+
+### Added
+
+- Profile, "Your data": a switch for the NSFW check (off for new accounts; withdrawing it deletes the stored scores), a
+  zip export of everything an account holds, and self-service account deletion that also removes blobs no other
+  account uses. The only admin account cannot delete itself.
+- `GET /api/me/export` and `DELETE /api/me`; `nsfwOptIn` on `PATCH /api/me`.
+
+### Changed
+
+- The NSFW model no longer runs for accounts that did not opt in, and a picture without a score is never auto-filed into
+  a category with a public preview link.
+- Privacy policy and terms describe the above instead of listing it as missing.
+- Updated `katex` to 0.18.2 (Dependabot alert).
+
+## [0.7.4] - 2026-11-02
+
+### Changed
+
+- Privacy policy and terms of use rewritten for open registration: the operator is the controller, DSGVO applies in
+  full, and the missing self-service export, account deletion and per-account NSFW opt-out are stated plainly.
+- README and deploy notes no longer say registration stays closed after the first account.
+
+## [0.7.3] - 2026-11-01
+
+### Added
+
+- `robots.txt` and `sitemap.xml` so search engines can find the sign-in page and the legal pages; share links and
+  every signed-in route are disallowed.
+- Meta description, canonical link and Open Graph tags on the page shell.
 
 ## [0.7.2] - 2026-10-27
 

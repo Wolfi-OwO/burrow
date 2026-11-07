@@ -6,6 +6,7 @@ export interface Account {
     hasAvatar: boolean;
     hasPassword: boolean;
     role: string;
+    nsfwOptIn: boolean;
 }
 
 export interface CategoryNode {

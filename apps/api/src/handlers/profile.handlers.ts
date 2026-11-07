@@ -7,9 +7,11 @@ import { toAccount, toPublicProfile } from '../lib/account-view.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { asyncHandler, BadRequestError, NotFoundError } from '../lib/errors.ts';
 import { sha256File } from '../lib/hashing.ts';
+import { clearRefreshCookie } from '../lib/refresh-cookie.ts';
 import { blobRepository } from '../repository/blob.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { userRepository } from '../repository/user.repository.ts';
+import { accountService } from '../services/account-service.ts';
 
 const uid = (req: Request): string => (req.user as { sub: string }).sub;
 
@@ -20,9 +22,11 @@ export const getMe = asyncHandler(async (req, res) => {
 });
 
 export const patchMe = asyncHandler(async (req, res) => {
-    const patch = req.body as { displayName?: string; bio?: string };
+    const patch = req.body as { displayName?: string; bio?: string; nsfwOptIn?: boolean };
     const user = await userRepository.updateProfile(uid(req), patch);
     if (!user) throw new NotFoundError();
+    // Withdrawing the opt-in also forgets what the classifier already stored (Art 9 DSGVO).
+    if (patch.nsfwOptIn === false) await fileRepository.clearNsfwScores(user.id);
     res.json(toAccount(user));
 });
 
@@ -84,4 +88,26 @@ export const getAvatar = asyncHandler(async (req, res) => {
     if (!user?.avatarSha256) throw new NotFoundError('No avatar.');
     res.type('image/webp').set('Cache-Control', 'private, max-age=3600');
     (await blobStore.open(user.avatarSha256)).pipe(res);
+});
+
+/** Art 15 and 20 DSGVO: everything the account holds, as one zip the owner can keep. */
+export const exportData = asyncHandler(async (req, res) => {
+    const user = await userRepository.findById(uid(req));
+    if (!user) throw new NotFoundError();
+    const day = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="burrow-export-${user.username.replace(/[^A-Za-z0-9._-]+/g, '_')}-${day}.zip"`,
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    await accountService.exportTo(user.id, res);
+});
+
+/** Art 17 DSGVO: deletes the signed-in account with everything it owns. */
+export const deleteMe = asyncHandler(async (req, res) => {
+    const input = req.body as { username: string; password?: string };
+    await accountService.deleteAccount(uid(req), input);
+    clearRefreshCookie(res);
+    res.status(204).end();
 });
