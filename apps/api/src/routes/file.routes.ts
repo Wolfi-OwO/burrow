@@ -2,13 +2,14 @@ import { Router } from 'express';
 
 import { openStream } from '../lib/events.ts';
 import * as file from '../handlers/file.handlers.ts';
+import * as importer from '../handlers/import.handlers.ts';
 import * as uploads from '../handlers/upload.handlers.ts';
 import * as sorting from '../handlers/sorting.handlers.ts';
 import { requireAuth } from '../middlewares/auth.ts';
 import { uploadRateLimiter } from '../middlewares/rate-limit.ts';
 import { uploadFile } from '../middlewares/upload.ts';
 import { validateBody, validateIdParam, validateQuery } from '../middlewares/validate.ts';
-import { uploadStartSchema } from '../schemas/upload.schemas.ts';
+import { importUrlSchema, uploadStartSchema } from '../schemas/upload.schemas.ts';
 import {
     fileListQuerySchema,
     filePatchSchema,
@@ -22,6 +23,13 @@ fileRouter.use(requireAuth);
 
 fileRouter.get('/events', (req, res) => openStream((req.user as { sub: string }).sub, req, res));
 // Chunked upload for big files: announce, send pieces (any order, several at a time), finish.
+// Import from a link: the server downloads the file itself, so a slow uplink does not matter.
+fileRouter.post(
+    '/imports',
+    uploadRateLimiter,
+    validateBody(importUrlSchema),
+    importer.importFromLink,
+);
 fileRouter.post('/uploads', uploadRateLimiter, validateBody(uploadStartSchema), uploads.start);
 fileRouter.get('/uploads/:id', uploads.status);
 fileRouter.put('/uploads/:id/chunks/:index', uploads.piece);

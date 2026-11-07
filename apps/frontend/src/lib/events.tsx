@@ -77,6 +77,16 @@ export function EventsProvider({ children }: { children: ReactNode }): ReactNode
                 );
                 for (const key of ['files', 'tree', 'sorting'])
                     void client.invalidateQueries({ queryKey: [key] });
+            } else if (event.type === 'import.done') {
+                toast.say(
+                    event.data.duplicate === true
+                        ? `${String(event.data.name)} was already in your drive.`
+                        : `${String(event.data.name)} was imported.`,
+                );
+                for (const key of ['files', 'tree', 'sorting'])
+                    void client.invalidateQueries({ queryKey: [key] });
+            } else if (event.type === 'import.failed') {
+                toast.say(String(event.data.message ?? 'The link could not be imported.'));
             } else if (event.type === 'upload.failed') {
                 toast.say(`${String(event.data.name)} could not be unpacked.`);
             } else if (event.type === 'sorting.done') {

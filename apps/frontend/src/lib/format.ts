@@ -11,6 +11,24 @@ export function formatBytes(bytes: number): string {
     return `${value >= 10 || unit === 0 ? String(Math.round(value)) : value.toFixed(1)} ${UNITS[unit] ?? 'B'}`;
 }
 
+/** @returns A transfer speed such as "2.4 MB/s". */
+export function formatSpeed(bytesPerSecond: number): string {
+    return `${formatBytes(bytesPerSecond)}/s`;
+}
+
+/** @returns How long something still takes, in words: "a few seconds", "45 s", "12 min", "1 h 05 min". */
+export function formatRemaining(seconds: number): string {
+    const s = Math.max(0, Math.round(seconds));
+    if (s < 5) return 'a few seconds';
+    if (s < 60) return `${String(s)} s`;
+    if (s < 3600) return `${String(Math.ceil(s / 60))} min`;
+    const hours = Math.floor(s / 3600);
+    const minutes = Math.ceil((s % 3600) / 60);
+    return minutes === 60
+        ? `${String(hours + 1)} h 00 min`
+        : `${String(hours)} h ${String(minutes).padStart(2, '0')} min`;
+}
+
 /** @returns A short relative time such as "3 min ago". */
 export function ago(iso: string | null): string {
     if (!iso) return 'never';

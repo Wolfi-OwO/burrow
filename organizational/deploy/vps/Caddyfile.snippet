@@ -32,3 +32,41 @@ burrow.woofi-developments.at {
         }
     }
 }
+
+# Optional second listener, only for upload pieces. In the global options at the top of the Caddyfile add
+#     servers :8443 { protocols h1 }
+# so this port speaks HTTP/1.1 only: the browser then opens several connections instead of squeezing every piece onto
+# one HTTP/2 or HTTP/3 connection (about 22 against 12 Mbit/s on a home line). Set UPLOAD_ORIGIN to
+# https://burrow.woofi-developments.at:8443 in /opt/burrow/.env. Nothing but the pieces and the health check is
+# forwarded here.
+burrow.woofi-developments.at:8443 {
+    request_body {
+        max_size 220MB
+    }
+
+    header {
+        -Server
+    }
+
+    import access_log
+    import error_pages
+
+    handle /livez {
+        reverse_proxy burrow:8080
+    }
+
+    @piece path_regexp piece ^/api/uploads/[0-9a-f-]{36}/chunks/[0-9]+$
+    handle @piece {
+        reverse_proxy burrow:8080 {
+            import edge_upstream_errors
+            transport http {
+                read_timeout 10m
+                write_timeout 10m
+            }
+        }
+    }
+
+    handle {
+        respond 404
+    }
+}

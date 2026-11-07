@@ -98,6 +98,9 @@ Art 9 attaches to the nature of the data, not to audience size, which is why the
   EU-established company, so no third-country transfer question arises for the hosting itself. Its standard
   data processing agreement is accepted in the customer account; the operator confirms that acceptance before
   the first production deploy (a gate in the release checklist).
+- **Import from a link.** When you paste a link, the server contacts that address to download the file; the site you
+  named sees this server's address and the link's request, nothing about you or your account. The file is then stored
+  like an upload. The server refuses links that point to private or internal addresses.
 - No other third party receives data. There is no analytics vendor, no error-tracking service, no advertising and
   no public API. Adding any of those means adding it here, with its own processor entry, in the same change.
 

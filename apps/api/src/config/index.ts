@@ -30,6 +30,13 @@ export const config = {
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
 
+    /**
+     * An optional second origin that serves only HTTP/1.1, announced to the page for upload pieces (the page falls
+     * back to its own origin when it cannot be reached). Browsers use one connection per origin for HTTP/2 and
+     * HTTP/3, which carries about half of a slow uplink; HTTP/1.1 opens several. Empty means the page's own origin.
+     */
+    uploadOrigin: (process.env.UPLOAD_ORIGIN ?? '').trim().replace(/\/+$/, ''),
+
     /** Per-IP caps (middlewares/rate-limit.ts). */
     apiRateLimitMax: Number(process.env.API_RATE_LIMIT_MAX) || 3000,
     loginRateLimitMax: Number(process.env.LOGIN_RATE_LIMIT_MAX) || 10,
@@ -41,6 +48,19 @@ export const config = {
         maxEntries: Number(process.env.ZIP_MAX_ENTRIES) || 5000,
         /** Everything one archive may unpack to, however small the zip itself is. */
         maxTotalBytes: (Number(process.env.ZIP_MAX_TOTAL_MB) || 32768) * MEBIBYTE,
+    },
+
+    /**
+     * Import from a link: the server downloads the file itself over its own connection, so a slow uplink does not
+     * matter (lib/safe-fetch.ts holds the rules that keep a link away from private addresses).
+     */
+    importUrl: {
+        enabled: (process.env.IMPORT_ENABLED ?? 'true') !== 'false',
+        maxBytes: (Number(process.env.IMPORT_MAX_GB) || 10) * 1024 * MEBIBYTE,
+        /** Links one account may have downloading at once. */
+        maxPerUser: Number(process.env.IMPORT_MAX_PER_USER) || 2,
+        /** Tests and local development only: lets a link point at this machine. Never set it in production. */
+        allowPrivate: process.env.IMPORT_ALLOW_PRIVATE === 'true',
     },
 
     /** FR-017: an upload larger than this is rejected before any byte is stored. */
@@ -152,6 +172,18 @@ export function validateConfig(): void {
     }
     if (config.corsAllowedOrigins.includes('*')) {
         throw new Error('CORS_ALLOWED_ORIGINS must list real origins.');
+    }
+    if (config.uploadOrigin !== '') {
+        let origin: string | null = null;
+        try {
+            origin = new URL(config.uploadOrigin).origin;
+        } catch {
+            // reported below
+        }
+        if (origin !== config.uploadOrigin || !/^https?:/.test(origin))
+            throw new Error(
+                'UPLOAD_ORIGIN must be an origin such as https://host:8443, with no path.',
+            );
     }
     if (config.nodeEnv === 'production' && !config.metricsToken) {
         throw new Error(

@@ -1,4 +1,5 @@
 import { useSortRun } from '../lib/sort-run.ts';
+import { ImportLinkDialog } from '../components/ImportLinkDialog.tsx';
 import { useUploads } from '../lib/uploads.tsx';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -8,6 +9,7 @@ import {
     Maximize2,
     Play,
     Search,
+    Link2,
     Share2,
     Trash2,
     UploadCloud,
@@ -101,6 +103,7 @@ export function DrivePage(): ReactNode {
 
     const { upload } = useUploads();
     const [sharingDrive, setSharingDrive] = useState(false);
+    const [importing, setImporting] = useState(false);
     const sortRun = useSortRun();
     const client = useQueryClient();
     const unplaced = useQuery({
@@ -177,6 +180,10 @@ export function DrivePage(): ReactNode {
                             : 'Sort all now'}
                     </button>
                 ) : null}
+                <button className="btn ghost" onClick={() => setImporting(true)}>
+                    <Link2 size={16} />
+                    Import from a link
+                </button>
                 {category === undefined ? (
                     <button className="btn ghost" onClick={() => setSharingDrive(true)}>
                         <Share2 size={16} />
@@ -285,6 +292,12 @@ export function DrivePage(): ReactNode {
                         Create the folders and sort
                     </button>
                 </div>
+            ) : null}
+            {importing ? (
+                <ImportLinkDialog
+                    {...(typeof category === 'number' ? { folder: category } : {})}
+                    onClose={() => setImporting(false)}
+                />
             ) : null}
             {sharingDrive ? (
                 <ShareDialog

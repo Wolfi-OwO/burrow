@@ -130,6 +130,7 @@ jobs:
       - run: npm run build -w apps/frontend
       - run: npm run database:migrate -w apps/api
       - run: npm run test:coverage -w apps/api
+      - run: npm test -w apps/frontend
       # Codecov hosts the number and draws the README badge. fail_ci_if_error is false so a Codecov hiccup cannot fail
       # the required check; the upload needs the CODECOV_TOKEN repository secret.
       - name: Upload API coverage to Codecov

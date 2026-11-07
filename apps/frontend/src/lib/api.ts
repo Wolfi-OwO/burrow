@@ -194,6 +194,33 @@ function putWithProgress(
     });
 }
 
+/**
+ * Where upload pieces go. Browsers put every request to one origin on a single HTTP/2 or HTTP/3 connection, which on a
+ * slow uplink carries only about half of what the line could (measured: 11 to 12 Mbit/s against 22 with HTTP/1.1,
+ * which opens several connections). A server may therefore announce a second, HTTP/1.1-only origin for the pieces in
+ * /api/version. It is used only when it answers a quick probe; otherwise, or when a piece cannot reach it, the pieces
+ * go to the page's own origin as before.
+ */
+let uploadBase: Promise<string> | null = null;
+
+function resolveUploadBase(): Promise<string> {
+    uploadBase ??= (async () => {
+        try {
+            const info = (await (await fetch('/api/version')).json()) as { uploadOrigin?: string };
+            const origin = info.uploadOrigin;
+            if (!origin || origin === window.location.origin) return '';
+            const probe = await fetch(`${origin}/livez`, {
+                credentials: 'omit',
+                signal: AbortSignal.timeout(4000),
+            });
+            return probe.ok ? origin : '';
+        } catch {
+            return '';
+        }
+    })();
+    return uploadBase;
+}
+
 /** Files at least this large go up in pieces; smaller ones in one request. */
 export const CHUNKED_FROM_BYTES = 48 * 1024 * 1024;
 const PARALLEL_PIECES = 8;
@@ -211,19 +238,28 @@ export async function uploadChunked<T>(
     onProgress: (fraction: number) => void,
     categoryId?: number,
 ): Promise<T> {
-    const start = await api<{ id: string; chunkBytes: number; chunks: number }>(
+    // Asking again for the same file (same name, size and last-modified time) returns the unfinished session and the
+    // pieces that already arrived, so an interrupted upload continues instead of starting from zero.
+    const start = await api<{ id: string; chunkBytes: number; chunks: number; received: number[] }>(
         'POST',
         '/api/uploads',
         {
             name: file.name,
             size: file.size,
+            fingerprint: `${String(file.size)}:${String(file.lastModified)}`,
             ...(file.type ? { mime: file.type } : {}),
             ...(categoryId === undefined ? {} : { categoryId }),
         },
     );
     const sent = new Array<number>(start.chunks).fill(0);
+    const have = new Set(start.received);
+    for (const index of have) {
+        sent[index] = Math.min(start.chunkBytes, file.size - index * start.chunkBytes);
+    }
     const report = (): void => onProgress(sent.reduce((a, b) => a + b, 0) / Math.max(file.size, 1));
-    const queue = [...Array(start.chunks).keys()];
+    report();
+    const queue = [...Array(start.chunks).keys()].filter((index) => !have.has(index));
+    let base = await resolveUploadBase();
 
     const worker = async (): Promise<void> => {
         for (;;) {
@@ -234,7 +270,7 @@ export async function uploadChunked<T>(
             for (let attempt = 1; ; attempt++) {
                 try {
                     await putWithProgress(
-                        `/api/uploads/${start.id}/chunks/${String(index)}`,
+                        `${base}/api/uploads/${start.id}/chunks/${String(index)}`,
                         piece,
                         (loaded) => {
                             sent[index] = loaded;
@@ -246,6 +282,13 @@ export async function uploadChunked<T>(
                     break;
                 } catch (error) {
                     sent[index] = 0;
+                    // The fast origin could not be reached at all (a firewall, say): carry on through the page's own.
+                    if (base !== '' && !(error instanceof ApiError)) {
+                        base = '';
+                        uploadBase = Promise.resolve('');
+                        attempt = 0;
+                        continue;
+                    }
                     if (attempt >= PIECE_TRIES) throw error;
                     await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
                 }

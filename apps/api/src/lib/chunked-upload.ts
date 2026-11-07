@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createWriteStream, mkdirSync } from 'node:fs';
-import { mkdir, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -28,6 +28,16 @@ interface Meta {
     chunkBytes: number;
     chunks: number;
     categoryId: number | null;
+    /** What the page sends to recognise the same file again (size and last-modified time); older sessions have none. */
+    fingerprint?: string;
+}
+
+/** What starting an upload answers: the pieces that are already here are listed, so the page sends only the rest. */
+export interface UploadSession {
+    id: string;
+    chunkBytes: number;
+    chunks: number;
+    received: number[];
 }
 
 const dirOf = (id: string): string => join(root, id);
@@ -44,13 +54,76 @@ async function metaOf(userId: string, id: string): Promise<Meta> {
     return meta;
 }
 
+/** The pieces of one session that have fully arrived (each has a marker file written after its last byte). */
+async function receivedOf(id: string): Promise<number[]> {
+    return (await readdir(dirOf(id)))
+        .map((f) => /^chunk-(\d+)\.ok$/.exec(f)?.[1])
+        .filter((n): n is string => n !== undefined)
+        .map(Number)
+        .sort((a, b) => a - b);
+}
+
+/**
+ * The unfinished session of this account for the same file, if there is one: the same name, size, folder and
+ * fingerprint. When a crash or a second try left several, the one with the most pieces wins.
+ */
+async function findResumable(
+    userId: string,
+    input: { name: string; size: number; categoryId: number | null; fingerprint: string },
+): Promise<UploadSession | null> {
+    let best: (UploadSession & { count: number }) | null = null;
+    for (const id of await readdir(root)) {
+        let meta: Meta;
+        try {
+            meta = JSON.parse(await readFile(join(dirOf(id), 'meta.json'), 'utf8')) as Meta;
+        } catch {
+            continue;
+        }
+        if (
+            meta.userId !== userId ||
+            meta.fingerprint !== input.fingerprint ||
+            meta.name !== input.name ||
+            meta.size !== input.size ||
+            meta.categoryId !== input.categoryId
+        )
+            continue;
+        const received = await receivedOf(id);
+        if (!best || received.length > best.count)
+            best = {
+                id,
+                chunkBytes: meta.chunkBytes,
+                chunks: meta.chunks,
+                received,
+                count: received.length,
+            };
+    }
+    return best
+        ? { id: best.id, chunkBytes: best.chunkBytes, chunks: best.chunks, received: best.received }
+        : null;
+}
+
 export const chunkedUpload = {
     async start(
         userId: string,
-        input: { name: string; mime: string; size: number; categoryId: number | null },
-    ): Promise<{ id: string; chunkBytes: number; chunks: number }> {
+        input: {
+            name: string;
+            mime: string;
+            size: number;
+            categoryId: number | null;
+            fingerprint?: string;
+        },
+    ): Promise<UploadSession> {
         if (input.size > config.maxFileBytes)
             throw new BadRequestError('The file is larger than the upload limit.');
+        if (input.fingerprint) {
+            const again = await findResumable(userId, { ...input, fingerprint: input.fingerprint });
+            if (again) {
+                // Resuming counts as activity, so the hourly sweep does not remove it half way.
+                const now = new Date();
+                await utimes(dirOf(again.id), now, now);
+                return again;
+            }
+        }
         const id = randomUUID();
         const chunkBytes = config.uploadChunkBytes;
         const chunks = Math.max(1, Math.ceil(input.size / chunkBytes));
@@ -63,19 +136,13 @@ export const chunkedUpload = {
         }
         const meta: Meta = { userId, ...input, chunkBytes, chunks };
         await writeFile(join(dirOf(id), 'meta.json'), JSON.stringify(meta));
-        return { id, chunkBytes, chunks };
+        return { id, chunkBytes, chunks, received: [] };
     },
 
     /** Which pieces have arrived, so an interrupted upload resumes instead of starting over. */
     async received(userId: string, id: string): Promise<{ chunks: number; received: number[] }> {
         const meta = await metaOf(userId, id);
-        const files = await readdir(dirOf(id));
-        const received = files
-            .map((f) => /^chunk-(\d+)\.ok$/.exec(f)?.[1])
-            .filter((n): n is string => n !== undefined)
-            .map(Number)
-            .sort((a, b) => a - b);
-        return { chunks: meta.chunks, received };
+        return { chunks: meta.chunks, received: await receivedOf(id) };
     },
 
     /** Streams one piece to its place in the file. The length must be exactly what that piece should hold. */

@@ -8,6 +8,27 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-07
+
+### Added
+
+- Import from a link: paste a direct download link and the server fetches the file itself (a zip is unpacked), so your
+  own upload speed does not matter. Only public http and https addresses on ports 80 and 443 are allowed; the address
+  is checked after DNS and again on every redirect, and the connection is pinned to the checked address. Capped by
+  size (10 GB) and by two parallel imports per account.
+- The uploads panel shows the speed and a live countdown of the time left (per file and in total), also for zips being
+  unpacked and for link imports.
+- Uploads resume: asking again for the same file returns the unfinished session and the pieces it already has, so only
+  the rest is sent. Before, every retry started from zero.
+- An optional HTTP/1.1-only upload address (`UPLOAD_ORIGIN`): measured 22 against 12 Mbit/s on a home line, because a
+  browser carries every HTTP/2 or HTTP/3 request on one connection. The page probes it and falls back to its own
+  origin if it cannot be reached.
+
+### Changed
+
+- The uploads panel is no longer a live region for screen readers, because the time left changes every second.
+- The frontend has a `test` script, run in CI.
+
 ## [0.9.0] - 2026-11-06
 
 ### Added
