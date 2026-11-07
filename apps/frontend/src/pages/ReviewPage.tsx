@@ -1,8 +1,8 @@
 import { useSortRun } from '../lib/sort-run.ts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FolderInput, Play, ShieldCheck, Undo2 } from 'lucide-react';
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { UnsortAll } from '../components/UnsortAll.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
@@ -79,6 +79,79 @@ export function ReviewPage(): ReactNode {
         onError: (e: Error) => toast.say(e.message),
     });
     const sortRun = useSortRun();
+
+    const files = useMemo(() => review.data?.files ?? [], [review.data]);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [anchor, setAnchor] = useState<string | null>(null);
+    const [bulkTarget, setBulkTarget] = useState('');
+    const [bulkBusy, setBulkBusy] = useState(false);
+    // Files that were resolved elsewhere drop out of the selection by themselves.
+    const chosen = files.filter((f) => selected.has(f.id));
+    const guesses = useMemo(() => {
+        const byId = new Map<number, { name: string; count: number }>();
+        for (const f of files) {
+            if (f.suggestedCategoryId === null) continue;
+            const entry = byId.get(f.suggestedCategoryId) ?? {
+                name: f.suggestedName ?? `Category ${String(f.suggestedCategoryId)}`,
+                count: 0,
+            };
+            entry.count += 1;
+            byId.set(f.suggestedCategoryId, entry);
+        }
+        return [...byId.entries()].sort((a, b) => b[1].count - a[1].count);
+    }, [files]);
+
+    /** Click selects one file, ctrl/cmd-click adds or removes it, shift-click takes everything from the last click. */
+    const pick = (
+        id: string,
+        event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
+    ): void => {
+        const next = new Set(selected);
+        const from = anchor === null ? -1 : files.findIndex((f) => f.id === anchor);
+        const to = files.findIndex((f) => f.id === id);
+        if (event.shiftKey && from !== -1 && to !== -1) {
+            const [lo, hi] = from < to ? [from, to] : [to, from];
+            for (const f of files.slice(lo, hi + 1)) next.add(f.id);
+        } else {
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            setAnchor(id);
+        }
+        setSelected(next);
+    };
+
+    const bulk = async (action: 'accept' | 'move' | 'leave'): Promise<void> => {
+        const targets =
+            action === 'accept' ? chosen.filter((f) => f.suggestedCategoryId !== null) : chosen;
+        if (targets.length === 0) return;
+        setBulkBusy(true);
+        let failed = 0;
+        const queue = [...targets];
+        // A few at a time: fast enough for hundreds of files without hammering the server.
+        const worker = async (): Promise<void> => {
+            for (let f = queue.shift(); f; f = queue.shift()) {
+                try {
+                    await api('POST', `/api/review/${f.id}`, {
+                        action,
+                        ...(action === 'move' ? { categoryId: Number(bulkTarget) } : {}),
+                    });
+                } catch {
+                    failed += 1;
+                }
+            }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
+        setBulkBusy(false);
+        setSelected(new Set());
+        setAnchor(null);
+        refresh();
+        const done = targets.length - failed;
+        toast.say(
+            failed === 0
+                ? `Done for ${String(done)} file${done === 1 ? '' : 's'}.`
+                : `${String(done)} done, ${String(failed)} failed.`,
+        );
+    };
 
     return (
         <>
@@ -164,11 +237,117 @@ export function ReviewPage(): ReactNode {
                     <p>Everything the sorter looked at was clear enough to file.</p>
                 </div>
             ) : null}
+            {files.length > 0 ? (
+                <div className="bulk-bar" role="toolbar" aria-label="Select several files">
+                    <button
+                        className="btn sm ghost"
+                        onClick={() => {
+                            setSelected(
+                                chosen.length === files.length
+                                    ? new Set()
+                                    : new Set(files.map((f) => f.id)),
+                            );
+                            setAnchor(null);
+                        }}
+                    >
+                        {chosen.length === files.length
+                            ? 'Clear selection'
+                            : `Select all ${String(files.length)}`}
+                    </button>
+                    {guesses.length > 0 ? (
+                        <>
+                            <label className="sr" htmlFor="pick-guess">
+                                Select every file with the same best guess
+                            </label>
+                            <select
+                                id="pick-guess"
+                                className="input"
+                                style={{ width: 210, minHeight: 32 }}
+                                value=""
+                                onChange={(event) => {
+                                    const id = Number(event.target.value);
+                                    setSelected(
+                                        new Set([
+                                            ...selected,
+                                            ...files
+                                                .filter((f) => f.suggestedCategoryId === id)
+                                                .map((f) => f.id),
+                                        ]),
+                                    );
+                                }}
+                            >
+                                <option value="">Select all guessed as...</option>
+                                {guesses.map(([id, g]) => (
+                                    <option key={id} value={id}>
+                                        {g.name} ({g.count})
+                                    </option>
+                                ))}
+                            </select>
+                        </>
+                    ) : null}
+                    <span className="muted small grow" aria-live="polite">
+                        {chosen.length === 0
+                            ? 'Click a file to select it, shift-click to select a range, ctrl-click to add one.'
+                            : `${String(chosen.length)} selected`}
+                    </span>
+                    {chosen.length > 0 ? (
+                        <>
+                            <button
+                                className="btn sm"
+                                disabled={
+                                    bulkBusy || !chosen.some((f) => f.suggestedCategoryId !== null)
+                                }
+                                onClick={() => void bulk('accept')}
+                            >
+                                <Check size={15} />
+                                Accept guesses
+                            </button>
+                            <label className="sr" htmlFor="bulk-target">
+                                Category for the selected files
+                            </label>
+                            <select
+                                id="bulk-target"
+                                className="input"
+                                style={{ width: 170, minHeight: 32 }}
+                                value={bulkTarget}
+                                onChange={(event) => setBulkTarget(event.target.value)}
+                            >
+                                <option value="">Another category...</option>
+                                {(tree.data?.categories ?? []).map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {'  '.repeat(c.depth)}
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="btn sm ghost"
+                                disabled={bulkBusy || bulkTarget === ''}
+                                onClick={() => void bulk('move')}
+                            >
+                                <FolderInput size={15} />
+                                File there
+                            </button>
+                            <button
+                                className="btn sm ghost"
+                                disabled={bulkBusy}
+                                onClick={() => void bulk('leave')}
+                            >
+                                <Undo2 size={15} />
+                                Leave unsorted
+                            </button>
+                            {bulkBusy ? <Spinner /> : null}
+                        </>
+                    ) : null}
+                </div>
+            ) : null}
             <div className="review-list">
-                {review.data?.files.map((file) => (
+                {files.map((file) => (
                     <ReviewItem
                         key={file.id}
                         file={file}
+                        selected={selected.has(file.id)}
+                        onPick={(event) => pick(file.id, event)}
                         categories={tree.data?.categories ?? []}
                         busy={resolve.isPending}
                         onResolve={(v) => resolve.mutate({ id: file.id, ...v })}
@@ -181,18 +360,44 @@ export function ReviewPage(): ReactNode {
 
 function ReviewItem({
     file,
+    selected,
+    onPick,
     categories,
     busy,
     onResolve,
 }: {
     file: FileItem;
+    selected: boolean;
+    onPick: (event: MouseEvent) => void;
     categories: CategoryNode[];
     busy: boolean;
     onResolve: (v: { action: 'accept' | 'move' | 'leave'; categoryId?: number }) => void;
 }): ReactNode {
     const [other, setOther] = useState('');
     return (
-        <article className="review-item">
+        <article
+            className={selected ? 'review-item selected' : 'review-item'}
+            onMouseDown={(event) => {
+                // No text selection when shift-clicking a range.
+                if (event.shiftKey) event.preventDefault();
+            }}
+            onClick={(event) => {
+                if ((event.target as HTMLElement).closest('button, select, a, label, input'))
+                    return;
+                onPick(event);
+            }}
+        >
+            <input
+                type="checkbox"
+                className="pick-box"
+                checked={selected}
+                aria-label={`Select ${file.name}`}
+                onChange={() => undefined}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onPick(event);
+                }}
+            />
             <span className="thumb">
                 {file.mime.startsWith('image/') ? (
                     <ProtectedImage path={`/api/files/${file.id}/thumbnail`} alt={file.name} />

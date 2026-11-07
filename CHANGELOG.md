@@ -8,6 +8,16 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- Review: select several files at once. Click selects, shift-click takes the whole range from the last click, ctrl-click
+  adds one, "Select all guessed as..." takes every file with the same best guess. A bar then accepts the guesses, files
+  the selection into one category or leaves it unsorted.
+
+### Removed
+
+- The one-off start-up pass that rewrote file names with percent escapes (it ran with 0.10.0).
+
 ## [0.10.0] - 2026-11-07
 
 ### Added
