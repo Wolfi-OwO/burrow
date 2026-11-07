@@ -130,7 +130,7 @@ describe('downloading a link', () => {
             } else if (req.url === '/end') {
                 res.end('arrived');
             } else {
-                res.writeHead(302, { location: req.url ?? '/' }).end();
+                res.writeHead(302, { location: '/loop' }).end();
             }
         };
         assert.equal((await downloadTo(`${base}/start`, join(dir, 'c'), options)).size, 7);

@@ -40,10 +40,19 @@ export interface UploadSession {
     received: number[];
 }
 
-const dirOf = (id: string): string => join(root, id);
+/** Every session id is a uuid. */
+const SESSION_ID = /^[0-9a-f-]{36}$/;
+
+/**
+ * The folder of one session. The id is checked here, in the one place that turns an id into a path, so a value from a
+ * request (or from a stray name in the uploads folder) can never climb out of it.
+ */
+function dirOf(id: string): string {
+    if (!SESSION_ID.test(id)) throw new NotFoundError('Upload not found.');
+    return join(root, id);
+}
 
 async function metaOf(userId: string, id: string): Promise<Meta> {
-    if (!/^[0-9a-f-]{36}$/.test(id)) throw new NotFoundError('Upload not found.');
     let meta: Meta;
     try {
         meta = JSON.parse(await readFile(join(dirOf(id), 'meta.json'), 'utf8')) as Meta;
@@ -73,6 +82,7 @@ async function findResumable(
 ): Promise<UploadSession | null> {
     let best: (UploadSession & { count: number }) | null = null;
     for (const id of await readdir(root)) {
+        if (!SESSION_ID.test(id)) continue;
         let meta: Meta;
         try {
             meta = JSON.parse(await readFile(join(dirOf(id), 'meta.json'), 'utf8')) as Meta;
@@ -204,6 +214,7 @@ export const chunkedUpload = {
     /** Drops uploads nobody finished (closed tab, lost connection), so they cannot fill the disk. */
     async sweep(): Promise<void> {
         for (const id of await readdir(root)) {
+            if (!SESSION_ID.test(id)) continue;
             const info = await stat(dirOf(id)).catch(() => null);
             if (info && Date.now() - info.mtimeMs > STALE_MS) await chunkedUpload.discard(id);
         }
