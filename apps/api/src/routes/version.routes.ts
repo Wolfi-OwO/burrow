@@ -6,5 +6,8 @@ export const versionRouter = Router();
 
 /** Stamped into the image at build time; `dev` outside a real build. */
 versionRouter.get('/api/version', (_req, res) => {
-    res.json(config.buildInfo);
+    res.json({
+        ...config.buildInfo,
+        ...(config.uploadOrigin ? { uploadOrigin: config.uploadOrigin } : {}),
+    });
 });

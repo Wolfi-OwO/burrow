@@ -70,6 +70,30 @@ encrypted nightly backup on Azure).
 
 5. **Metrics**: see [metrion-onboarding.md](metrion-onboarding.md).
 
+## Faster uploads and import from a link
+
+**Why uploads were slow.** Measured against the real server on a home line, 8 pieces of 16 MB in parallel: HTTP/3
+11.0 Mbit/s, HTTP/2 12.2, HTTP/1.1 22.3. A browser sends every request to one origin over a single HTTP/2 or HTTP/3
+connection, and one connection carries about half of that line; HTTP/1.1 opens up to six. So the server can announce a
+second origin that serves HTTP/1.1 only, and the page sends the upload pieces there.
+
+`UPLOAD_ORIGIN` in `/opt/burrow/.env` announces it (empty = off; the page then uses its own origin). The page probes
+`<origin>/livez` first and falls back to its own origin if that fails, or if a piece cannot reach it, so a blocked port only
+costs the speed-up. On the VPS, with a backup of each file first:
+
+1. `/opt/portfolio/Caddyfile`: add the block from `vps/Caddyfile.snippet` (the `:8443` site) and, in the global options at
+   the top, `servers :8443 { protocols h1 }`.
+2. `/opt/portfolio/docker-compose.prod.yaml`: publish `8443:8443` on the caddy service, and `sudo ufw allow 8443/tcp`.
+3. Load Caddy through `/opt/caddy-reload.sh` (it validates first), recreate caddy for the new port, then set
+   `UPLOAD_ORIGIN=https://burrow.woofi-developments.at:8443` in `/opt/burrow/.env` and recreate burrow.
+
+The :8443 site only forwards `/livez` and the upload pieces (`/api/uploads/<id>/chunks/<n>`); everything else there is a 404.
+
+**Import from a link.** `POST /api/imports` makes the server download a link, so the speed of the person's own line does
+not matter. `IMPORT_ENABLED=false` switches it off, `IMPORT_MAX_GB` (default 10) caps one file, `IMPORT_MAX_PER_USER`
+(default 2) caps parallel downloads per account. Never set `IMPORT_ALLOW_PRIVATE=true` in production: it lets a link point
+at this machine and exists only for tests.
+
 ## Backups
 
 Everything that leaves the box is encrypted (ADR-0006). On the VPS:

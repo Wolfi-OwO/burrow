@@ -9,11 +9,12 @@ const uid = (req: Request): string => (req.user as { sub: string }).sub;
 
 /** Announces a big file: the answer says how large each piece is and how many there will be. */
 export const start = asyncHandler(async (req, res) => {
-    const { name, size, mime, categoryId } = req.body as {
+    const { name, size, mime, categoryId, fingerprint } = req.body as {
         name: string;
         size: number;
         mime?: string;
         categoryId?: number;
+        fingerprint?: string;
     };
     if (categoryId !== undefined && !(await categoryRepository.findById(uid(req), categoryId)))
         throw new NotFoundError('Category not found.');
@@ -23,6 +24,7 @@ export const start = asyncHandler(async (req, res) => {
             size,
             mime: mime ?? 'application/octet-stream',
             categoryId: categoryId ?? null,
+            ...(fingerprint ? { fingerprint } : {}),
         }),
     );
 });

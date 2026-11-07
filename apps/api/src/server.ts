@@ -47,6 +47,8 @@ app.use(
                 'frame-src': ["'self'", 'blob:'],
                 'media-src': ["'self'", 'blob:'],
                 'frame-ancestors': ["'none'"],
+                // Upload pieces may go to the optional HTTP/1.1 upload origin (config.uploadOrigin).
+                'connect-src': ["'self'", ...(config.uploadOrigin ? [config.uploadOrigin] : [])],
             },
         },
         strictTransportSecurity: { maxAge: 63_072_000, includeSubDomains: true },
@@ -58,8 +60,15 @@ const corsOptions: CorsOptions = {
     origin: (origin, callback) =>
         callback(null, origin === undefined || config.corsAllowedOrigins.includes(origin)),
     preflightContinue: true,
+    // A browser may remember the answer, so a big upload does not ask before every piece.
+    maxAge: 7200,
 };
 app.use(cors(corsOptions));
+// The preflight for a piece sent to the upload origin: cors() has already checked the Origin and set the headers.
+// Only this one route answers it; every other cross-origin request stays refused.
+app.options('/api/uploads/:id/chunks/:index', (_req, res) => {
+    res.status(204).end();
+});
 app.use(pinoHttp({ logger, genReqId: (req) => correlationId(req.headers) }));
 app.use(express.json({ limit: '100kb' }));
 

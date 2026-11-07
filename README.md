@@ -41,7 +41,8 @@ Upload pictures, documents, spreadsheets, archives or whole folders; burrow sort
 
 ![Drive — files as cards with a coloured type icon, filter chips per kind, a folder tree on the left](docs/screenshots/drive.png)
 
-- **Upload anything**: drop files or a whole `.zip`; zips (even nested ones) are unpacked on the server into the folder you are in. Files from 48 MB up are sent in 16 MB pieces, eight at a time, each retried on its own, so a multi-gigabyte upload survives a flaky line. Uploads keep running in a panel in the corner while you browse other pages.
+- **Upload anything**: drop files or a whole `.zip`; zips (even nested ones) are unpacked on the server into the folder you are in. Files from 48 MB up are sent in 16 MB pieces, eight at a time, each retried on its own, so a multi-gigabyte upload survives a flaky line, and picks up where it stopped when you try again. The panel in the corner, which keeps running while you browse other pages, shows the speed and a live countdown of the time left. A server can also announce an HTTP/1.1-only upload address, which roughly doubles the speed on a slow uplink (see `organizational/deploy/README.md`).
+- **Import from a link**: paste a direct download link and the server fetches the file itself, so your own upload speed does not matter. Links to private or internal addresses are refused.
 - **A tree you define**: categories of any depth, drag and drop, atomic subtree moves (Postgres `ltree`).
 - **Filters and search**: one chip per kind of file (pictures, documents, spreadsheets, presentations, code, routes, archives), ranked name search that also matches the recognised place of a photo.
 - **Content-addressed storage**: identical bytes are stored once, however often they are uploaded.
@@ -95,7 +96,8 @@ Upload pictures, documents, spreadsheets, archives or whole folders; burrow sort
 - **Zero-shot, against your own words.** Categories are whatever you name them, so the sorter scores each picture against your folder names under several phrasings (the name, "&lt;name&gt; artwork", "an illustration of &lt;name&gt;", plus aliases) and sums them. Scoring the bare name alone lost drawn artwork to a competing "a screenshot" label before this.
 - **Ratings come from a dedicated model, not from labels.** A level whose folders are SFW and NSFW is decided by the NSFW classifier's score, because zero-shot labels are unreliable for it.
 - **A file is stored once.** Storage is content-addressed on the VPS disk, with a nightly encrypted offsite backup ([ADR-0002](organizational/adr/0002-storage-layout.md), [ADR-0006](organizational/adr/0006-local-store-encrypted-offsite-backup.md)).
-- **Big uploads are pieces.** A single 7 GB request cannot be retried; 16 MB pieces can, and the server writes them straight into place, so finishing takes seconds.
+- **Big uploads are pieces.** A single 7 GB request cannot be retried; 16 MB pieces can, and the server writes them straight into place, so finishing takes seconds. Asking again for the same file (name, size, last-modified time) returns the unfinished session and the pieces it already has, so only the rest is sent.
+- **A link is fetched by the server, so the address it reaches is the security question.** `apps/api/src/lib/safe-fetch.ts` allows only http and https on ports 80 and 443, resolves the host itself and refuses the link unless every address is public, connects to that checked address (so the name cannot change in between), and checks every redirect again. Size, stall and parallel-import limits bound what one link costs.
 - Every decision has an ADR in [`organizational/adr/`](organizational/adr/).
 
 ## Tech stack
