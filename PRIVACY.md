@@ -126,8 +126,7 @@ to withdraw consent where consent is the basis.
 - **Access and portability (Art 15, 20):** Profile, "Download all my data" gives a zip with the account, the folders,
   `files.json` (every field burrow stored about each file, including scores and place guesses) and the files themselves.
 - **Erasure (Art 17):** Profile, "Delete my account" removes the account, its files, folders, share links, sign-in methods
-  and sessions at once, and deletes every stored file that no other account still uses. The only admin account cannot
-  delete itself. Encrypted backup copies follow the schedule in § 6.
+  and sessions at once, and deletes every stored file that no other account still uses. Encrypted backup copies follow the schedule in § 6.
 - **Rectification and objection:** names, bio and the NSFW opt-in are editable in Profile. Anything else goes to the
   contact in § 9, and the operator answers within one month as Art 12(3) requires.
 

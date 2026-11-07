@@ -69,7 +69,7 @@ export type ShareAccess = 'link' | 'users';
 export interface Share {
     id: string;
     token: string;
-    kind: 'file' | 'category';
+    kind: 'file' | 'category' | 'drive';
     targetId: string | number;
     name: string;
     owner: string;

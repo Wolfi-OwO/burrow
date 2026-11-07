@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Folder, Share2 } from 'lucide-react';
+import { FileText, Folder, HardDrive, Share2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { EditShareDialog, ShareRow } from '../components/ShareDialog.tsx';
+import { EditShareDialog, ShareDialog, ShareRow } from '../components/ShareDialog.tsx';
 import { Spinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 import type { Share } from '../lib/types.ts';
@@ -12,6 +12,7 @@ import type { Share } from '../lib/types.ts';
 /** Links I made, grouped by what they point at, and what others shared with me. */
 export function SharesPage(): ReactNode {
     const [editing, setEditing] = useState<Share | null>(null);
+    const [sharingDrive, setSharingDrive] = useState(false);
     const mine = useQuery({
         queryKey: ['shares'],
         queryFn: () => api<{ shares: Share[] }>('GET', '/api/shares'),
@@ -29,9 +30,14 @@ export function SharesPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
+                    <p className="kicker">Lent out by link</p>
                     <h1>Shared</h1>
                     <p>Links you made, and what other people shared with you.</p>
                 </div>
+                <button className="btn" onClick={() => setSharingDrive(true)}>
+                    <HardDrive size={16} />
+                    Share my whole drive
+                </button>
             </header>
 
             <section aria-labelledby="by-me">
@@ -54,6 +60,8 @@ export function SharesPage(): ReactNode {
                         <h3>
                             {list[0]?.kind === 'file' ? (
                                 <FileText size={16} />
+                            ) : list[0]?.kind === 'drive' ? (
+                                <HardDrive size={16} />
                             ) : (
                                 <Folder size={16} />
                             )}
@@ -79,7 +87,13 @@ export function SharesPage(): ReactNode {
                     {withMe.data?.shares.map((s) => (
                         <li key={s.id} className="share-row">
                             <span className="share-icon" aria-hidden="true">
-                                {s.kind === 'file' ? <FileText size={16} /> : <Folder size={16} />}
+                                {s.kind === 'file' ? (
+                                    <FileText size={16} />
+                                ) : s.kind === 'drive' ? (
+                                    <HardDrive size={16} />
+                                ) : (
+                                    <Folder size={16} />
+                                )}
                             </span>
                             <span className="grow">
                                 <strong>{s.name}</strong>
@@ -92,6 +106,12 @@ export function SharesPage(): ReactNode {
                     ))}
                 </ul>
             </section>
+            {sharingDrive ? (
+                <ShareDialog
+                    target={{ kind: 'drive', id: 'drive', name: 'your whole drive' }}
+                    onClose={() => setSharingDrive(false)}
+                />
+            ) : null}
             {editing ? <EditShareDialog share={editing} onClose={() => setEditing(null)} /> : null}
         </>
     );

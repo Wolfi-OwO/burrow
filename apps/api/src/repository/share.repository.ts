@@ -15,6 +15,8 @@ export interface Share {
     token: string;
     fileId: string | null;
     categoryId: number | null;
+    /** True for a link to everything the owner has. */
+    wholeDrive: boolean;
     access: ShareAccess;
     expiresAt: Date | null;
     revokedAt: Date | null;
@@ -25,8 +27,8 @@ export interface Share {
     users: ShareUser[];
 }
 
-const SELECT = `SELECT s.id, s.owner_id, s.token, s.file_id, s.category_id, s.access, s.expires_at, s.revoked_at, s.created_at,
-        COALESCE(f.name, c.name) AS target_name, o.display_name AS owner_name,
+const SELECT = `SELECT s.id, s.owner_id, s.token, s.file_id, s.category_id, s.whole_drive, s.access, s.expires_at, s.revoked_at, s.created_at,
+        CASE WHEN s.whole_drive THEN 'Everything' ELSE COALESCE(f.name, c.name) END AS target_name, o.display_name AS owner_name,
         COALESCE((SELECT json_agg(json_build_object('id', u.id, 'username', u.username, 'displayName', u.display_name)
                                   ORDER BY u.display_name)
                   FROM share_users su JOIN users u ON u.id = su.user_id WHERE su.share_id = s.id), '[]'::json) AS users
@@ -40,6 +42,7 @@ function toShare(row: DatabaseRow): Share {
         token: row.token as string,
         fileId: row.file_id as string | null,
         categoryId: row.category_id === null ? null : Number(row.category_id),
+        wholeDrive: row.whole_drive as boolean,
         access: row.access as ShareAccess,
         expiresAt: row.expires_at as Date | null,
         revokedAt: row.revoked_at as Date | null,
@@ -57,19 +60,21 @@ export const shareRepository = {
             token: string;
             fileId: string | null;
             categoryId: number | null;
+            wholeDrive: boolean;
             access: ShareAccess;
             expiresAt: Date | null;
         },
         db: Queryable = getPool(),
     ): Promise<string> {
         const { rows } = await db.query(
-            `INSERT INTO shares (owner_id, token, file_id, category_id, access, expires_at)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            `INSERT INTO shares (owner_id, token, file_id, category_id, whole_drive, access, expires_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
             [
                 input.ownerId,
                 input.token,
                 input.fileId,
                 input.categoryId,
+                input.wholeDrive,
                 input.access,
                 input.expiresAt,
             ],

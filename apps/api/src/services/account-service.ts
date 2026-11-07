@@ -160,9 +160,6 @@ export const accountService = {
                 (await argon2.verify(user.passwordHash, input.password));
             if (!ok) throw new ForbiddenError('The password is not correct.');
         }
-        if (user.role === 'admin' && (await userRepository.countAdmins()) <= 1) {
-            throw new ForbiddenError('The only admin account cannot be deleted.');
-        }
 
         const hashes = await getPool().transaction(async (tx) => {
             const { rows } = await tx.query(

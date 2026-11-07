@@ -197,7 +197,7 @@ const status: SortingStatus = {
 interface MockShare {
     id: string;
     token: string;
-    kind: 'file' | 'category';
+    kind: 'file' | 'category' | 'drive';
     targetId: string | number;
     access: 'link' | 'users';
     expiresAt: string | null;
@@ -223,9 +223,11 @@ let shares: MockShare[] = [
 ];
 function shareView(s: MockShare): Record<string, unknown> {
     const name =
-        s.kind === 'file'
-            ? (files.find((f) => f.id === s.targetId)?.name ?? 'file')
-            : (categories.find((c) => c.id === s.targetId)?.name ?? 'category');
+        s.kind === 'drive'
+            ? 'Everything'
+            : s.kind === 'file'
+              ? (files.find((f) => f.id === s.targetId)?.name ?? 'file')
+              : (categories.find((c) => c.id === s.targetId)?.name ?? 'category');
     return {
         id: s.id,
         token: s.token,
@@ -364,8 +366,8 @@ function answer(
         const s: MockShare = {
             id: `s${String(shares.length + 1)}`,
             token: `demo-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
-            kind: body.fileId ? 'file' : 'category',
-            targetId: (body.fileId ?? body.categoryId) as string | number,
+            kind: body.drive ? 'drive' : body.fileId ? 'file' : 'category',
+            targetId: (body.drive ? 'drive' : (body.fileId ?? body.categoryId)) as string | number,
             access: body.access as 'link' | 'users',
             expiresAt: hours ? new Date(Date.now() + hours * 3_600_000).toISOString() : null,
             revoked: false,

@@ -9,8 +9,8 @@ import type { Share, ShareAccess, ShareUser } from '../repository/share.reposito
 import { shareRepository } from '../repository/share.repository.ts';
 
 const HOUR_MS = 3_600_000;
-/** Most files one category link lists; a link is a viewing page, not a bulk export. */
-const MAX_SHARED_FILES = 500;
+/** Files per page of a link; a link is a viewing page, so a big drive is read page by page. */
+export const SHARED_PAGE = 200;
 
 const expiry = (hours: number | null): Date | null =>
     hours === null ? null : new Date(Date.now() + hours * HOUR_MS);
@@ -19,7 +19,7 @@ const expiry = (hours: number | null): Date | null =>
 export interface ShareView {
     id: string;
     token: string;
-    kind: 'file' | 'category';
+    kind: 'file' | 'category' | 'drive';
     targetId: string | number;
     name: string;
     owner: string;
@@ -35,8 +35,10 @@ function view(share: Share): ShareView {
     return {
         id: share.id,
         token: share.token,
-        kind: share.fileId ? 'file' : 'category',
-        targetId: (share.fileId ?? share.categoryId) as string | number,
+        kind: share.wholeDrive ? 'drive' : share.fileId ? 'file' : 'category',
+        targetId: share.wholeDrive
+            ? 'drive'
+            : ((share.fileId ?? share.categoryId) as string | number),
         name: share.targetName,
         owner: share.ownerName,
         access: share.access,
@@ -70,6 +72,7 @@ export const shareService = {
         input: {
             fileId?: string;
             categoryId?: number;
+            drive?: true;
             access: ShareAccess;
             expiresInHours: number | null;
             userIds: string[];
@@ -91,6 +94,7 @@ export const shareService = {
                     token: randomBytes(32).toString('base64url'),
                     fileId: input.fileId ?? null,
                     categoryId: input.categoryId ?? null,
+                    wholeDrive: input.drive === true,
                     access: input.access,
                     expiresAt: expiry(input.expiresInHours),
                 },
@@ -149,7 +153,8 @@ export const shareService = {
     async open(
         token: string,
         viewerId: string | null,
-    ): Promise<{ share: Share; files: FileView[] }> {
+        offset = 0,
+    ): Promise<{ share: Share; files: FileView[]; hasMore: boolean }> {
         const share = await shareRepository.findByToken(token);
         if (!share || !alive(share))
             throw new NotFoundError('This link does not exist or has expired.');
@@ -158,22 +163,27 @@ export const shareService = {
             if (!share.users.some((u) => u.id === viewerId))
                 throw new ForbiddenError('This link was not shared with you.');
         }
-        const files = share.fileId
-            ? [await fileRepository.findById(share.ownerId, share.fileId)].filter(
-                  (f): f is FileView => f !== null,
-              )
-            : await fileRepository.list(share.ownerId, {
-                  category: share.categoryId as number,
-                  subtree: true,
-                  limit: MAX_SHARED_FILES,
-                  offset: 0,
-              });
-        return { share, files };
+        if (share.fileId) {
+            const file = await fileRepository.findById(share.ownerId, share.fileId);
+            return { share, files: file ? [file] : [], hasMore: false };
+        }
+        const files = await fileRepository.list(share.ownerId, {
+            ...(share.categoryId === null ? {} : { category: share.categoryId, subtree: true }),
+            subtree: share.categoryId !== null,
+            limit: SHARED_PAGE,
+            offset,
+        });
+        return { share, files, hasMore: files.length === SHARED_PAGE };
     },
 
     async content(token: string, viewerId: string | null, fileId: string): Promise<FileView> {
-        const { files } = await shareService.open(token, viewerId);
-        const file = files.find((f) => f.id === fileId);
+        const { share } = await shareService.open(token, viewerId);
+        const inScope = share.fileId
+            ? share.fileId === fileId
+            : share.categoryId === null
+              ? true
+              : await fileRepository.isInSubtree(share.ownerId, fileId, share.categoryId);
+        const file = inScope ? await fileRepository.findById(share.ownerId, fileId) : null;
         if (!file) throw new NotFoundError('File not found.');
         return file;
     },

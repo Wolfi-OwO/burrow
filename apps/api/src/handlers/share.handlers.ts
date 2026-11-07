@@ -51,9 +51,14 @@ export const searchUsers = asyncHandler(async (req, res) => {
 
 /** The public page behind a link: what it points at and the files it covers. */
 export const open = asyncHandler(async (req, res) => {
-    const { share, files } = await shareService.open(req.params.token as string, viewer(req));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const { share, files, hasMore } = await shareService.open(
+        req.params.token as string,
+        viewer(req),
+        offset,
+    );
     res.set('Cache-Control', 'private, no-store');
-    res.json({ share: shareService.view(share), files });
+    res.json({ share: shareService.view(share), files, hasMore });
 });
 
 export const content = asyncHandler(async (req, res) => {

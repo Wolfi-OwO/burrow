@@ -91,14 +91,6 @@ export const userRepository = {
         return rows[0] ? toUser(rows[0]) : null;
     },
 
-    /** @returns How many accounts have the admin role (the last one may not delete itself). */
-    async countAdmins(db: Queryable = getPool()): Promise<number> {
-        const { rows } = await db.query(
-            "SELECT count(*)::int AS n FROM users WHERE role = 'admin'",
-        );
-        return Number((rows[0] as DatabaseRow).n);
-    },
-
     /** Deletes the account; its files, categories, shares, identities and sessions go with it (ON DELETE CASCADE). */
     async remove(id: string, db: Queryable = getPool()): Promise<void> {
         await db.query('DELETE FROM users WHERE id = $1', [id]);

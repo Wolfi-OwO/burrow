@@ -77,13 +77,13 @@ Upload pictures, documents, spreadsheets, archives or whole folders; burrow sort
 
 ![Shared page — links you made and what other people shared with you](docs/screenshots/shared.png)
 
-- A link to a file or a whole category: open to anyone with it, or only to the accounts you pick; permanent or expiring, revocable at any time. A revoked, expired or unknown link answers the same 404.
+- A link to a file, a whole category or your entire drive: open to anyone with it, or only to the accounts you pick; permanent or expiring, revocable at any time. A revoked, expired or unknown link answers the same 404.
 
 ### Accounts and security
 
 ![Sign-in page — password, GitHub, Microsoft or Google](docs/screenshots/sign-in.png)
 
-- Password (Argon2id) or GitHub, Microsoft and Google sign-in, with revocable sessions; the first account becomes the admin. Registration is controlled by `REGISTRATION_OPEN`: closed by default, and open on the production deployment.
+- Password (Argon2id) or GitHub, Microsoft and Google sign-in, with revocable sessions; registration is open to everyone and every account is equal.
 - A profile with an avatar (taken from your own files if you like), a light and a dark look, thumbnails, live notifications over server-sent events.
 
 <div align="center"><sub>Screenshots are captured from the prototype (<code>prototypes/</code>) at 1440×900 with sample data, so no personal files appear here.</sub></div>
@@ -123,7 +123,7 @@ cp .env.example .env      # set JWT_SECRET (openssl rand -base64 48)
 docker compose up --build
 ```
 
-Then open <http://localhost:8080> and create the owner account. The first account becomes the admin; later accounts need `REGISTRATION_OPEN=true`.
+Then open <http://localhost:8080> and create an account. Registration is open to everyone and every account is equal.
 
 ### Run it for development
 

@@ -115,12 +115,12 @@ describe('burrow smoke', { concurrency: false }, () => {
         }
     });
 
-    it('creates the owner account, or signs in when it exists', async () => {
+    it('creates the account, or signs in when it exists', async () => {
         let reply = await call('POST', '/api/auth/register', {
             auth: false,
             body: { username: USERNAME, password: PASSWORD },
         });
-        if (reply.status === 403)
+        if (reply.status === 409)
             reply = await call('POST', '/api/auth/login', {
                 auth: false,
                 body: { username: USERNAME, password: PASSWORD },

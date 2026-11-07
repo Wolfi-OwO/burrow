@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { after, beforeEach, describe, it } from 'node:test';
 
-import { config } from '../../src/config/index.ts';
 import { getPool } from '../../src/database/connection.ts';
 import { localBlobPath } from '../../src/lib/blob-store.ts';
 import { api, base, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
@@ -11,18 +10,13 @@ after(closeServer);
 
 const PASSWORD = 'correct horse battery';
 
-/** Opens registration for the duration of a test and returns the second account's token. */
+/** Registers another account (registration is open to everyone) and returns its token. */
 async function registerSecond(username = 'second'): Promise<{ token: string; id: string }> {
-    config.registrationOpen = true;
-    try {
-        const reply = await api('POST', '/api/auth/register', {
-            body: { username, password: PASSWORD },
-        });
-        assert.equal(reply.status, 201);
-        return { token: reply.json.accessToken as string, id: reply.json.user.id as string };
-    } finally {
-        config.registrationOpen = false;
-    }
+    const reply = await api('POST', '/api/auth/register', {
+        body: { username, password: PASSWORD },
+    });
+    assert.equal(reply.status, 201);
+    return { token: reply.json.accessToken as string, id: reply.json.user.id as string };
 }
 
 const exists = (sha: string): Promise<boolean> =>
@@ -72,8 +66,8 @@ describe('account export (Art 15 and 20 DSGVO)', () => {
 describe('account deletion (Art 17 DSGVO)', () => {
     beforeEach(resetDatabase);
 
-    it('refuses without the username, with a wrong password, and for the only admin', async () => {
-        const owner = await registerOwner();
+    it('refuses without the username and with a wrong password', async () => {
+        await registerOwner();
         const second = await registerSecond();
 
         const noName = await api('DELETE', '/api/me', {
@@ -86,12 +80,17 @@ describe('account deletion (Art 17 DSGVO)', () => {
             body: { username: 'second', password: 'not the password' },
         });
         assert.equal(wrongPassword.status, 403);
-        const onlyAdmin = await api('DELETE', '/api/me', {
-            token: owner.token,
+        assert.equal((await api('GET', '/api/me', { token: second.token })).status, 200);
+    });
+
+    it('treats the first account like any other: it can delete itself', async () => {
+        const first = await registerOwner();
+        const done = await api('DELETE', '/api/me', {
+            token: first.token,
             body: { username: 'owner', password: PASSWORD },
         });
-        assert.equal(onlyAdmin.status, 403);
-        assert.equal((await api('GET', '/api/me', { token: second.token })).status, 200);
+        assert.equal(done.status, 204);
+        assert.equal((await api('GET', '/api/me', { token: first.token })).status, 401);
     });
 
     it('removes the account, its files, categories and sessions, and a blob only when nobody else uses it', async () => {

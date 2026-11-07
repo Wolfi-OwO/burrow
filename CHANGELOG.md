@@ -8,6 +8,26 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-06
+
+### Added
+
+- Share your whole drive: one link to everything you have, from the Drive page ("Share my drive") or the Shared page, with the same options as any link (anyone with it or specific people, permanent or expiring, revocable). The public page and the viewer work as before, and a big drive or category is read 200 files at a time with a Load more button, where a link used to stop at 500 files.
+- Registration is open to everyone and every account is equal: there is no owner, no admin and no setup step.
+  `REGISTRATION_OPEN` is gone from the configuration.
+- Account deletion is no longer refused for the first account, since nothing treats it as special any more.
+
+### Changed
+
+- New look, "The Archive": serif display type with a paper and olive palette and a vermilion accent, a masthead with
+  tabs, search (`/` or Cmd/Ctrl+K), Upload and the account menu, a bottom tab bar on phones, and new sign-in art.
+
+### Fixed
+
+- The Shared page's link rows no longer run off the right edge of a phone screen; their buttons wrap.
+- The legal pages no longer grow wider than a phone screen (long words wrap, the header wraps).
+- The small uppercase labels, phone tab labels and footer text were about 10px and are now 11px.
+
 ## [0.8.0] - 2026-11-04
 
 ### Added

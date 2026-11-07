@@ -100,6 +100,7 @@ export function DrivePage(): ReactNode {
     };
 
     const { upload } = useUploads();
+    const [sharingDrive, setSharingDrive] = useState(false);
     const sortRun = useSortRun();
     const client = useQueryClient();
     const unplaced = useQuery({
@@ -134,6 +135,12 @@ export function DrivePage(): ReactNode {
             );
     };
 
+    // Only a picture can be the large plate that opens the listing; a text file blown up to four tiles is just empty.
+    const leadId =
+        (files.data?.files.length ?? 0) > 4
+            ? files.data?.files.find((f) => f.mime.startsWith('image/'))?.id
+            : undefined;
+
     return (
         <div
             onDragOver={(event) => {
@@ -149,6 +156,7 @@ export function DrivePage(): ReactNode {
         >
             <header className="page-head">
                 <div>
+                    <p className="kicker">The collection</p>
                     <h1>{crumbs.at(-1) ?? 'Drive'}</h1>
                     <div className="crumbs" aria-label="Location">
                         {crumbs.slice(0, -1).map((name, i) => (
@@ -167,6 +175,12 @@ export function DrivePage(): ReactNode {
                         {sortRun.running && sortRun.progress
                             ? `Sorting ${String(sortRun.progress.done)} / ${String(sortRun.progress.total)}`
                             : 'Sort all now'}
+                    </button>
+                ) : null}
+                {category === undefined ? (
+                    <button className="btn ghost" onClick={() => setSharingDrive(true)}>
+                        <Share2 size={16} />
+                        Share my drive
                     </button>
                 ) : null}
                 <form
@@ -224,7 +238,7 @@ export function DrivePage(): ReactNode {
                 ) : null}
             </div>
             <button className={`hole ${over ? 'over' : ''}`} onClick={() => input.current?.click()}>
-                <UploadCloud size={30} aria-hidden="true" />
+                <UploadCloud size={22} aria-hidden="true" />
                 <strong>{over ? 'Let go to drop it in' : 'Drop files into the burrow'}</strong>
                 <span>
                     {typeof category === 'number'
@@ -272,6 +286,12 @@ export function DrivePage(): ReactNode {
                     </button>
                 </div>
             ) : null}
+            {sharingDrive ? (
+                <ShareDialog
+                    target={{ kind: 'drive', id: 'drive', name: 'your whole drive' }}
+                    onClose={() => setSharingDrive(false)}
+                />
+            ) : null}
             {filesQuery.isLoading ? (
                 <p className="muted" style={{ marginTop: 24 }}>
                     <Spinner /> Loading files
@@ -289,9 +309,11 @@ export function DrivePage(): ReactNode {
                 </div>
             ) : null}
             <div className="grid">
-                {files.data?.files.map((file) => (
+                {files.data?.files.map((file, index) => (
                     <FileCard
                         key={file.id}
+                        accession={index + 1}
+                        lead={file.id === leadId}
                         file={file}
                         selected={file.id === openId}
                         onOpen={() => setOpenId(file.id)}

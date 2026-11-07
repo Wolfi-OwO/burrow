@@ -12,20 +12,28 @@ export function FileCard({
     file,
     selected,
     onOpen,
+    accession,
+    lead = false,
 }: {
     file: FileItem;
     selected: boolean;
     onOpen: () => void;
+    /** Position in the current listing, shown as the specimen number. */
+    accession: number;
+    lead?: boolean;
 }): ReactNode {
     const isImage = file.mime.startsWith('image/');
     return (
         <button
-            className={`card ${selected ? 'sel' : ''}`}
+            className={`card ${selected ? 'sel' : ''} ${lead ? 'lead' : ''}`}
             onClick={onOpen}
             draggable
             onDragStart={(event) => event.dataTransfer.setData(DRAG_FILE, file.id)}
             aria-label={`${file.name}, ${formatBytes(file.size)}`}
         >
+            <span className="acc" aria-hidden="true">
+                №{String(accession).padStart(4, '0')}
+            </span>
             <span className="thumb">
                 {isImage ? (
                     <ProtectedImage path={`/api/files/${file.id}/thumbnail`} alt="" />

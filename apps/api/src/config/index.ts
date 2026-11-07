@@ -30,15 +30,6 @@ export const config = {
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
 
-    /**
-     * When set, the very first account can only be created by presenting this token. A fresh site is reachable the
-     * moment its certificate is issued, and the first account becomes the admin, so without it whoever finds the
-     * hostname first owns the drive. Unset (local development) leaves the first registration open.
-     */
-
-    /** Registration stays closed once the owner exists, unless this is true (burrow is single-tenant). */
-    registrationOpen: (process.env.REGISTRATION_OPEN ?? 'false') === 'true',
-
     /** Per-IP caps (middlewares/rate-limit.ts). */
     apiRateLimitMax: Number(process.env.API_RATE_LIMIT_MAX) || 3000,
     loginRateLimitMax: Number(process.env.LOGIN_RATE_LIMIT_MAX) || 10,

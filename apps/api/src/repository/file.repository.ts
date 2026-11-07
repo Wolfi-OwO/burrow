@@ -239,6 +239,22 @@ export const fileRepository = {
         return (rowCount ?? 0) > 0;
     },
 
+    /** Whether a file sits in a category or below it, for a share link that covers a whole subtree. */
+    async isInSubtree(
+        ownerId: string,
+        fileId: string,
+        categoryId: number,
+        db: Queryable = getPool(),
+    ): Promise<boolean> {
+        const { rowCount } = await db.query(
+            `SELECT 1 FROM files f JOIN categories c ON c.id = f.category_id
+             WHERE f.id = $1 AND f.user_id = $2
+               AND c.path <@ (SELECT path FROM categories WHERE id = $3 AND user_id = $2)`,
+            [fileId, ownerId, categoryId],
+        );
+        return (rowCount ?? 0) > 0;
+    },
+
     /** Everything in Unsorted that is not a picture: the files only a folder for their type can place. */
     async listUnfiledNonPictures(
         userId: string,

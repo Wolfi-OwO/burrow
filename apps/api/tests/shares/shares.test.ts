@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 
-import { config } from '../../src/config/index.ts';
 import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
 
 /** The owner, one stranger account, a category with one file inside, and a file left unfiled. */
@@ -13,9 +12,7 @@ async function setup(): Promise<{
     outside: string;
 }> {
     const { token: owner } = await registerOwner();
-    config.registrationOpen = true;
     const guest = await registerOwner('guest');
-    config.registrationOpen = false;
     const categoryId = (
         await api('POST', '/api/categories', {
             token: owner,
@@ -77,6 +74,40 @@ describe('shares', () => {
             page.json.files.map((f: { id: string }) => f.id).sort(),
             [inside, deep].sort(),
         );
+    });
+
+    it("shares the whole drive: every file in every folder, and only the owner's", async () => {
+        const { owner, guest, inside, outside } = await setup();
+        // a stranger's own file must never appear in the owner's drive link
+        await upload(guest.token, 'theirs.png', await png(9));
+        const made = await api('POST', '/api/shares', {
+            token: owner,
+            body: { drive: true, access: 'link', expiresInHours: null },
+        });
+        assert.equal(made.status, 201);
+        assert.equal(made.json.share.kind, 'drive');
+        assert.equal(made.json.share.name, 'Everything');
+        const token = made.json.share.token as string;
+        const page = await api('GET', `/api/s/${token}`);
+        assert.deepEqual(
+            page.json.files.map((f: { id: string }) => f.id).sort(),
+            [inside, outside].sort(),
+        );
+        assert.equal(page.json.hasMore, false);
+        const thumb = await api('GET', `/api/s/${token}/files/${outside}/thumbnail`);
+        assert.equal(thumb.status, 200);
+        const theirs = (await api('GET', '/api/files?limit=10', { token: guest.token })).json
+            .files[0].id as string;
+        assert.equal((await api('GET', `/api/s/${token}/files/${theirs}/content`)).status, 404);
+    });
+
+    it('refuses a share that names more than one target', async () => {
+        const { owner, categoryId } = await setup();
+        const bad = await api('POST', '/api/shares', {
+            token: owner,
+            body: { drive: true, categoryId, access: 'link', expiresInHours: null },
+        });
+        assert.equal(bad.status, 400);
     });
 
     it('asks anonymous visitors to sign in and refuses accounts that are not listed', async () => {

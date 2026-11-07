@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router';
 import { BrandIcon } from '../components/BrandIcon.tsx';
 import { GateArt } from '../components/GateArt.tsx';
 import { ThemeToggle } from '../components/ThemeToggle.tsx';
-import { Mark } from '../components/Shell.tsx';
+import { Mark } from '../components/Masthead.tsx';
 import { Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
@@ -19,7 +19,7 @@ const LABELS: Record<string, string> = {
 
 const PROVIDERS = ['github', 'microsoft', 'google'];
 
-/** Sign in, or create the owner account on a fresh install. */
+/** Sign in, or create an account: registration is open to everyone. */
 export function GatePage(): ReactNode {
     const { login, register } = useAuth();
     const [params] = useSearchParams();
@@ -71,11 +71,11 @@ export function GatePage(): ReactNode {
                 <ThemeToggle className="gate-theme" />
                 <div className="gate-card2">
                     <div>
-                        <h1>{mode === 'login' ? 'Welcome back' : 'Dig the first room'}</h1>
+                        <h1>{mode === 'login' ? 'Welcome back' : 'Dig your first room'}</h1>
                         <p className="muted" style={{ marginTop: 6 }}>
                             {mode === 'login'
                                 ? 'Sign in to your burrow.'
-                                : 'Create the owner account for this burrow.'}
+                                : 'Create your account. It is free and takes a few seconds.'}
                         </p>
                     </div>
                     <form
