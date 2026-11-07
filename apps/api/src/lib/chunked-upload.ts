@@ -44,28 +44,34 @@ export interface UploadSession {
 const SESSION_ID = /^[0-9a-f-]{36}$/;
 
 /**
- * The folder of one session. The id is checked here, in the one place that turns an id into a path, so a value from a
- * request (or from a stray name in the uploads folder) can never climb out of it.
+ * The folder of one session, found by looking for it in the uploads folder. The path is built from the name on disk,
+ * never from the id in the request, so nothing a client sends can reach outside the folder.
  */
-function dirOf(id: string): string {
-    if (!SESSION_ID.test(id)) throw new NotFoundError('Upload not found.');
-    return join(root, id);
+async function dirOf(id: string): Promise<string> {
+    const found = (await readdir(root)).find((entry) => entry === id && SESSION_ID.test(entry));
+    if (found === undefined) throw new NotFoundError('Upload not found.');
+    return join(root, found);
 }
 
-async function metaOf(userId: string, id: string): Promise<Meta> {
+const readMeta = async (dir: string): Promise<Meta> =>
+    JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8')) as Meta;
+
+/** The session with this id if it is this account's: its folder and what it was announced as. */
+async function sessionOf(userId: string, id: string): Promise<{ dir: string; meta: Meta }> {
+    const dir = await dirOf(id);
     let meta: Meta;
     try {
-        meta = JSON.parse(await readFile(join(dirOf(id), 'meta.json'), 'utf8')) as Meta;
+        meta = await readMeta(dir);
     } catch {
         throw new NotFoundError('Upload not found.');
     }
     if (meta.userId !== userId) throw new ForbiddenError('That upload is not yours.');
-    return meta;
+    return { dir, meta };
 }
 
 /** The pieces of one session that have fully arrived (each has a marker file written after its last byte). */
-async function receivedOf(id: string): Promise<number[]> {
-    return (await readdir(dirOf(id)))
+async function receivedIn(dir: string): Promise<number[]> {
+    return (await readdir(dir))
         .map((f) => /^chunk-(\d+)\.ok$/.exec(f)?.[1])
         .filter((n): n is string => n !== undefined)
         .map(Number)
@@ -79,13 +85,14 @@ async function receivedOf(id: string): Promise<number[]> {
 async function findResumable(
     userId: string,
     input: { name: string; size: number; categoryId: number | null; fingerprint: string },
-): Promise<UploadSession | null> {
-    let best: (UploadSession & { count: number }) | null = null;
-    for (const id of await readdir(root)) {
-        if (!SESSION_ID.test(id)) continue;
+): Promise<{ dir: string; session: UploadSession } | null> {
+    let best: { dir: string; session: UploadSession } | null = null;
+    for (const entry of await readdir(root)) {
+        if (!SESSION_ID.test(entry)) continue;
+        const dir = join(root, entry);
         let meta: Meta;
         try {
-            meta = JSON.parse(await readFile(join(dirOf(id), 'meta.json'), 'utf8')) as Meta;
+            meta = await readMeta(dir);
         } catch {
             continue;
         }
@@ -97,19 +104,14 @@ async function findResumable(
             meta.categoryId !== input.categoryId
         )
             continue;
-        const received = await receivedOf(id);
-        if (!best || received.length > best.count)
+        const received = await receivedIn(dir);
+        if (!best || received.length > best.session.received.length)
             best = {
-                id,
-                chunkBytes: meta.chunkBytes,
-                chunks: meta.chunks,
-                received,
-                count: received.length,
+                dir,
+                session: { id: entry, chunkBytes: meta.chunkBytes, chunks: meta.chunks, received },
             };
     }
-    return best
-        ? { id: best.id, chunkBytes: best.chunkBytes, chunks: best.chunks, received: best.received }
-        : null;
+    return best;
 }
 
 export const chunkedUpload = {
@@ -130,34 +132,35 @@ export const chunkedUpload = {
             if (again) {
                 // Resuming counts as activity, so the hourly sweep does not remove it half way.
                 const now = new Date();
-                await utimes(dirOf(again.id), now, now);
-                return again;
+                await utimes(again.dir, now, now);
+                return again.session;
             }
         }
         const id = randomUUID();
+        const dir = join(root, id);
         const chunkBytes = config.uploadChunkBytes;
         const chunks = Math.max(1, Math.ceil(input.size / chunkBytes));
-        await mkdir(dirOf(id), { recursive: true });
-        const data = await open(join(dirOf(id), 'data'), 'w');
+        await mkdir(dir, { recursive: true });
+        const data = await open(join(dir, 'data'), 'w');
         try {
             await data.truncate(input.size);
         } finally {
             await data.close();
         }
         const meta: Meta = { userId, ...input, chunkBytes, chunks };
-        await writeFile(join(dirOf(id), 'meta.json'), JSON.stringify(meta));
+        await writeFile(join(dir, 'meta.json'), JSON.stringify(meta));
         return { id, chunkBytes, chunks, received: [] };
     },
 
     /** Which pieces have arrived, so an interrupted upload resumes instead of starting over. */
     async received(userId: string, id: string): Promise<{ chunks: number; received: number[] }> {
-        const meta = await metaOf(userId, id);
-        return { chunks: meta.chunks, received: await receivedOf(id) };
+        const { dir, meta } = await sessionOf(userId, id);
+        return { chunks: meta.chunks, received: await receivedIn(dir) };
     },
 
     /** Streams one piece to its place in the file. The length must be exactly what that piece should hold. */
     async write(userId: string, id: string, index: number, body: Readable): Promise<void> {
-        const meta = await metaOf(userId, id);
+        const { dir, meta } = await sessionOf(userId, id);
         if (!Number.isInteger(index) || index < 0 || index >= meta.chunks)
             throw new BadRequestError('No such piece.');
         const start = index * meta.chunkBytes;
@@ -174,13 +177,9 @@ export const chunkedUpload = {
                 );
             },
         });
-        await pipeline(
-            body,
-            guard,
-            createWriteStream(join(dirOf(id), 'data'), { flags: 'r+', start }),
-        );
+        await pipeline(body, guard, createWriteStream(join(dir, 'data'), { flags: 'r+', start }));
         if (seen !== expected) throw new BadRequestError('The piece is shorter than expected.');
-        await writeFile(join(dirOf(id), `chunk-${String(index)}.ok`), '');
+        await writeFile(join(dir, `chunk-${String(index)}.ok`), '');
     },
 
     /** Checks that every piece arrived and hands over the finished file; the caller owns (and removes) it. */
@@ -194,13 +193,13 @@ export const chunkedUpload = {
         mime: string;
         categoryId: number | null;
     }> {
-        const meta = await metaOf(userId, id);
-        const { received } = await chunkedUpload.received(userId, id);
+        const { dir, meta } = await sessionOf(userId, id);
+        const received = await receivedIn(dir);
         if (received.length !== meta.chunks)
             throw new BadRequestError(
                 `${String(meta.chunks - received.length)} pieces are still missing.`,
             );
-        const path = join(dirOf(id), 'data');
+        const path = join(dir, 'data');
         const { size } = await stat(path);
         if (size !== meta.size)
             throw new BadRequestError('The file is not the size it was announced with.');
@@ -208,15 +207,18 @@ export const chunkedUpload = {
     },
 
     async discard(id: string): Promise<void> {
-        await rm(dirOf(id), { recursive: true, force: true });
+        const dir = await dirOf(id).catch(() => null);
+        if (dir) await rm(dir, { recursive: true, force: true });
     },
 
     /** Drops uploads nobody finished (closed tab, lost connection), so they cannot fill the disk. */
     async sweep(): Promise<void> {
-        for (const id of await readdir(root)) {
-            if (!SESSION_ID.test(id)) continue;
-            const info = await stat(dirOf(id)).catch(() => null);
-            if (info && Date.now() - info.mtimeMs > STALE_MS) await chunkedUpload.discard(id);
+        for (const entry of await readdir(root)) {
+            if (!SESSION_ID.test(entry)) continue;
+            const dir = join(root, entry);
+            const info = await stat(dir).catch(() => null);
+            if (info && Date.now() - info.mtimeMs > STALE_MS)
+                await rm(dir, { recursive: true, force: true });
         }
     },
 };

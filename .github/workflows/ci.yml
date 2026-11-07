@@ -210,6 +210,10 @@ jobs:
           INTERNAL_SERVICE_TOKEN: ci-service-token
           # The plain test image must still land in the review queue; the floor itself is unit tested.
           REVIEW_FLOOR: '0.0001'
+          # The plain gray test image scores between 0.56 and 0.62 depending on the timestamp in the folder names, so
+          # at the default 0.6 it was filed on a guess about one run in three. The red one scores 1.0, so a high
+          # threshold keeps both assertions steady (measured over 14 runs each: 4 failures at 0.6, none at 0.85).
+          AUTO_FILE_THRESHOLD: '0.85'
         run: docker compose up -d --wait --wait-timeout 300
 
       - name: Smoke test
