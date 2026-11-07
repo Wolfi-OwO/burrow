@@ -273,16 +273,6 @@ export const fileRepository = {
         }));
     },
 
-    /** Names that still carry percent escapes, for the start-up tidy. */
-    async namesWithEscapes(db: Queryable = getPool()): Promise<{ id: string; name: string }[]> {
-        const { rows } = await db.query(`SELECT id, name FROM files WHERE name ~* '%[0-9a-f]{2}'`);
-        return rows as { id: string; name: string }[];
-    },
-
-    async renameById(id: string, name: string, db: Queryable = getPool()): Promise<void> {
-        await db.query('UPDATE files SET name = $2 WHERE id = $1', [id, name]);
-    },
-
     async rename(
         userId: string,
         id: string,
