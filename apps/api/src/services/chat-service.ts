@@ -85,6 +85,8 @@ export interface DriveSummary {
     counts: Map<number, number>;
     total: number;
     unsorted: number;
+    /** What the sorter recognised in the unfiled pictures, most common first. */
+    places?: { place: string; count: number }[];
 }
 
 function describeTree(
@@ -92,7 +94,10 @@ function describeTree(
     hints: Map<number, string[]>,
     drive: DriveSummary,
 ): string {
-    const head = `Files in total: ${String(drive.total)}. Not in any folder: ${String(drive.unsorted)}.`;
+    const seen = drive.places?.length
+        ? ` The unfiled pictures show: ${drive.places.map((p) => `${p.place} (${String(p.count)})`).join(', ')}.`
+        : '';
+    const head = `Files in total: ${String(drive.total)}. Not in any folder: ${String(drive.unsorted)}.${seen}`;
     if (categories.length === 0) return `${head}\n(no folders yet)`;
     const byId = new Map(categories.map((c) => [c.id, c]));
     const lines = categories.slice(0, MAX_TREE_LINES).map((c) => {
@@ -127,6 +132,7 @@ export function systemPrompt(
         'unsort_category, unsort_all, remove_category and remove_all_categories change what is already there, so the person is asked to confirm each one: just list them when the person clearly asked for them, and say that they wait for the yes.',
         'You cannot move single files, delete files or open them. Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
         'In the list of folders below, ">" only shows where a folder sits: "Nature > Alps" is the folder Alps inside Nature. A real name never contains ">".',
+        'When asked which folders you would recommend, answer in the reply with a short list of fitting folder names, based on what the unfiled pictures show and the folders that exist; list no actions for it, and offer to create them.',
         'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it. When asked about the drive, use the numbers below.',
         '',
         'Examples of correct answers:',
@@ -169,7 +175,13 @@ export function find(pool: Category[], wanted: string): Category | null {
             const names: string[] = [];
             for (let n: Category | undefined = c; n; n = byId.get(n.parentId ?? -1))
                 names.unshift(n.name.toLowerCase());
-            return names.join(' > ') === whole.split('>').map((p) => p.trim()).join(' > ');
+            return (
+                names.join(' > ') ===
+                whole
+                    .split('>')
+                    .map((p) => p.trim())
+                    .join(' > ')
+            );
         });
         if (full) return full;
     }
@@ -431,7 +443,10 @@ export async function perform(
         });
 
     if (raw.type === 'create_category') {
-        const parts = name.split('>').map((part) => part.trim()).filter(Boolean);
+        const parts = name
+            .split('>')
+            .map((part) => part.trim())
+            .filter(Boolean);
         const shown = parts.pop() ?? name;
         // "Nature > Alps" means Alps inside Nature; the path is never part of the name.
         const parentName = clean(raw.parent, 60) || parts.join(' > ');
@@ -619,31 +634,43 @@ export const chatService = {
         emit: (event: ChatEvent) => void,
     ): Promise<void> {
         const outline = parseOutline(text);
-        if (!outline && (!config.llm.url || !(await llmHealthy())))
+        const needsModel = !outline || outline.question !== '';
+        if (needsModel && (!config.llm.url || !(await llmHealthy())))
             throw new ServiceUnavailableError('The assistant is not running right now.');
         await chatRepository.add(userId, 'user', text);
 
+        const built: ChatAction[] = [];
         if (outline) {
             // A drawn tree is built exactly as drawn, without asking the model to retype it.
             const pool = await categoryRepository.listAll(userId);
-            const results: ChatAction[] = [];
-            for (const folder of outline)
-                results.push(
+            for (const folder of outline.folders)
+                built.push(
                     await perform(
                         userId,
-                        { type: 'create_category', name: folder.name, parent: folder.parent, phrase: '', content: '' },
+                        {
+                            type: 'create_category',
+                            name: folder.name,
+                            parent: folder.parent,
+                            phrase: '',
+                            content: '',
+                        },
                         pool,
                         (action) => emit({ type: 'action', action }),
                     ),
                 );
-            const made = results.filter((r) => r.status === 'done').length;
-            const reply =
-                made === 0
-                    ? 'Everything in that tree was already there.'
-                    : `I built your tree: ${String(made)} new folder${made === 1 ? '' : 's'}.`;
-            emit({ type: 'delta', text: reply });
-            emit({ type: 'done', message: await chatRepository.add(userId, 'assistant', reply, results) });
-            return;
+            if (outline.question === '') {
+                const made = built.filter((r) => r.status === 'done').length;
+                const reply =
+                    made === 0
+                        ? 'Everything in that tree was already there.'
+                        : `I built your tree: ${String(made)} new folder${made === 1 ? '' : 's'}.`;
+                emit({ type: 'delta', text: reply });
+                emit({
+                    type: 'done',
+                    message: await chatRepository.add(userId, 'assistant', reply, built),
+                });
+                return;
+            }
         }
 
         await acquire((position) => emit({ type: 'queued', position }), signal);
@@ -656,8 +683,15 @@ export const chatService = {
                 counts: new Map(tree.map((c) => [c.id, c.fileCount])),
                 total,
                 unsorted: total - (await fileRepository.filedCount(userId)),
+                places: await fileRepository.topPlaces(userId, 12),
             };
             const history = await chatRepository.recent(userId, HISTORY);
+            // The tree is already built; the model only answers what was asked next to it.
+            if (outline && history.length > 0)
+                history[history.length - 1] = {
+                    ...history[history.length - 1],
+                    content: `${outline.question} (My folder tree is already made.)`,
+                } as (typeof history)[number];
             const messages: LlmMessage[] = [
                 { role: 'system', content: systemPrompt(pool, hints, drive) },
                 ...history.map((m) => ({ role: m.role, content: m.content })),
@@ -679,7 +713,7 @@ export const chatService = {
                 logger.warn('assistant answer did not parse; no actions taken');
                 turn = { reply: '', actions: [] };
             }
-            const results: ChatAction[] = [];
+            const results: ChatAction[] = [...built];
             for (const raw of turn.actions.slice(0, 8))
                 results.push(
                     await perform(userId, raw, pool, (action) => emit({ type: 'action', action })),
