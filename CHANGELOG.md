@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-11-08
+
+### Security
+
+- Every place that reads, writes or removes a staged upload, an unpacked zip entry or a cached blob now first proves the path lies inside the storage folder, which closes the code-scanning path-injection findings at their source instead of dismissing them.
+
 ## [0.15.4] - 2026-11-08
 
 ### Security

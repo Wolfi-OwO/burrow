@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { rm, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { config } from '../config/index.ts';
+import { within } from '../lib/within.ts';
+
 import type { Request, Response } from 'express';
 
 import { blobStore } from '../lib/blob-store.ts';
@@ -45,7 +48,7 @@ export async function ingest(
     categoryId: number | null,
 ): Promise<void> {
     if (categoryId !== null && !(await categoryRepository.findById(userId, categoryId))) {
-        await rm(staged.path, { force: true });
+        await rm(within(config.storage.dir, staged.path), { force: true });
         throw new NotFoundError('Category not found.');
     }
     if (/\.zip$/i.test(staged.name)) {

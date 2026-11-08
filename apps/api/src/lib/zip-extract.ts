@@ -1,6 +1,8 @@
 import { createWriteStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+
+import { within } from './within.ts';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -88,7 +90,10 @@ export function extractZip(
                         return next();
                     }
                     n += 1;
-                    const staged = join(stagingDir, `zip-${String(Date.now())}-${String(n)}`);
+                    const staged = within(
+                        stagingDir,
+                        join(stagingDir, `zip-${String(Date.now())}-${String(n)}`),
+                    );
                     let size = 0;
                     pipeline(
                         stream,

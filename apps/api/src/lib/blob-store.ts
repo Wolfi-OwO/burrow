@@ -16,6 +16,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { config } from '../config/index.ts';
 import { blobCacheRepository } from '../repository/blob-cache.repository.ts';
 import { decryptStream, encryptStream } from './blob-crypto.ts';
+import { within } from './within.ts';
 import { logger } from './logger.ts';
 
 /**
@@ -206,8 +207,9 @@ export const blobStore = {
      * @param stagedPath - The staged file.
      * @param mime - Content type stored with the durable object.
      */
-    async put(sha256: string, stagedPath: string, mime: string): Promise<void> {
-        const target = localBlobPath(sha256);
+    async put(sha256: string, staged: string, mime: string): Promise<void> {
+        const stagedPath = within(config.storage.dir, staged);
+        const target = within(config.storage.dir, localBlobPath(sha256));
         if (await existsLocal(sha256)) {
             await rm(stagedPath, { force: true });
         } else {

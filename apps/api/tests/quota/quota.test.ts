@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -128,7 +127,9 @@ describe('storage quota', () => {
             name: `f${String(n)}.txt`,
             data: Buffer.alloc(60, String(n)),
         }));
-        const dir = await mkdtemp(join(tmpdir(), 'quota-zip-'));
+        // Staged uploads always sit under the storage folder; anything outside it is refused.
+        await mkdir(join(config.storage.dir, 'tmp'), { recursive: true });
+        const dir = await mkdtemp(join(config.storage.dir, 'tmp', 'quota-zip-'));
         const path = join(dir, 'a.zip');
         await writeFile(path, Buffer.from(await zipOf(entries).arrayBuffer()));
         const result = await fileService.uploadArchive(id, path);
