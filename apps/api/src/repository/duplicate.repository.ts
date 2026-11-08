@@ -31,6 +31,9 @@ export const duplicateRepository = {
      * @returns How many new pairs were stored.
      */
     async compare(ids: string[], maxDistance: number, db: Queryable = getPool()): Promise<number> {
+        // The index is shared by every account; with iterative scanning it keeps looking until it has the neighbours
+        // that belong to this account, so a small drive next to big ones does not lose its matches.
+        await db.query(`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true)`);
         const { rowCount } = await db.query(
             `INSERT INTO duplicate_pairs (a_id, b_id, user_id, distance)
              SELECT least(a.id, n.id), greatest(a.id, n.id), a.user_id, min(n.d)

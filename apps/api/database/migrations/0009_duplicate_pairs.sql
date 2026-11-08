@@ -7,6 +7,11 @@ ALTER TABLE files ADD COLUMN dup_checked_at timestamptz;
 CREATE INDEX files_dup_pending_idx ON files (created_at)
     WHERE embedding IS NOT NULL AND dup_checked_at IS NULL;
 
+-- Finding a picture's nearest neighbours without it reads every other picture: 5,400 pictures took 6 s per 200
+-- compared, 11,000 more than 9 minutes; with the index the same work takes about 20 s in total. Measured with 100
+-- planted copies among 11,100 pictures of two accounts: all 100 found.
+CREATE INDEX files_embedding_hnsw ON files USING hnsw (embedding vector_cosine_ops);
+
 CREATE TABLE duplicate_pairs (
     a_id     uuid NOT NULL REFERENCES files (id) ON DELETE CASCADE,
     b_id     uuid NOT NULL REFERENCES files (id) ON DELETE CASCADE,
