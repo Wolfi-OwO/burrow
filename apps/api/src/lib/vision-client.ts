@@ -27,9 +27,9 @@ function serviceHeaders(): Record<string, string> {
 const BUFFER_LIMIT = 64 * 1024 * 1024;
 
 /**
- * The file as something fetch can send. A file-backed Blob is read lazily while the request runs; if the request is
- * cut off at that moment (a timeout, a vision service that restarts) the failed read is thrown outside any promise and
- * stopped the whole process once. Buffering what fits avoids that; only a huge file stays lazy.
+ * The file as something fetch can send. A file-backed Blob is read lazily and fails (outside any promise, so it stopped
+ * the process) when the file's modified time changes after it was opened. The blob store touches a file's time every
+ * time it is used, which an object-store cache does constantly, so what fits is read into memory first.
  */
 async function pictureBlob(file: string): Promise<Blob> {
     if ((await stat(file)).size <= BUFFER_LIMIT) return new Blob([await readFile(file)]);

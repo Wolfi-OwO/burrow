@@ -12,7 +12,7 @@ first release is cut.
 
 ### Fixed
 
-- A picture sent to the vision service is read into memory first (up to 64 MB), and a read that fails while a request is cut off no longer stops the server. This crashed Burrow once right after the object store was switched on.
+- A picture sent to the vision service is read into memory first (up to 64 MB), and a read that fails while a request is cut off no longer stops the server. The blob store touches a file's time whenever it is used, which made Node's lazy file reads fail and crashed Burrow in a loop as soon as the object store was switched on.
 
 ## [0.15.7] - 2026-11-08
 
