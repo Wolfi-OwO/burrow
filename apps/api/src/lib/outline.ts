@@ -13,7 +13,12 @@ const MARK = /^[\s|`'+*•·\-–—>└├─│]*/u;
 const MAX_FOLDERS = 120;
 
 function tidy(name: string): string {
-    const text = name.replace(/[)(\][]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.:;,]+$/, '');
+    let text = name
+        .replace(/[)(\][]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    // A loop instead of a /[.:;,]+$/ pattern, which backtracks quadratically on long runs of punctuation.
+    while (text !== '' && '.:;,'.includes(text.charAt(text.length - 1))) text = text.slice(0, -1);
     return text === '' ? '' : text.charAt(0).toUpperCase() + text.slice(1);
 }
 

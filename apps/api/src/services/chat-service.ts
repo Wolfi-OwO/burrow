@@ -169,7 +169,13 @@ export function find(pool: Category[], wanted: string): Category | null {
             const names: string[] = [];
             for (let n: Category | undefined = c; n; n = byId.get(n.parentId ?? -1))
                 names.unshift(n.name.toLowerCase());
-            return names.join(' > ') === whole.split('>').map((p) => p.trim()).join(' > ');
+            return (
+                names.join(' > ') ===
+                whole
+                    .split('>')
+                    .map((p) => p.trim())
+                    .join(' > ')
+            );
         });
         if (full) return full;
     }
@@ -431,7 +437,10 @@ export async function perform(
         });
 
     if (raw.type === 'create_category') {
-        const parts = name.split('>').map((part) => part.trim()).filter(Boolean);
+        const parts = name
+            .split('>')
+            .map((part) => part.trim())
+            .filter(Boolean);
         const shown = parts.pop() ?? name;
         // "Nature > Alps" means Alps inside Nature; the path is never part of the name.
         const parentName = clean(raw.parent, 60) || parts.join(' > ');
@@ -631,7 +640,13 @@ export const chatService = {
                 results.push(
                     await perform(
                         userId,
-                        { type: 'create_category', name: folder.name, parent: folder.parent, phrase: '', content: '' },
+                        {
+                            type: 'create_category',
+                            name: folder.name,
+                            parent: folder.parent,
+                            phrase: '',
+                            content: '',
+                        },
                         pool,
                         (action) => emit({ type: 'action', action }),
                     ),
@@ -642,7 +657,10 @@ export const chatService = {
                     ? 'Everything in that tree was already there.'
                     : `I built your tree: ${String(made)} new folder${made === 1 ? '' : 's'}.`;
             emit({ type: 'delta', text: reply });
-            emit({ type: 'done', message: await chatRepository.add(userId, 'assistant', reply, results) });
+            emit({
+                type: 'done',
+                message: await chatRepository.add(userId, 'assistant', reply, results),
+            });
             return;
         }
 
