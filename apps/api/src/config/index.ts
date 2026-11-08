@@ -99,8 +99,9 @@ export const config = {
          */
         dir: process.env.BLOB_DIR ?? './data',
         /**
-         * Optional second copy of every blob on an S3-compatible store. Unset (the default) means the local
-         * directory is the only live copy. Nothing in burrow requires it.
+         * An S3-compatible object store (Backblaze B2, MinIO, ...). Unset (the default): the local directory is the
+         * only live copy and the nightly backup is the second. Set: every blob is also written there before the
+         * upload counts as stored, and a blob missing locally is fetched back from it.
          */
         s3: {
             endpoint: process.env.S3_ENDPOINT,
@@ -108,7 +109,15 @@ export const config = {
             bucket: process.env.S3_BUCKET,
             accessKeyId: process.env.S3_ACCESS_KEY_ID,
             secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+            /** Files at least this big go up in parts (a single request tops out at 5 GB, and a part can be retried). */
+            partBytes: (Number(process.env.S3_PART_MB) || 64) * MEBIBYTE,
         },
+        /**
+         * How much of the local disk the blobs may use when an S3 store is configured; 0 = no limit (the local copy
+         * of everything is kept, the S3 store is then a second copy). Above it, the least recently used blobs are
+         * removed from the disk, but only after the S3 store is confirmed to hold them, and are fetched back on use.
+         */
+        cacheMaxBytes: Number(process.env.BLOB_CACHE_GB ?? 0) * 1024 * MEBIBYTE,
     },
 
     vision: {

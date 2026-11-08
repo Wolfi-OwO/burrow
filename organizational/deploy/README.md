@@ -112,6 +112,40 @@ token limit; the 3B model followed the answer format in every test. Answers are 
 time (`LLM_CONCURRENCY`), the rest wait and the page says how many are ahead. Without the model file, or with
 `LLM_SERVICE_URL` unset, the chat page says the assistant is not running and nothing else is affected.
 
+## Storing the files in Backblaze B2 (500 GB and more)
+
+The VPS disk is 96 GB shared with the other applications. With an S3-compatible bucket as the store of record, the disk
+only holds a cache of the files used recently, and the bucket holds all of them.
+
+How it behaves, with `S3_*` and `BLOB_CACHE_GB` set:
+
+- **Writing**: a file is written to the disk, then to the bucket (in 64 MB parts above that size, each retried on its own, so
+  files of any size work); only then does the upload count as stored. A stored file is never only on the disk.
+- **Reading**: a file on the disk is read from there. One that is not is streamed from the bucket straight to the reader (the
+  first byte arrives at once, not after the whole download) and written into the cache on the way, so the next read is local.
+  Several readers of the same file do not write it twice, and a reader that leaves part-way leaves no half file behind.
+- **Eviction**: every 5 minutes, and at once when a write finds the disk short, the least recently used files are removed from the
+  disk until the cache is at 90% of `BLOB_CACHE_GB` and the disk has twice its reserve free. Only files the bucket is confirmed
+  to hold are removed, never the only copy.
+- **Existing files**: at start-up, files stored before the bucket was added are copied into it, a few at a time, in the
+  background. Run it again whenever: it only handles what was never registered.
+- **Quotas** (`USER_QUOTA_GB`) count the files, not the cache, so they are the same with or without a bucket.
+
+Set it up once:
+
+1. At backblaze.com create a bucket (private, region in the EU, e.g. `eu-central-003`), with **file versions kept for 30 days**
+   (bucket settings, lifecycle) so a deleted or overwritten file can be recovered, and **no default encryption needed**.
+2. Create an **application key restricted to that one bucket** with read and write (and delete). Note the key id, the key and
+   the endpoint (`https://s3.<region>.backblazeb2.com`, shown on the bucket page).
+3. On the VPS add to `/opt/burrow/.env`: `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+   and `BLOB_CACHE_GB=60` (leave the disk 30 GB for the database, thumbnails, uploads in flight and the other stacks), then
+   `docker compose -f docker-compose.prod.yml --env-file .env up -d burrow`.
+4. Watch it copy the existing files: `docker logs burrow-burrow-1 | grep "object store"`. When it says the existing blobs were
+   copied, the bucket holds everything and the disk can shrink to the cache size by itself.
+
+The nightly `backup.sh` copies the files that are on the disk. With a bucket as the store of record the bucket's own version
+history is the protection for files (30 days above); the database dump is still the part that must never be lost.
+
 ## Storage limits
 
 Open registration needs a ceiling, or one account can fill the disk for everybody. Each account may store

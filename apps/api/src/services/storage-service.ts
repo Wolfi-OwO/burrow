@@ -2,6 +2,7 @@ import { statfs } from 'node:fs/promises';
 
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
+import { blobStore, isCache } from '../lib/blob-store.ts';
 import { QuotaExceededError } from '../lib/errors.ts';
 
 const GIB = 1024 ** 3;
@@ -58,7 +59,13 @@ export const storageService = {
             throw new QuotaExceededError(
                 `Your storage is full: ${gb(used)} of ${gb(quota)} used. Delete files you no longer need to make room.`,
             );
-        if ((await storageService.diskFree()) - size < config.quota.diskReserveBytes)
+        let free = await storageService.diskFree();
+        if (free - size < config.quota.diskReserveBytes && isCache()) {
+            // The disk is a cache in front of the object store: make room by dropping what is cold, then look again.
+            await blobStore.sweep(free, config.quota.diskReserveBytes + size).catch(() => 0);
+            free = await storageService.diskFree();
+        }
+        if (free - size < config.quota.diskReserveBytes)
             throw new QuotaExceededError(
                 'The server is out of storage right now, so nothing can be added. Please try again later.',
             );
