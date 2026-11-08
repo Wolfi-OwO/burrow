@@ -13,6 +13,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage.tsx';
 import { ProfilePage } from './pages/ProfilePage.tsx';
 import { SharePage } from './pages/SharePage.tsx';
 import { SharesPage } from './pages/SharesPage.tsx';
+import { ChatPage } from './pages/ChatPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
 import { SearchPage } from './pages/SearchPage.tsx';
 
@@ -51,6 +52,7 @@ function Session(): ReactNode {
                     <Route index element={<DrivePage />} />
                     <Route path="search" element={<SearchPage />} />
                     <Route path="review" element={<ReviewPage />} />
+                    <Route path="assistant" element={<ChatPage />} />
                     <Route path="duplicates" element={<DuplicatesPage />} />
                     <Route path="shared" element={<SharesPage />} />
                     <Route path="profile" element={<ProfilePage />} />

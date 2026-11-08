@@ -33,10 +33,11 @@ services:
       PORT: '8080'
       DATABASE_URL: postgresql://burrow:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@burrow-db:5432/burrow
       VISION_SERVICE_URL: http://burrow-vision:8000
+      LLM_SERVICE_URL: http://burrow-llm:8080
       BLOB_DIR: /data
     volumes:
       - /opt/burrow/data:/data
-    networks: [edge-net, vision-net, db-net]
+    networks: [edge-net, vision-net, db-net, llm-net]
     mem_limit: 512m
     read_only: true
     tmpfs:
@@ -70,6 +71,26 @@ services:
     cap_drop: [ALL]
     logging: *logging
 
+  # The assistant chat's language model: llama.cpp serving a 4-bit Qwen2.5 3B. The model file is downloaded once to
+  # /opt/burrow/models (see organizational/deploy/README.md), never built into an image. It joins ONLY `llm-net`,
+  # which is internal: it holds no user data and has no route to the internet or to the database. `burrow` sends it
+  # the chat and the folder names and gets text back. About 2.3 GiB resident, measured; three of the four cores.
+  burrow-llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    command: ['-m', '/models/qwen2.5-3b-instruct-q4_k_m.gguf', '-t', '3', '-c', '3072', '--parallel', '1', '--host', '0.0.0.0', '--port', '8080']
+    volumes:
+      - /opt/burrow/models:/models:ro
+    networks: [llm-net]
+    mem_limit: 3g
+    cpus: 3
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    logging: *logging
+
   burrow-db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
@@ -94,6 +115,8 @@ networks:
   vision-net:
     internal: true
   db-net:
+    internal: true
+  llm-net:
     internal: true
 
 volumes:

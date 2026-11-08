@@ -7,6 +7,7 @@ import {
     Moon,
     Search,
     Share2,
+    Sparkles,
     Sun,
     UploadCloud,
     UserRound,
@@ -22,6 +23,7 @@ import { ProtectedImage } from './ui.tsx';
 const NAV = [
     { to: '/', label: 'Drive', icon: HardDrive },
     { to: '/review', label: 'Review', icon: ClipboardCheck },
+    { to: '/assistant', label: 'Assistant', icon: Sparkles },
     { to: '/duplicates', label: 'Duplicates', icon: Copy },
     { to: '/shared', label: 'Shared', icon: Share2 },
 ] as const;
