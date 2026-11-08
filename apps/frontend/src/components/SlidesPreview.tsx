@@ -89,6 +89,7 @@ export function SlidesPreview({ deck }: { deck: Deck }): ReactNode {
                             type="button"
                             className={i === at ? 'sel' : ''}
                             aria-label={`Slide ${String(i + 1)}`}
+                            title={`Slide ${String(i + 1)}`}
                             aria-current={i === at}
                             onClick={() => setAt(i)}
                         >
@@ -106,6 +107,7 @@ export function SlidesPreview({ deck }: { deck: Deck }): ReactNode {
                         disabled={at === 0}
                         onClick={() => setAt(at - 1)}
                         aria-label="Previous slide"
+                        title="Previous slide"
                     >
                         <ChevronLeft size={16} />
                     </button>
@@ -117,6 +119,7 @@ export function SlidesPreview({ deck }: { deck: Deck }): ReactNode {
                         disabled={at === last}
                         onClick={() => setAt(at + 1)}
                         aria-label="Next slide"
+                        title="Next slide"
                     >
                         <ChevronRight size={16} />
                     </button>

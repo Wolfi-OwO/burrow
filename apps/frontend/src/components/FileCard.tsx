@@ -30,6 +30,7 @@ export function FileCard({
             draggable
             onDragStart={(event) => event.dataTransfer.setData(DRAG_FILE, file.id)}
             aria-label={`${file.name}, ${formatBytes(file.size)}`}
+            title={`${file.name}, ${formatBytes(file.size)}`}
         >
             <span className="acc" aria-hidden="true">
                 №{String(accession).padStart(4, '0')}

@@ -64,13 +64,18 @@ export function Lightbox({
                         Download
                     </button>
                 ) : null}
-                <button className="tool" aria-label="Close" onClick={onClose}>
+                <button className="tool" aria-label="Close" title="Close" onClick={onClose}>
                     <X size={18} />
                 </button>
             </div>
             <div className={`lightbox-body ${actual ? 'actual' : ''}`}>
                 {onPrev ? (
-                    <button className="lightbox-nav prev" aria-label="Previous" onClick={onPrev}>
+                    <button
+                        className="lightbox-nav prev"
+                        aria-label="Previous"
+                        title="Previous"
+                        onClick={onPrev}
+                    >
                         <ChevronLeft size={22} />
                     </button>
                 ) : null}
@@ -79,6 +84,7 @@ export function Lightbox({
                         type="button"
                         className="lightbox-img"
                         aria-label={actual ? 'Fit to screen' : 'Show at actual size'}
+                        title={actual ? 'Fit to screen' : 'Show at actual size'}
                         onClick={() => setActual((v) => !v)}
                     >
                         <ProtectedImage path={path} alt={name} />
@@ -95,7 +101,12 @@ export function Lightbox({
                     </div>
                 )}
                 {onNext ? (
-                    <button className="lightbox-nav next" aria-label="Next" onClick={onNext}>
+                    <button
+                        className="lightbox-nav next"
+                        aria-label="Next"
+                        title="Next"
+                        onClick={onNext}
+                    >
                         <ChevronRight size={22} />
                     </button>
                 ) : null}

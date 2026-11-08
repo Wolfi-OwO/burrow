@@ -51,7 +51,12 @@ export function UploadTray(): ReactNode {
                         : 'Uploads finished'}
                 </strong>
                 {active.length === 0 ? (
-                    <button className="icon-btn" onClick={clearFinished} aria-label="Close">
+                    <button
+                        className="icon-btn"
+                        onClick={clearFinished}
+                        aria-label="Close"
+                        title="Close"
+                    >
                         <X size={16} />
                     </button>
                 ) : null}

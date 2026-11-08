@@ -436,7 +436,12 @@ function Details({
         <aside className="details" aria-label={`Details of ${file.name}`}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
                 <h2>Details</h2>
-                <button className="tool" aria-label="Close details" onClick={onClose}>
+                <button
+                    className="tool"
+                    aria-label="Close details"
+                    title="Close details"
+                    onClick={onClose}
+                >
                     <X size={18} />
                 </button>
             </div>
@@ -446,6 +451,7 @@ function Details({
                         type="button"
                         className="preview-open"
                         aria-label="Open full screen"
+                        title="Open full screen"
                         onClick={onView}
                     >
                         <ProtectedImage path={`/api/files/${file.id}/content`} alt={file.name} />
@@ -458,6 +464,7 @@ function Details({
                         type="button"
                         className="preview-open doc"
                         aria-label="Open preview"
+                        title="Open preview"
                         onClick={onView}
                     >
                         <FileText size={40} aria-hidden="true" />

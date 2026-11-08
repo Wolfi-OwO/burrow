@@ -139,6 +139,7 @@ export function GatePage(): ReactNode {
                                             className="provider"
                                             href={`/api/auth/${p}`}
                                             aria-label={label}
+                                            title={label}
                                             data-tip={label}
                                         >
                                             <BrandIcon provider={p} />
