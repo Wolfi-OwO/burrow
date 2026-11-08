@@ -44,3 +44,16 @@ export const send = asyncHandler(async (req, res) => {
     }
     res.end();
 });
+
+/** The person's yes or no to an action that changes or removes something and was waiting for it. */
+export const answerAction = asyncHandler(async (req, res) => {
+    const { decision } = req.body as { decision: 'confirm' | 'decline' };
+    res.json({
+        action: await chatService.resolveAction(
+            uid(req),
+            Number(req.params.id),
+            Number(req.params.index),
+            decision,
+        ),
+    });
+});

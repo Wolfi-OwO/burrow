@@ -107,11 +107,11 @@ export const config = {
         /** Base URL of a llama.cpp server (OpenAI-compatible). Unset → the assistant chat is switched off. */
         url: process.env.LLM_SERVICE_URL,
         /** A generation that takes longer than this is cut off. A small model on CPU needs a while. */
-        timeoutMs: Number(process.env.LLM_TIMEOUT_MS) || 180_000,
+        timeoutMs: Number(process.env.LLM_TIMEOUT_MS) || 300_000,
         /** Generations running at the same time; the rest wait their turn (the model runs on the server's CPU). */
         concurrency: Number(process.env.LLM_CONCURRENCY) || 1,
         /** Longest answer, in tokens. */
-        maxTokens: Number(process.env.LLM_MAX_TOKENS) || 450,
+        maxTokens: Number(process.env.LLM_MAX_TOKENS) || 1800,
         /** Messages one account may send per minute: each answer costs seconds of the server's CPU. */
         rateLimitMax: Number(process.env.CHAT_RATE_LIMIT_MAX) || 12,
     },

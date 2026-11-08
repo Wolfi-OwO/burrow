@@ -419,6 +419,16 @@ export const fileRepository = {
         return rowCount ?? 0;
     },
 
+    /** How many of the user's files sit in a folder or have been decided by the sorter. */
+    async filedCount(userId: string, db: Queryable = getPool()): Promise<number> {
+        const { rows } = await db.query(
+            `SELECT count(*)::int AS n FROM files
+             WHERE user_id = $1 AND (category_id IS NOT NULL OR status <> 'unsorted' OR classified_at IS NOT NULL)`,
+            [userId],
+        );
+        return Number((rows[0] as DatabaseRow).n);
+    },
+
     /** How many files of each kind the user has, for the filter chips. */
     async typeCounts(userId: string, db: Queryable = getPool()): Promise<Record<string, number>> {
         const cols = FILE_TYPES.map(

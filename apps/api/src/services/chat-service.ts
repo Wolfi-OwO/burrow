@@ -1,14 +1,25 @@
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { config } from '../config/index.ts';
-import { ConflictError, ServiceUnavailableError } from '../lib/errors.ts';
+import {
+    BadRequestError,
+    ConflictError,
+    NotFoundError,
+    ServiceUnavailableError,
+} from '../lib/errors.ts';
 import { llmHealthy, streamCompletion } from '../lib/llm-client.ts';
 import type { LlmMessage } from '../lib/llm-client.ts';
 import { logger } from '../lib/logger.ts';
 import { ReplyStream } from '../lib/reply-stream.ts';
 import type { Category } from '../models/category.model.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
-import type { ChatAction, ChatMessage } from '../repository/chat.repository.ts';
+import type { ChatAction, ChatActionType, ChatMessage } from '../repository/chat.repository.ts';
 import { chatRepository } from '../repository/chat.repository.ts';
+import { fileRepository } from '../repository/file.repository.ts';
 import { categoryService } from './category-service.ts';
+import { cleanFileName, fileService } from './file-service.ts';
 
 /** What the page is told while an answer is being made. */
 export type ChatEvent =
@@ -28,12 +39,24 @@ const TURN_SCHEMA = {
             items: {
                 type: 'object',
                 properties: {
-                    type: { type: 'string', enum: ['create_category', 'add_hint'] },
+                    type: {
+                        type: 'string',
+                        enum: [
+                            'create_category',
+                            'add_hint',
+                            'unsort_category',
+                            'unsort_all',
+                            'remove_category',
+                            'remove_all_categories',
+                            'create_file',
+                        ],
+                    },
                     name: { type: 'string' },
                     parent: { type: 'string' },
                     phrase: { type: 'string' },
+                    content: { type: 'string', maxLength: 4000 },
                 },
-                required: ['type', 'name', 'parent', 'phrase'],
+                required: ['type', 'name', 'parent', 'phrase', 'content'],
                 additionalProperties: false,
             },
         },
@@ -43,52 +66,86 @@ const TURN_SCHEMA = {
 } as const;
 
 export interface RawAction {
-    type: 'create_category' | 'add_hint';
+    type: ChatActionType;
     name: string;
     parent: string;
     phrase: string;
+    /** The text of a file for create_file; empty for every other action. */
+    content: string;
 }
 
 const HISTORY = 10;
 const MAX_TREE_LINES = 120;
 
-function describeTree(categories: Category[], hints: Map<number, string[]>): string {
-    if (categories.length === 0) return '(no folders yet)';
+/** What the model is told about the drive: every folder with its number of files, and the totals. */
+export interface DriveSummary {
+    counts: Map<number, number>;
+    total: number;
+    unsorted: number;
+}
+
+function describeTree(
+    categories: Category[],
+    hints: Map<number, string[]>,
+    drive: DriveSummary,
+): string {
+    const head = `Files in total: ${String(drive.total)}. Not in any folder: ${String(drive.unsorted)}.`;
+    if (categories.length === 0) return `${head}\n(no folders yet)`;
     const byId = new Map(categories.map((c) => [c.id, c]));
     const lines = categories.slice(0, MAX_TREE_LINES).map((c) => {
         const names: string[] = [];
         for (let node: Category | undefined = c; node; node = byId.get(node.parentId ?? -1))
             names.unshift(node.name);
         const learned = hints.get(c.id);
-        return `- ${names.join(' > ')}${learned ? ` (also scored as: ${learned.join('; ')})` : ''}`;
+        const files = drive.counts.get(c.id) ?? 0;
+        return `- ${names.join(' > ')} (${String(files)} file${files === 1 ? '' : 's'}${learned ? `; also scored as: ${learned.join('; ')}` : ''})`;
     });
     if (categories.length > MAX_TREE_LINES)
         lines.push(`- ...and ${String(categories.length - MAX_TREE_LINES)} more`);
-    return lines.join('\n');
+    return [head, ...lines].join('\n');
 }
 
-export function systemPrompt(categories: Category[], hints: Map<number, string[]>): string {
+export function systemPrompt(
+    categories: Category[],
+    hints: Map<number, string[]>,
+    drive: DriveSummary = { counts: new Map(), total: 0, unsorted: 0 },
+): string {
     return [
         "You are the assistant of Burrow, a personal file drive that sorts a person's pictures into folders by itself.",
-        'You help the person set up and teach their folders. You can do exactly two things, by listing actions:',
+        'You help the person set up, teach and tidy their folders. You act by listing actions:',
         '- create_category: make a folder. "name" is the new folder. "parent" is "" (the top level) unless the person said where it goes; then it is the name of that folder, existing or created earlier in the same list.',
         '- add_hint: teach the sorter what belongs in an existing folder. "name" is that folder, "phrase" is a short English description of a typical picture in it, such as "an orange tabby cat on a sofa". The sorter reads pictures in English only.',
-        'You cannot move, rename, delete or open files. If asked, say the sorter files pictures by itself and the person can press Sort now on the Review page.',
-        'Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
-        'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it.',
+        '- unsort_category: send every file of the folder "name" (and its subfolders) back to Unsorted. The folder stays.',
+        '- unsort_all: send every file of the drive back to Unsorted. "name" is "".',
+        '- remove_category: remove the folder "name". Its files and subfolders move up one level; no file is deleted.',
+        '- remove_all_categories: remove every folder. "name" is "". Files are not deleted.',
+        '- create_file: write a file into the drive. "name" is the file name with its extension, "content" its text, "parent" is "" unless the person named the folder it goes in. Allowed: .md (Markdown), .txt, .csv, .svg (a drawing, as SVG code starting with <svg), .puml (PlantUML), .mmd (Mermaid), .dot (Graphviz). Use it when the person asks for a document, a diagram, a drawing or a table. You can write drawings and diagrams as text; you cannot make photos or other pixel images.',
+        'unsort_category, unsort_all, remove_category and remove_all_categories change what is already there, so the person is asked to confirm each one: just list them when the person clearly asked for them, and say that they wait for the yes.',
+        'You cannot rename, move single files, delete files or open them. Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
+        'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it. When asked about the drive, use the numbers below.',
         '',
         'Examples of correct answers:',
         'Person: Make a folder Cars with Audi and BMW inside.',
-        '{"reply":"Done, I made Cars with Audi and BMW inside.","actions":[{"type":"create_category","name":"Cars","parent":"","phrase":""},{"type":"create_category","name":"Audi","parent":"Cars","phrase":""},{"type":"create_category","name":"BMW","parent":"Cars","phrase":""}]}',
+        '{"reply":"Done, I made Cars with Audi and BMW inside.","actions":[{"type":"create_category","name":"Cars","parent":"","phrase":"","content":""},{"type":"create_category","name":"Audi","parent":"Cars","phrase":"","content":""},{"type":"create_category","name":"BMW","parent":"Cars","phrase":"","content":""}]}',
         'Person: Lege Ordner für Hunde und Katzen an.',
-        '{"reply":"Erledigt, ich habe die Ordner Hunde und Katzen angelegt.","actions":[{"type":"create_category","name":"Hunde","parent":"","phrase":""},{"type":"create_category","name":"Katzen","parent":"","phrase":""}]}',
+        '{"reply":"Erledigt, ich habe die Ordner Hunde und Katzen angelegt.","actions":[{"type":"create_category","name":"Hunde","parent":"","phrase":"","content":""},{"type":"create_category","name":"Katzen","parent":"","phrase":"","content":""}]}',
         'Person: Pets is for my dog Rex, a brown labrador.',
-        '{"reply":"Got it, the sorter will look for brown labradors in Pets.","actions":[{"type":"add_hint","name":"Pets","parent":"","phrase":"a brown labrador dog"}]}',
+        '{"reply":"Got it, the sorter will look for brown labradors in Pets.","actions":[{"type":"add_hint","name":"Pets","parent":"","phrase":"a brown labrador dog","content":""}]}',
+        'Person: Unsort everything and then remove all folders.',
+        '{"reply":"Both are ready below. Confirm them in this order and your files stay, just unsorted.","actions":[{"type":"unsort_all","name":"","parent":"","phrase":"","content":""},{"type":"remove_all_categories","name":"","parent":"","phrase":"","content":""}]}',
+        'Person: Unsort the folder Nature.',
+        '{"reply":"Nature is ready to be unsorted below; its files go back to Unsorted once you confirm.","actions":[{"type":"unsort_category","name":"Nature","parent":"","phrase":"","content":""}]}',
+        'Person: Entferne den Ordner Spain.',
+        '{"reply":"Bestätige unten, dann entferne ich Spain. Die Dateien darin kommen eine Ebene nach oben.","actions":[{"type":"remove_category","name":"Spain","parent":"","phrase":"","content":""}]}',
+        'Person: Draw a simple red circle as SVG.',
+        '{"reply":"Here is a red circle, saved as circle.svg.","actions":[{"type":"create_file","name":"circle.svg","parent":"","phrase":"","content":"<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 100 100\\"><circle cx=\\"50\\" cy=\\"50\\" r=\\"40\\" fill=\\"red\\"/></svg>"}]}',
+        'Person: Make a PlantUML diagram of login.',
+        '{"reply":"I wrote the login sequence as login.puml.","actions":[{"type":"create_file","name":"login.puml","parent":"","phrase":"","content":"@startuml\\nUser -> App: log in\\nApp -> Server: check password\\nServer --> App: ok\\nApp --> User: welcome\\n@enduml"}]}',
         'Person: Hi, what can you do?',
-        '{"reply":"I can create folders for you and teach the sorter what belongs in them.","actions":[]}',
+        '{"reply":"I can create, teach, unsort and remove folders, and write documents and diagrams as files. Removing and unsorting ask you first.","actions":[]}',
         '',
-        'The folders the person has now:',
-        describeTree(categories, hints),
+        'The drive the person has now:',
+        describeTree(categories, hints, drive),
     ].join('\n');
 }
 
@@ -108,6 +165,225 @@ export function find(pool: Category[], wanted: string): Category | null {
     );
 }
 
+const plural = (n: number, one: string, many: string): string =>
+    `${String(n)} ${n === 1 ? one : many}`;
+
+/**
+ * An action that changes or removes what is already there is not done at once: it becomes a card with the exact
+ * consequence, and waits for the person's yes (`confirmAction`).
+ */
+async function propose(
+    userId: string,
+    type: ChatActionType,
+    name: string,
+    pool: Category[],
+    done: (action: ChatAction) => ChatAction,
+): Promise<ChatAction> {
+    if (type === 'unsort_all') {
+        const n = await fileRepository.filedCount(userId);
+        return done(
+            n === 0
+                ? {
+                      type,
+                      status: 'skipped',
+                      label: 'Unsort everything',
+                      detail: 'Nothing is filed.',
+                  }
+                : {
+                      type,
+                      status: 'pending',
+                      label: 'Unsort everything',
+                      detail: `${plural(n, 'file goes', 'files go')} back to Unsorted. The folders stay.`,
+                  },
+        );
+    }
+    if (type === 'remove_all_categories') {
+        return done(
+            pool.length === 0
+                ? {
+                      type,
+                      status: 'skipped',
+                      label: 'Remove all folders',
+                      detail: 'There are none.',
+                  }
+                : {
+                      type,
+                      status: 'pending',
+                      label: 'Remove all folders',
+                      detail: `${plural(pool.length, 'folder', 'folders')} removed, no file is deleted.`,
+                  },
+        );
+    }
+    const target = find(pool, name);
+    if (!target)
+        return done({
+            type,
+            status: 'skipped',
+            label: name,
+            detail: `There is no folder called ${name}.`,
+        });
+    const files = await categoryRepository.countFilesInSubtree(userId, target.id);
+    if (type === 'unsort_category') {
+        return done(
+            files === 0
+                ? {
+                      type,
+                      status: 'skipped',
+                      label: target.name,
+                      detail: 'It holds no files.',
+                      categoryId: target.id,
+                  }
+                : {
+                      type,
+                      status: 'pending',
+                      label: target.name,
+                      detail: `${plural(files, 'file goes', 'files go')} back to Unsorted. The folder stays.`,
+                      categoryId: target.id,
+                  },
+        );
+    }
+    const children = await categoryRepository.countChildren(userId, target.id);
+    return done({
+        type: 'remove_category',
+        status: 'pending',
+        label: target.name,
+        detail: `The folder is removed; its ${plural(files, 'file', 'files')} and ${plural(children, 'subfolder', 'subfolders')} move up one level. No file is deleted.`,
+        categoryId: target.id,
+    });
+}
+
+/** Carries out a confirmed action, on the asking person's own data only. */
+async function execute(userId: string, action: ChatAction): Promise<ChatAction> {
+    switch (action.type) {
+        case 'unsort_all': {
+            const n = await fileRepository.unsortAll(userId);
+            return {
+                ...action,
+                status: 'done',
+                detail: `${plural(n, 'file', 'files')} back in Unsorted.`,
+            };
+        }
+        case 'unsort_category': {
+            if (
+                action.categoryId === undefined ||
+                !(await categoryRepository.findById(userId, action.categoryId))
+            )
+                return { ...action, status: 'skipped', detail: 'The folder is gone.' };
+            const n = await fileRepository.requeueCategory(userId, action.categoryId);
+            return {
+                ...action,
+                status: 'done',
+                detail: `${plural(n, 'file', 'files')} back in Unsorted.`,
+            };
+        }
+        case 'remove_category': {
+            if (
+                action.categoryId === undefined ||
+                !(await categoryRepository.findById(userId, action.categoryId))
+            )
+                return { ...action, status: 'skipped', detail: 'The folder is gone.' };
+            await categoryService.remove(userId, action.categoryId, 'moveUp');
+            return { ...action, status: 'done', detail: 'Removed. Its contents moved up.' };
+        }
+        case 'remove_all_categories': {
+            // Deepest first, each one lifting what it holds, so nothing is ever deleted with a folder.
+            const all = await categoryRepository.listAll(userId);
+            for (const c of [...all].sort((a, b) => b.path.length - a.path.length))
+                await categoryService.remove(userId, c.id, 'moveUp');
+            return {
+                ...action,
+                status: 'done',
+                detail: `${plural(all.length, 'folder', 'folders')} removed.`,
+            };
+        }
+        default:
+            return { ...action, status: 'skipped', detail: 'Nothing to confirm.' };
+    }
+}
+
+/** What the assistant may write, and the type each gets. Nothing a browser would run (no .html, no scripts). */
+const WRITABLE: Record<string, string> = {
+    md: 'text/markdown',
+    markdown: 'text/markdown',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    svg: 'image/svg+xml',
+    puml: 'text/plain',
+    plantuml: 'text/plain',
+    mmd: 'text/plain',
+    dot: 'text/plain',
+};
+
+/**
+ * @returns Why this SVG may not be saved, or null. The file is served in a sandbox without scripts anyway; this keeps
+ *   active content and outside references out of the drive in the first place.
+ */
+export function svgProblem(svg: string): string | null {
+    const text = svg.trim().replace(/^<\?xml[^>]*\?>\s*/i, '');
+    if (!/^<svg[\s>]/i.test(text) || !/<\/svg>\s*$/i.test(text)) return 'It is not a complete SVG.';
+    if (/<\s*(script|foreignObject|iframe|object|embed|use|animate|set|style)\b/i.test(text))
+        return 'It contains elements that are not allowed in a drawing.';
+    if (
+        /\son[a-z]+\s*=/i.test(text) ||
+        /javascript:/i.test(text) ||
+        /<!(DOCTYPE|ENTITY)/i.test(text)
+    )
+        return 'It contains active content.';
+    if (/(href|src)\s*=\s*(?!["']?\s*(data:image\/(png|jpeg|gif|webp);base64,|#))/i.test(text))
+        return 'It refers to something outside the drawing.';
+    return null;
+}
+
+async function writeFileAction(
+    userId: string,
+    raw: RawAction,
+    name: string,
+    pool: Category[],
+    done: (action: ChatAction) => ChatAction,
+): Promise<ChatAction> {
+    const fileName = cleanFileName(name);
+    const extension = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : undefined;
+    const mime = extension ? WRITABLE[extension] : undefined;
+    const fail = (detail: string): ChatAction =>
+        done({ type: 'create_file', status: 'skipped', label: fileName, detail });
+    if (!mime)
+        return fail(
+            `Files of that kind cannot be written. Allowed: ${Object.keys(WRITABLE).join(', ')}.`,
+        );
+    const content = raw.content.replace(/\r\n/g, '\n');
+    if (content.trim().length < 3) return fail('There was nothing to write.');
+    if (mime === 'image/svg+xml') {
+        const problem = svgProblem(content);
+        if (problem) return fail(problem);
+    }
+    const parentName = clean(raw.parent, 60);
+    const folder = parentName === '' ? null : find(pool, parentName);
+    if (parentName !== '' && !folder) return fail(`There is no folder called ${parentName}.`);
+
+    const staging = join(config.storage.dir, 'tmp');
+    await mkdir(staging, { recursive: true });
+    const path = join(staging, `chat-${randomUUID()}`);
+    await writeFile(path, content, 'utf8');
+    // The same path as any upload: hashed, deduplicated, and queued for the sorter like the rest.
+    const { file } = await fileService.upload(
+        userId,
+        path,
+        Buffer.byteLength(content),
+        fileName,
+        mime,
+    );
+    if (folder) await fileRepository.setCategory(userId, file.id, folder.id);
+    return done({
+        type: 'create_file',
+        status: 'done',
+        label: fileName,
+        detail: folder ? `Saved in ${folder.name}.` : 'Saved in Unsorted.',
+        fileId: file.id,
+        mime: file.mime,
+        ...(folder ? { categoryId: folder.id } : {}),
+    });
+}
+
 /** Does what one action asks, if it is valid and the person's own data allows it. Never throws for bad input. */
 export async function perform(
     userId: string,
@@ -120,7 +396,8 @@ export async function perform(
         emit(action);
         return action;
     };
-    if (name === '')
+    const needsName = raw.type !== 'unsort_all' && raw.type !== 'remove_all_categories';
+    if (name === '' && needsName)
         return done({
             type: raw.type,
             status: 'skipped',
@@ -166,6 +443,10 @@ export async function perform(
             throw error;
         }
     }
+
+    if (raw.type === 'create_file')
+        return writeFileAction(userId, raw, clean(raw.name, 120), pool, done);
+    if (raw.type !== 'add_hint') return propose(userId, raw.type, name, pool, done);
 
     const target = find(pool, name);
     const phrase = clean(raw.phrase, 120);
@@ -227,6 +508,30 @@ export const chatService = {
         return { enabled: Boolean(config.llm.url), ready: await llmHealthy() };
     },
 
+    /** The person's yes or no to one waiting action of one message. @returns The action as it stands afterwards. */
+    async resolveAction(
+        userId: string,
+        messageId: number,
+        index: number,
+        decision: 'confirm' | 'decline',
+    ): Promise<ChatAction> {
+        const message = await chatRepository.find(userId, messageId);
+        const action = message?.actions[index];
+        if (!message || !action) throw new NotFoundError('That action does not exist.');
+        if (action.status !== 'pending')
+            throw new BadRequestError('That action was already answered.');
+        const result: ChatAction =
+            decision === 'confirm'
+                ? await execute(userId, action)
+                : { ...action, status: 'declined', detail: 'Left as it was.' };
+        await chatRepository.setActions(
+            userId,
+            messageId,
+            message.actions.map((a, i) => (i === index ? result : a)),
+        );
+        return result;
+    },
+
     history(userId: string): Promise<ChatMessage[]> {
         return chatRepository.recent(userId, 60);
     },
@@ -253,9 +558,16 @@ export const chatService = {
         try {
             const pool = await categoryRepository.listAll(userId);
             const hints = await chatRepository.hintsByCategory(userId);
+            const tree = await categoryRepository.listTree(userId);
+            const total = (await fileRepository.typeCounts(userId)).all ?? 0;
+            const drive: DriveSummary = {
+                counts: new Map(tree.map((c) => [c.id, c.fileCount])),
+                total,
+                unsorted: total - (await fileRepository.filedCount(userId)),
+            };
             const history = await chatRepository.recent(userId, HISTORY);
             const messages: LlmMessage[] = [
-                { role: 'system', content: systemPrompt(pool, hints) },
+                { role: 'system', content: systemPrompt(pool, hints, drive) },
                 ...history.map((m) => ({ role: m.role, content: m.content })),
             ];
 

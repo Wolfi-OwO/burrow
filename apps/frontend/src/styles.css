@@ -1418,6 +1418,27 @@ html[data-theme='dark'] .thumb::after {
 .chat-card-text small {
     color: var(--muted);
 }
+.chat-card.pending {
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.chat-card.pending .chat-card-icon {
+    background: transparent;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.chat-card.declined {
+    opacity: 0.7;
+}
+.chat-card-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+.chat-card-open {
+    justify-self: start;
+    margin-top: 6px;
+}
 .chat-empty {
     display: grid;
     justify-items: center;

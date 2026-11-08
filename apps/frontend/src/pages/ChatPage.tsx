@@ -3,16 +3,22 @@ import {
     ArrowUp,
     BookOpenCheck,
     Check,
+    Eraser,
+    FileText,
+    FolderMinus,
     FolderPlus,
     Info,
     Minus,
     Sparkles,
     Trash2,
+    Undo2,
+    X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
-import { useToast } from '../components/ui.tsx';
+import { Lightbox } from '../components/Lightbox.tsx';
+import { Spinner, useToast } from '../components/ui.tsx';
 import { api, request } from '../lib/api.ts';
 import type { ChatAction, ChatMessage } from '../lib/types.ts';
 
@@ -35,11 +41,52 @@ const SUGGESTIONS = [
     'What can you do?',
 ];
 
-const ICON = { done: Check, exists: Minus, skipped: Info } as const;
+const ICON = { done: Check, exists: Minus, skipped: Info, pending: Info, declined: X } as const;
 
-function ActionCard({ action, index }: { action: ChatAction; index: number }): ReactNode {
+const KIND = {
+    create_category: { icon: FolderPlus, titles: ['Folder made', 'Folder exists', 'Not made'] },
+    add_hint: { icon: BookOpenCheck, titles: ['Sorter taught', 'Already known', 'Not taught'] },
+    unsort_category: { icon: Undo2, titles: ['Folder unsorted', '', 'Not unsorted'] },
+    unsort_all: { icon: Undo2, titles: ['Everything unsorted', '', 'Not unsorted'] },
+    remove_category: { icon: FolderMinus, titles: ['Folder removed', '', 'Not removed'] },
+    remove_all_categories: { icon: Eraser, titles: ['Folders removed', '', 'Not removed'] },
+    create_file: { icon: FileText, titles: ['File written', '', 'Not written'] },
+} as const;
+
+type Answer = (messageId: number, index: number, decision: 'confirm' | 'decline') => Promise<void>;
+
+function ActionCard({
+    action,
+    index,
+    messageId,
+    onAnswer,
+    onOpen,
+}: {
+    action: ChatAction;
+    index: number;
+    messageId?: number;
+    onAnswer?: Answer;
+    onOpen?: (action: ChatAction) => void;
+}): ReactNode {
+    const [busy, setBusy] = useState(false);
     const Icon = ICON[action.status];
-    const Kind = action.type === 'create_category' ? FolderPlus : BookOpenCheck;
+    const kind = KIND[action.type];
+    const Kind = kind.icon;
+    const title =
+        action.status === 'pending'
+            ? 'Waiting for your yes'
+            : action.status === 'declined'
+              ? 'Left as it was'
+              : action.status === 'done'
+                ? kind.titles[0]
+                : action.status === 'exists'
+                  ? kind.titles[1] || 'Already so'
+                  : kind.titles[2];
+    const answer = (decision: 'confirm' | 'decline'): void => {
+        if (messageId === undefined || !onAnswer) return;
+        setBusy(true);
+        void onAnswer(messageId, index, decision).finally(() => setBusy(false));
+    };
     return (
         <li
             className={`chat-card ${action.status}`}
@@ -51,20 +98,37 @@ function ActionCard({ action, index }: { action: ChatAction; index: number }): R
             <span className="chat-card-text">
                 <b>
                     <Kind size={13} aria-hidden="true" />
-                    {action.type === 'create_category'
-                        ? action.status === 'done'
-                            ? 'Folder made'
-                            : action.status === 'exists'
-                              ? 'Folder exists'
-                              : 'Not made'
-                        : action.status === 'done'
-                          ? 'Sorter taught'
-                          : action.status === 'exists'
-                            ? 'Already known'
-                            : 'Not taught'}
+                    {title}
                 </b>
                 <span>{action.label}</span>
                 {action.detail ? <small>{action.detail}</small> : null}
+                {action.status === 'pending' && messageId !== undefined ? (
+                    <span className="chat-card-buttons">
+                        <button
+                            className="btn sm danger"
+                            disabled={busy}
+                            onClick={() => answer('confirm')}
+                        >
+                            {busy ? <Spinner /> : <Check size={14} />}
+                            Do it
+                        </button>
+                        <button
+                            className="btn sm ghost"
+                            disabled={busy}
+                            onClick={() => answer('decline')}
+                        >
+                            Keep as it is
+                        </button>
+                    </span>
+                ) : null}
+                {action.status === 'done' && action.type === 'create_file' && action.fileId ? (
+                    <button
+                        className="btn sm ghost chat-card-open"
+                        onClick={() => onOpen?.(action)}
+                    >
+                        Open
+                    </button>
+                ) : null}
             </span>
         </li>
     );
@@ -72,8 +136,12 @@ function ActionCard({ action, index }: { action: ChatAction; index: number }): R
 
 function Bubble({
     message,
+    onAnswer,
+    onOpen,
 }: {
-    message: Pick<ChatMessage, 'role' | 'content' | 'actions'>;
+    message: Pick<ChatMessage, 'role' | 'content' | 'actions'> & { id?: number };
+    onAnswer?: Answer;
+    onOpen?: (action: ChatAction) => void;
 }): ReactNode {
     return (
         <div className={`chat-row ${message.role}`}>
@@ -91,6 +159,9 @@ function Bubble({
                                 key={`${a.type}-${a.label}-${String(i)}`}
                                 action={a}
                                 index={i}
+                                {...(message.id !== undefined ? { messageId: message.id } : {})}
+                                {...(onAnswer ? { onAnswer } : {})}
+                                {...(onOpen ? { onOpen } : {})}
                             />
                         ))}
                     </ul>
@@ -103,17 +174,22 @@ function Bubble({
 export function ChatPage(): ReactNode {
     const client = useQueryClient();
     const toast = useToast();
-    const state = useQuery({
-        queryKey: ['chat'],
-        queryFn: () => api<ChatState>('GET', '/api/chat'),
-        refetchInterval: 20_000,
-    });
     const [text, setText] = useState('');
     const [sentText, setSentText] = useState<string | null>(null);
+    // The newest saved message when the person pressed send: anything newer from them is the message just sent.
+    const [baseId, setBaseId] = useState(0);
     const [draft, setDraft] = useState<Draft | null>(null);
+    const [opened, setOpened] = useState<ChatAction | null>(null);
     const end = useRef<HTMLDivElement>(null);
     const field = useRef<HTMLTextAreaElement>(null);
     const busy = draft !== null;
+    const state = useQuery({
+        queryKey: ['chat'],
+        queryFn: () => api<ChatState>('GET', '/api/chat'),
+        // Not while an answer is being made: the server already saved the question, and showing that copy next to
+        // the page's own would put the message on screen twice.
+        refetchInterval: busy ? false : 20_000,
+    });
 
     useEffect(() => {
         end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
@@ -131,6 +207,7 @@ export function ChatPage(): ReactNode {
         const message = raw.trim();
         if (message === '' || busy) return;
         setText('');
+        setBaseId(Math.max(0, ...(state.data?.messages ?? []).map((m) => m.id)));
         setSentText(message);
         setDraft({ text: '', actions: [], queued: 0 });
         let created = false;
@@ -197,6 +274,20 @@ export function ChatPage(): ReactNode {
         if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             void send(text);
+        }
+    };
+
+    const answer: Answer = async (messageId, index, decision) => {
+        try {
+            await api('POST', `/api/chat/messages/${String(messageId)}/actions/${String(index)}`, {
+                decision,
+            });
+            await client.invalidateQueries({ queryKey: ['chat'] });
+            if (decision === 'confirm')
+                for (const key of ['tree', 'files', 'sorting', 'review', 'types'])
+                    void client.invalidateQueries({ queryKey: [key] });
+        } catch (error) {
+            toast.say(error instanceof Error ? error.message : 'Could not do that.');
         }
     };
 
@@ -267,10 +358,11 @@ export function ChatPage(): ReactNode {
                     ) : null}
 
                     {messages.map((m) => (
-                        <Bubble key={m.id} message={m} />
+                        <Bubble key={m.id} message={m} onAnswer={answer} onOpen={setOpened} />
                     ))}
 
-                    {sentText !== null ? (
+                    {sentText !== null &&
+                    !messages.some((m) => m.role === 'user' && m.id > baseId) ? (
                         <Bubble message={{ role: 'user', content: sentText, actions: [] }} />
                     ) : null}
                     {draft ? (
@@ -344,6 +436,14 @@ export function ChatPage(): ReactNode {
                     </button>
                 </form>
             </section>
+            {opened?.fileId ? (
+                <Lightbox
+                    name={opened.label}
+                    mime={opened.mime ?? 'text/plain'}
+                    path={`/api/files/${opened.fileId}/content`}
+                    onClose={() => setOpened(null)}
+                />
+            ) : null}
         </>
     );
 }
