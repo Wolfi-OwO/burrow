@@ -1,4 +1,5 @@
 import { config } from '../config/index.ts';
+import { currentTraceId, TRACE_HEADER } from './trace.ts';
 
 /** A message in the form llama.cpp's OpenAI-compatible endpoint takes. */
 export interface LlmMessage {
@@ -31,7 +32,10 @@ export async function* streamCompletion(
     if (!config.llm.url) throw new Error('LLM_SERVICE_URL is not set.');
     const response = await fetch(new URL('/v1/chat/completions', config.llm.url), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+            'content-type': 'application/json',
+            ...(currentTraceId() ? { [TRACE_HEADER]: currentTraceId() as string } : {}),
+        },
         body: JSON.stringify({
             messages,
             stream: true,

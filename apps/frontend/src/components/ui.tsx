@@ -20,20 +20,50 @@ interface Toasts {
 }
 const ToastContext = createContext<Toasts>({ say: () => undefined });
 
-/** One transient message at a time, announced to screen readers. */
+/** The trace id a message ends with ("... Reference: 3f9a1c04d7e2"), if it has one. */
+function referenceOf(text: string): { text: string; id: string } | null {
+    const match = /\s*Reference: ([A-Za-z0-9._-]{8,64})$/.exec(text);
+    return match ? { text: text.slice(0, match.index), id: match[1] as string } : null;
+}
+
+/** One transient message at a time, announced to screen readers. A message with a reference stays longer and lets it be copied. */
 export function ToastProvider({ children }: { children: ReactNode }): ReactNode {
     const [message, setMessage] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
     const timer = useRef<number | undefined>(undefined);
     const say = useCallback((text: string) => {
         setMessage(text);
+        setCopied(false);
         window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setMessage(null), 3500);
+        timer.current = window.setTimeout(
+            () => setMessage(null),
+            referenceOf(text) ? 15_000 : 3500,
+        );
     }, []);
+    const reference = message ? referenceOf(message) : null;
     return (
         <ToastContext.Provider value={{ say }}>
             {children}
             <div role="status" aria-live="polite">
-                {message ? <div className="toast">{message}</div> : null}
+                {message ? (
+                    <div className="toast">
+                        {reference ? reference.text : message}
+                        {reference ? (
+                            <button
+                                className="toast-ref"
+                                onClick={() => {
+                                    void navigator.clipboard
+                                        .writeText(reference.id)
+                                        .then(() => setCopied(true))
+                                        .catch(() => undefined);
+                                }}
+                                title="Copy this reference and quote it when you ask what happened"
+                            >
+                                {copied ? 'Copied' : `Reference ${reference.id}`}
+                            </button>
+                        ) : null}
+                    </div>
+                ) : null}
             </div>
         </ToastContext.Provider>
     );

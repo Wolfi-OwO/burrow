@@ -59,7 +59,12 @@ describe('auth', () => {
             body: { username: 'nobody', password: 'not the password' },
         });
         assert.equal(wrong.status, 401);
-        assert.deepEqual(wrong.json, unknown.json);
+        // Everything but the trace id, which is random per request and says nothing about the account.
+        const { traceId: wrongId, ...wrongBody } = wrong.json as Record<string, unknown>;
+        const { traceId: unknownId, ...unknownBody } = unknown.json as Record<string, unknown>;
+        assert.deepEqual(wrongBody, unknownBody);
+        assert.match(String(wrongId), /^[0-9a-f]{12}$/);
+        assert.notEqual(wrongId, unknownId);
     });
 
     it('logs in, serves /me, and a request without a token is 401', async () => {

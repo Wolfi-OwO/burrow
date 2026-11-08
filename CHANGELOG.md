@@ -8,6 +8,14 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- Trace ids. Every request gets one (the browser makes it, the server keeps it), it is written on every log line of the
+  request, returned in a header and in every error, and passed on to the vision and model services. When something
+  fails on our side or the connection drops, the message says so plainly and shows `Reference: <id>` with a button to
+  copy it; `organizational/deploy/vps/trace.sh <id>` then shows what happened. Refusals ("that name is taken") keep
+  their own words.
+
 ## [0.12.0] - 2026-11-08
 
 ### Changed
