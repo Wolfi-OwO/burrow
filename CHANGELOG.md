@@ -8,6 +8,17 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-11-08
+
+### Fixed
+
+- The assistant no longer writes the tree path ("Nature > Alps") into folder names; it creates the folder inside its parent instead. Existing folders named that way are renamed to their plain name.
+- A folder outline pasted into the assistant (`|- Furry`, indented lists, notes such as "make categories for: A, B") is built exactly as drawn, with every folder under the right parent, without asking the model to retype it.
+
+### Added
+
+- The assistant can rename a folder.
+
 ## [0.15.1] - 2026-11-08
 
 ### Fixed

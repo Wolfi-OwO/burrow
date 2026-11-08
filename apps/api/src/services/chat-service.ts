@@ -18,7 +18,8 @@ import { categoryRepository } from '../repository/category.repository.ts';
 import type { ChatAction, ChatActionType, ChatMessage } from '../repository/chat.repository.ts';
 import { chatRepository } from '../repository/chat.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
-import { categoryService } from './category-service.ts';
+import { parseOutline } from '../lib/outline.ts';
+import { categoryService, plainName } from './category-service.ts';
 import { cleanFileName, fileService } from './file-service.ts';
 import { storageService } from './storage-service.ts';
 
@@ -44,6 +45,7 @@ const TURN_SCHEMA = {
                         type: 'string',
                         enum: [
                             'create_category',
+                            'rename_category',
                             'add_hint',
                             'unsort_category',
                             'unsort_all',
@@ -114,7 +116,8 @@ export function systemPrompt(
     return [
         "You are the assistant of Burrow, a personal file drive that sorts a person's pictures into folders by itself.",
         'You help the person set up, teach and tidy their folders. You act by listing actions:',
-        '- create_category: make a folder. "name" is the new folder. "parent" is "" (the top level) unless the person said where it goes; then it is the name of that folder, existing or created earlier in the same list.',
+        '- create_category: make a folder. "name" is only the folder\'s own short name, never a path and never with ">" in it. "parent" is "" (the top level) unless the person said where it goes; then it is the name of that folder, existing or created earlier in the same list.',
+        '- rename_category: give the folder "name" a new name, written in "phrase" (again only the short name, no ">"). The folder stays where it is.',
         '- add_hint: teach the sorter what belongs in an existing folder. "name" is that folder, "phrase" is a short English description of a typical picture in it, such as "an orange tabby cat on a sofa". The sorter reads pictures in English only.',
         '- unsort_category: send every file of the folder "name" (and its subfolders) back to Unsorted. The folder stays.',
         '- unsort_all: send every file of the drive back to Unsorted. "name" is "".',
@@ -122,7 +125,8 @@ export function systemPrompt(
         '- remove_all_categories: remove every folder. "name" is "". Files are not deleted.',
         '- create_file: write a file into the drive. "name" is the file name with its extension, "content" its text, "parent" is "" unless the person named the folder it goes in. Allowed: .md (Markdown), .txt, .csv, .svg (a drawing, as SVG code starting with <svg), .puml (PlantUML), .mmd (Mermaid), .dot (Graphviz). Use it when the person asks for a document, a diagram, a drawing or a table. You can write drawings and diagrams as text; you cannot make photos or other pixel images.',
         'unsort_category, unsort_all, remove_category and remove_all_categories change what is already there, so the person is asked to confirm each one: just list them when the person clearly asked for them, and say that they wait for the yes.',
-        'You cannot rename, move single files, delete files or open them. Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
+        'You cannot move single files, delete files or open them. Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
+        'In the list of folders below, ">" only shows where a folder sits: "Nature > Alps" is the folder Alps inside Nature. A real name never contains ">".',
         'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it. When asked about the drive, use the numbers below.',
         '',
         'Examples of correct answers:',
@@ -131,6 +135,7 @@ export function systemPrompt(
         'Person: Lege Ordner für Hunde und Katzen an.',
         '{"reply":"Erledigt, ich habe die Ordner Hunde und Katzen angelegt.","actions":[{"type":"create_category","name":"Hunde","parent":"","phrase":"","content":""},{"type":"create_category","name":"Katzen","parent":"","phrase":"","content":""}]}',
         'Person: Pets is for my dog Rex, a brown labrador.',
+        '{"reply":"Renamed, it still sits inside Nature.","actions":[{"type":"rename_category","name":"Nature > Kals am Großglockner","parent":"","phrase":"Kals am Großglockner","content":""}]}',
         '{"reply":"Got it, the sorter will look for brown labradors in Pets.","actions":[{"type":"add_hint","name":"Pets","parent":"","phrase":"a brown labrador dog","content":""}]}',
         'Person: Unsort everything and then remove all folders.',
         '{"reply":"Both are ready below. Confirm them in this order and your files stay, just unsorted.","actions":[{"type":"unsort_all","name":"","parent":"","phrase":"","content":""},{"type":"remove_all_categories","name":"","parent":"","phrase":"","content":""}]}',
@@ -157,6 +162,19 @@ export function clean(text: string, max: number): string {
 
 /** Finds a folder by name, or by "A > B" path (the last part decides), shallowest first. */
 export function find(pool: Category[], wanted: string): Category | null {
+    const whole = wanted.trim().toLowerCase();
+    if (whole.includes('>')) {
+        const byId = new Map(pool.map((c) => [c.id, c]));
+        const full = pool.find((c) => {
+            const names: string[] = [];
+            for (let n: Category | undefined = c; n; n = byId.get(n.parentId ?? -1))
+                names.unshift(n.name.toLowerCase());
+            return names.join(' > ') === whole.split('>').map((p) => p.trim()).join(' > ');
+        });
+        if (full) return full;
+    }
+    const literal = pool.find((c) => c.name.toLowerCase() === whole);
+    if (literal) return literal;
     const last = wanted.split('>').pop()?.trim().toLowerCase();
     if (!last) return null;
     return (
@@ -413,40 +431,83 @@ export async function perform(
         });
 
     if (raw.type === 'create_category') {
-        const parentName = clean(raw.parent, 60);
+        const parts = name.split('>').map((part) => part.trim()).filter(Boolean);
+        const shown = parts.pop() ?? name;
+        // "Nature > Alps" means Alps inside Nature; the path is never part of the name.
+        const parentName = clean(raw.parent, 60) || parts.join(' > ');
         const parent = parentName === '' ? null : find(pool, parentName);
         if (parentName !== '' && !parent)
             return done({
                 type: 'create_category',
                 status: 'skipped',
-                label: name,
+                label: shown,
                 detail: `There is no folder called ${parentName}.`,
             });
         const existing = pool.find(
             (c) =>
-                c.parentId === (parent?.id ?? null) && c.name.toLowerCase() === name.toLowerCase(),
+                c.parentId === (parent?.id ?? null) && c.name.toLowerCase() === shown.toLowerCase(),
         );
         if (existing)
             return done({
                 type: 'create_category',
                 status: 'exists',
-                label: name,
+                label: shown,
                 detail: parent ? `Already inside ${parent.name}.` : 'Already there.',
                 categoryId: existing.id,
             });
         try {
-            const made = await categoryService.create(userId, parent?.id ?? null, name);
+            const made = await categoryService.create(userId, parent?.id ?? null, shown);
             pool.push(made);
             return done({
                 type: 'create_category',
                 status: 'done',
-                label: name,
+                label: shown,
                 detail: parent ? `Inside ${parent.name}.` : 'Top level.',
                 categoryId: made.id,
             });
         } catch (error) {
             if (error instanceof ConflictError)
-                return done({ type: 'create_category', status: 'exists', label: name });
+                return done({ type: 'create_category', status: 'exists', label: shown });
+            throw error;
+        }
+    }
+
+    if (raw.type === 'rename_category') {
+        const target = find(pool, name);
+        const next = plainName(clean(raw.phrase, 60));
+        if (!target || next === '')
+            return done({
+                type: 'rename_category',
+                status: 'skipped',
+                label: name,
+                detail: !target ? `There is no folder called ${name}.` : 'No new name was given.',
+            });
+        if (target.name === next)
+            return done({
+                type: 'rename_category',
+                status: 'exists',
+                label: next,
+                categoryId: target.id,
+            });
+        try {
+            const renamed = await categoryService.rename(userId, target.id, next);
+            const slot = pool.findIndex((c) => c.id === renamed.id);
+            if (slot >= 0) pool[slot] = { ...pool[slot], name: renamed.name } as Category;
+            return done({
+                type: 'rename_category',
+                status: 'done',
+                label: renamed.name,
+                detail: `Was ${target.name}.`,
+                categoryId: renamed.id,
+            });
+        } catch (error) {
+            if (error instanceof ConflictError)
+                return done({
+                    type: 'rename_category',
+                    status: 'skipped',
+                    label: next,
+                    detail: 'A folder with that name is already next to it.',
+                });
             throw error;
         }
     }
@@ -557,9 +618,33 @@ export const chatService = {
         signal: AbortSignal,
         emit: (event: ChatEvent) => void,
     ): Promise<void> {
-        if (!config.llm.url || !(await llmHealthy()))
+        const outline = parseOutline(text);
+        if (!outline && (!config.llm.url || !(await llmHealthy())))
             throw new ServiceUnavailableError('The assistant is not running right now.');
         await chatRepository.add(userId, 'user', text);
+
+        if (outline) {
+            // A drawn tree is built exactly as drawn, without asking the model to retype it.
+            const pool = await categoryRepository.listAll(userId);
+            const results: ChatAction[] = [];
+            for (const folder of outline)
+                results.push(
+                    await perform(
+                        userId,
+                        { type: 'create_category', name: folder.name, parent: folder.parent, phrase: '', content: '' },
+                        pool,
+                        (action) => emit({ type: 'action', action }),
+                    ),
+                );
+            const made = results.filter((r) => r.status === 'done').length;
+            const reply =
+                made === 0
+                    ? 'Everything in that tree was already there.'
+                    : `I built your tree: ${String(made)} new folder${made === 1 ? '' : 's'}.`;
+            emit({ type: 'delta', text: reply });
+            emit({ type: 'done', message: await chatRepository.add(userId, 'assistant', reply, results) });
+            return;
+        }
 
         await acquire((position) => emit({ type: 'queued', position }), signal);
         try {
