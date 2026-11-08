@@ -50,6 +50,12 @@ export class ConflictError extends AppError {
         super(409, message);
     }
 }
+/** The account is full, or the server has no room left. 507 says "not enough storage" and nothing else would. */
+export class QuotaExceededError extends AppError {
+    public constructor(message = 'There is not enough storage left.') {
+        super(507, message, true);
+    }
+}
 export class ServiceUnavailableError extends AppError {
     public constructor(message = 'Service Unavailable') {
         super(503, message);

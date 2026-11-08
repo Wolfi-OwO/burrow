@@ -65,6 +65,22 @@ export const config = {
         allowPrivate: process.env.IMPORT_ALLOW_PRIVATE === 'true',
     },
 
+    quota: {
+        /** What one account may store, in bytes; 0 = no limit. A single account can override it (users.quota_bytes). */
+        userBytes: Number(process.env.USER_QUOTA_GB ?? 25) * 1024 * MEBIBYTE,
+        /**
+         * Free space the disk must keep. Below it every write is refused, so a full disk never takes the other
+         * applications on the machine down with it.
+         */
+        // Only production needs it: a developer's laptop or a test runner should not refuse uploads over a full disk.
+        diskReserveBytes:
+            Number(
+                process.env.DISK_RESERVE_GB ?? (process.env.NODE_ENV === 'production' ? 10 : 0),
+            ) *
+            1024 *
+            MEBIBYTE,
+    },
+
     /** FR-017: an upload larger than this is rejected before any byte is stored. */
     maxUploadBytes: (Number(process.env.MAX_UPLOAD_MB) || 200) * MEBIBYTE,
     maxAvatarBytes: 2 * MEBIBYTE,

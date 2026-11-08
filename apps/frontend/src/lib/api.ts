@@ -37,7 +37,8 @@ export function describeFailure(
     const reference = traceId ? ` Reference: ${traceId}` : '';
     if (status === 0)
         return `Could not reach the server. Check your connection and try again.${reference}`;
-    if (status < 500) return message;
+    // 507 is "your storage is full": a refusal with its own explanation, not a fault.
+    if (status < 500 || status === 507) return message;
     // A server that says something useful (the assistant is not running) is believed; its generic sentence is not.
     const generic = /^(Internal Server Error|Request failed)/.test(message);
     return `${generic ? 'Something went wrong on our side. Please try again in a moment.' : message}${reference}`;

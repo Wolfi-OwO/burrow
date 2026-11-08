@@ -29,6 +29,13 @@ describe('what a person is told when a request fails', () => {
         );
     });
 
+    it('shows "your storage is full" as the refusal it is, without a reference', () => {
+        assert.equal(
+            describeFailure(507, 'Your storage is full: 25 GB of 25 GB used.', 'abc123def456'),
+            'Your storage is full: 25 GB of 25 GB used.',
+        );
+    });
+
     it('believes a server that says something useful about its own failure', () => {
         assert.equal(
             describeFailure(503, 'The assistant is not running right now.', 'abc123def456'),

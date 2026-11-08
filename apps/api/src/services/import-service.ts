@@ -10,6 +10,7 @@ import { logger } from '../lib/logger.ts';
 import { checkTarget, downloadTo, LinkRefused, nameFromResponse } from '../lib/safe-fetch.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
+import { storageService } from './storage-service.ts';
 import { fileService } from './file-service.ts';
 
 const staging = join(config.storage.dir, 'tmp', 'imports');
@@ -38,8 +39,11 @@ async function run(
     let name = provisionalName(link);
     publish(userId, { type: 'import.progress', data: { job, name, seen: 0, total: 0 } });
     try {
+        // What the account can still hold bounds the download: it stops, instead of fetching 10 GB to refuse it.
+        await storageService.assertRoom(userId, 1);
+        const room = await storageService.remaining(userId);
         const got = await downloadTo(link, destination, {
-            maxBytes: Math.min(config.importUrl.maxBytes, config.maxFileBytes),
+            maxBytes: Math.min(config.importUrl.maxBytes, config.maxFileBytes, room),
             allowPrivate: config.importUrl.allowPrivate,
             onProgress: (seen, total) =>
                 publish(userId, { type: 'import.progress', data: { job, name, seen, total } }),

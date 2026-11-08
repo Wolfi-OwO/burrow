@@ -112,6 +112,18 @@ token limit; the 3B model followed the answer format in every test. Answers are 
 time (`LLM_CONCURRENCY`), the rest wait and the page says how many are ahead. Without the model file, or with
 `LLM_SERVICE_URL` unset, the chat page says the assistant is not running and nothing else is affected.
 
+## Storage limits
+
+Open registration needs a ceiling, or one account can fill the disk for everybody. Each account may store
+`USER_QUOTA_GB` (25 by default); above that, uploads, link imports and zip unpacking are refused with a message that
+says so. The disk has its own guard: while less than `DISK_RESERVE_GB` (10) is free, every write is refused. Give the
+operator's own account no limit, and raise a single account's limit, in the database:
+
+```sql
+UPDATE users SET quota_bytes = 0 WHERE username = 'your-name';              -- no limit
+UPDATE users SET quota_bytes = 100 * 1024^3 WHERE username = 'someone';     -- 100 GB
+```
+
 ## When someone reports an error: trace ids
 
 Every request has a trace id. The browser makes it (12 hex characters) and sends it as `X-Trace-Id`; the server accepts

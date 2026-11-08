@@ -20,6 +20,7 @@ import { chatRepository } from '../repository/chat.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { categoryService } from './category-service.ts';
 import { cleanFileName, fileService } from './file-service.ts';
+import { storageService } from './storage-service.ts';
 
 /** What the page is told while an answer is being made. */
 export type ChatEvent =
@@ -365,6 +366,7 @@ async function writeFileAction(
     const folder = parentName === '' ? null : find(pool, parentName);
     if (parentName !== '' && !folder) return fail(`There is no folder called ${parentName}.`);
 
+    await storageService.assertRoom(userId, Buffer.byteLength(content));
     const staging = join(config.storage.dir, 'tmp');
     await mkdir(staging, { recursive: true });
     const path = join(staging, `chat-${randomUUID()}`);

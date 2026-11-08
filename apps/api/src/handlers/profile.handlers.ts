@@ -5,6 +5,7 @@ import sharp from 'sharp';
 
 import { toAccount, toPublicProfile } from '../lib/account-view.ts';
 import { blobStore } from '../lib/blob-store.ts';
+import { storageService } from '../services/storage-service.ts';
 import { asyncHandler, BadRequestError, NotFoundError } from '../lib/errors.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { clearRefreshCookie } from '../lib/refresh-cookie.ts';
@@ -110,4 +111,9 @@ export const deleteMe = asyncHandler(async (req, res) => {
     await accountService.deleteAccount(uid(req), input);
     clearRefreshCookie(res);
     res.status(204).end();
+});
+
+/** How much of the account's storage is used, for the profile page. */
+export const getStorage = asyncHandler(async (req, res) => {
+    res.json(await storageService.usage((req.user as { sub: string }).sub));
 });

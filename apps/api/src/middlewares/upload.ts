@@ -5,6 +5,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import multer from 'multer';
 
 import { config } from '../config/index.ts';
+import { storageService } from '../services/storage-service.ts';
 
 const stagingDir = join(config.storage.dir, 'tmp');
 mkdirSync(stagingDir, { recursive: true });
@@ -37,9 +38,22 @@ function rejectOversize(maxBytes: number): RequestHandler {
     };
 }
 
+/** Refuses an upload that would not fit the account or the disk, from its Content-Length, before anything is read. */
+const requireRoom: RequestHandler = (req, _res, next) => {
+    const userId = (req.user as { sub: string } | undefined)?.sub;
+    if (!userId) {
+        next();
+        return;
+    }
+    storageService
+        .assertRoom(userId, Number(req.header('content-length')))
+        .then(() => next(), next);
+};
+
 /** Stages one file field called `file`, up to `MAX_UPLOAD_MB`. */
 export const uploadFile: RequestHandler[] = [
     rejectOversize(config.maxUploadBytes),
+    requireRoom,
     stage(config.maxUploadBytes),
 ];
 /** Same for an avatar, with a much lower cap. */

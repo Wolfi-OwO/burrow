@@ -1251,6 +1251,15 @@ html[data-theme='dark'] .thumb::after {
     vertical-align: middle;
     accent-color: var(--accent);
 }
+.storage-meter progress {
+    width: 100%;
+    max-width: 420px;
+    height: 8px;
+    accent-color: var(--accent);
+}
+.storage-meter progress.near-full {
+    accent-color: #b3261e;
+}
 .toast-ref {
     display: block;
     margin-top: 6px;

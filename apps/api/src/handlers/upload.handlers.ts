@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 
+import { storageService } from '../services/storage-service.ts';
 import { chunkedUpload } from '../lib/chunked-upload.ts';
 import { asyncHandler, NotFoundError } from '../lib/errors.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
@@ -18,6 +19,8 @@ export const start = asyncHandler(async (req, res) => {
     };
     if (categoryId !== undefined && !(await categoryRepository.findById(uid(req), categoryId)))
         throw new NotFoundError('Category not found.');
+    // Refused now, before a single piece is sent, rather than after hours of upload.
+    await storageService.assertRoom(uid(req), size);
     res.status(201).json(
         await chunkedUpload.start(uid(req), {
             name,
