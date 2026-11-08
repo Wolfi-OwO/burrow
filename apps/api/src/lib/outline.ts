@@ -13,7 +13,7 @@ const MARK = /^[\s|`'+*•·\-–—>└├─│]*/u;
 const MAX_FOLDERS = 120;
 
 function tidy(name: string): string {
-    const text = name.replace(/[)(\]\[]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.:;,]+$/, '');
+    const text = name.replace(/[)(\][]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.:;,]+$/, '');
     return text === '' ? '' : text.charAt(0).toUpperCase() + text.slice(1);
 }
 

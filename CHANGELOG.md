@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-11-08
+
+### Fixed
+
+- A lint error in the folder outline reader that failed CI on 0.15.2; no behaviour change.
+
 ## [0.15.2] - 2026-11-08
 
 ### Fixed
