@@ -16,6 +16,7 @@ import type { FileRecord, FileView } from '../models/file.model.ts';
 import { blobRepository } from '../repository/blob.repository.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
 import type { FileListFilter } from '../repository/file.repository.ts';
+import { storageService } from './storage-service.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 
 /** Result of an upload; `deduplicated` tells the caller the bytes already existed (FR-016). */
@@ -68,7 +69,7 @@ async function unpack(
     categoryId: number | null,
     onProgress?: (seen: number, total: number) => void,
     depth = 0,
-    budget = { used: 0 },
+    budget = { used: 0, cap: config.zip.maxTotalBytes },
 ): Promise<ArchiveResult> {
     const files: FileRecord[] = [];
     let skipped = 0;
@@ -84,7 +85,7 @@ async function unpack(
         {
             maxEntries: config.zip.maxEntries,
             maxEntryBytes: config.maxFileBytes,
-            maxTotalBytes: Math.max(config.zip.maxTotalBytes - budget.used, 0),
+            maxTotalBytes: Math.max(budget.cap - budget.used, 0),
         },
         async (path, size, name) => {
             budget.used += size;
@@ -166,7 +167,20 @@ export const fileService = {
         categoryId: number | null = null,
     ): Promise<ArchiveResult> {
         try {
-            return await unpack(userId, stagedPath, dirname(stagedPath), categoryId, onProgress);
+            // Unpacking may not add more than the account has room for (the zip itself is removed afterwards).
+            const cap = Math.min(config.zip.maxTotalBytes, await storageService.remaining(userId));
+            return await unpack(
+                userId,
+                stagedPath,
+                dirname(stagedPath),
+                categoryId,
+                onProgress,
+                0,
+                {
+                    used: 0,
+                    cap,
+                },
+            );
         } finally {
             await rm(stagedPath, { force: true });
         }

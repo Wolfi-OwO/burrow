@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router';
 import { DrivePicker } from '../components/DrivePicker.tsx';
 import { Dialog, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api, fetchBlob, uploadForm } from '../lib/api.ts';
+import { formatBytes } from '../lib/format.ts';
 import { useAuth } from '../lib/auth.tsx';
 import { forgetImage } from '../lib/blob.ts';
 import type { Account, Identity } from '../lib/types.ts';
@@ -27,6 +28,10 @@ export function ProfilePage(): ReactNode {
     const [bio, setBio] = useState(user?.bio ?? '');
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');
+    const storage = useQuery({
+        queryKey: ['storage'],
+        queryFn: () => api<{ used: number; quota: number | null }>('GET', '/api/me/storage'),
+    });
     const identities = useQuery({
         queryKey: ['identities'],
         queryFn: () => api<{ identities: Identity[] }>('GET', '/api/me/identities'),
@@ -327,6 +332,28 @@ export function ProfilePage(): ReactNode {
                 <section className="panel" aria-labelledby="data">
                     <h2 id="data">Your data</h2>
                     <div style={{ display: 'grid', gap: 18 }}>
+                        {storage.data ? (
+                            <div className="storage-meter">
+                                <p>
+                                    <strong>{formatBytes(storage.data.used)}</strong>
+                                    {storage.data.quota === null
+                                        ? ' stored, no limit on this account.'
+                                        : ` of ${formatBytes(storage.data.quota)} used.`}
+                                </p>
+                                {storage.data.quota !== null ? (
+                                    <progress
+                                        value={storage.data.used}
+                                        max={Math.max(1, storage.data.quota)}
+                                        aria-label="Storage used"
+                                        className={
+                                            storage.data.used / storage.data.quota > 0.9
+                                                ? 'near-full'
+                                                : undefined
+                                        }
+                                    />
+                                ) : null}
+                            </div>
+                        ) : null}
                         <div>
                             <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                                 <input

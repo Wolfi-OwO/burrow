@@ -17,6 +17,7 @@ profileRouter.use(requireAuth);
 
 profileRouter.get('/me', profile.getMe);
 profileRouter.patch('/me', validateBody(profilePatchSchema), profile.patchMe);
+profileRouter.get('/me/storage', profile.getStorage);
 profileRouter.get('/me/export', profile.exportData);
 profileRouter.delete('/me', validateBody(deleteAccountSchema), profile.deleteMe);
 profileRouter.put('/me/avatar', uploadRateLimiter, ...uploadAvatar, profile.putAvatar);

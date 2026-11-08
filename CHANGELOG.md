@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- A storage limit per account (`USER_QUOTA_GB`, 25 by default, 0 for none; one account can have its own in
+  `users.quota_bytes`, 0 meaning no limit). It is checked before anything is accepted: a single upload, the start of a
+  big upload (so it fails at once, not after hours), a link import (which stops at what is left), a zip (which stops
+  unpacking at what fits) and files the assistant writes. The profile page shows how much is used. Every write is also
+  refused while the disk has less than `DISK_RESERVE_GB` (10 in production) free, so a full disk can never take the
+  other applications on the server down.
+
 ## [0.12.0] - 2026-11-08
 
 ### Changed
