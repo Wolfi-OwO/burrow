@@ -44,6 +44,8 @@ export const config = {
     uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX) || 3000,
     /** Cosine distance under which two different files count as the same picture (0.03 is about 97 % alike). */
     duplicateMaxDistance: Number(process.env.DUPLICATE_MAX_DISTANCE) || 0.03,
+    /** Files compared per background step (one a minute), so a big drive is worked through over the day. */
+    duplicateBatch: Number(process.env.DUPLICATE_BATCH) || 1000,
     zip: {
         maxEntries: Number(process.env.ZIP_MAX_ENTRIES) || 5000,
         /** Everything one archive may unpack to, however small the zip itself is. */

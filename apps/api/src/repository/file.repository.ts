@@ -1,5 +1,6 @@
 import type { DatabaseRow, Queryable } from '../database/connection.ts';
 import { getPool } from '../database/connection.ts';
+import { duplicateRepository } from './duplicate.repository.ts';
 import { typeCondition, FILE_TYPES, ZIP_CONDITION } from '../lib/file-types.ts';
 import type { FileType } from '../lib/file-types.ts';
 import { EXPLICIT_SQL, SAFE_SQL } from '../lib/rating.ts';
@@ -209,6 +210,8 @@ export const fileRepository = {
                 result.placeScore ?? null,
             ],
         );
+        // A new look at the picture can change what it is nearest to: compare it again.
+        if (result.embedding) await duplicateRepository.forget(id, db);
     },
 
     /** Files filed by hand or by accepting a suggestion. */
@@ -348,29 +351,6 @@ export const fileRepository = {
             [userId],
         );
         return rows.map((r) => r.ids as string[]);
-    },
-
-    /**
-     * Pairs of different files whose picture embeddings are nearly the same: a resized, recompressed or re-saved
-     * copy. Cosine distance, each file's few nearest neighbours only, so the cost stays linear in the drive.
-     */
-    async similarPairs(
-        userId: string,
-        maxDistance: number,
-        db: Queryable = getPool(),
-    ): Promise<[string, string][]> {
-        const { rows } = await db.query(
-            `SELECT a.id AS a_id, n.id AS b_id FROM files a
-             CROSS JOIN LATERAL (
-                 SELECT b.id, b.embedding <=> a.embedding AS d FROM files b
-                 WHERE b.user_id = a.user_id AND b.id <> a.id AND b.blob_sha256 <> a.blob_sha256
-                   AND b.embedding IS NOT NULL
-                 ORDER BY b.embedding <=> a.embedding LIMIT 6
-             ) n
-             WHERE a.user_id = $1 AND a.embedding IS NOT NULL AND n.d < $2`,
-            [userId, maxDistance],
-        );
-        return rows.map((r) => [r.a_id as string, r.b_id as string]);
     },
 
     /**

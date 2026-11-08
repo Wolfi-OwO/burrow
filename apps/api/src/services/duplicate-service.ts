@@ -1,5 +1,7 @@
 import { config } from '../config/index.ts';
 import type { FileView } from '../models/file.model.ts';
+import { getPool } from '../database/connection.ts';
+import { duplicateRepository } from '../repository/duplicate.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { fileService } from './file-service.ts';
 
@@ -44,11 +46,42 @@ function pickKeeper(files: FileView[]): string {
 }
 
 export const duplicateService = {
+    /**
+     * One background step of the "same picture, other size" search: compares the next few files that were never
+     * compared and stores what they are nearly identical to. The page only reads the stored pairs.
+     *
+     * @returns How many files were compared (0 when nothing is waiting or another process holds the lock).
+     */
+    async checkBatch(limit = config.duplicateBatch): Promise<number> {
+        return getPool().transaction(async (tx) => {
+            if (!(await duplicateRepository.tryLock(tx))) return 0;
+            const ids = await duplicateRepository.pending(limit, tx);
+            if (ids.length === 0) return 0;
+            await duplicateRepository.compare(ids, config.duplicateMaxDistance, tx);
+            return ids.length;
+        });
+    },
+
+    /** Works through everything waiting, batch after batch (after a sort run produced many new embeddings). */
+    async checkAll(): Promise<number> {
+        let total = 0;
+        for (;;) {
+            const n = await duplicateService.checkBatch();
+            if (n === 0) return total;
+            total += n;
+        }
+    },
+
+    /** How far the comparison is for this user. */
+    progress(userId: string): Promise<{ checked: number; pending: number }> {
+        return duplicateRepository.progress(userId);
+    },
+
     async groups(userId: string, mode: DuplicateMode): Promise<DuplicateGroup[]> {
         const idGroups =
             mode === 'exact'
                 ? await fileRepository.exactDuplicateIds(userId)
-                : group(await fileRepository.similarPairs(userId, config.duplicateMaxDistance));
+                : group(await duplicateRepository.pairs(userId, config.duplicateMaxDistance));
         const files = await fileRepository.byIds(userId, idGroups.flat());
         const byId = new Map(files.map((f) => [f.id, f]));
         return idGroups

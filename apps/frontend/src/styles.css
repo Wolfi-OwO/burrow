@@ -1209,6 +1209,17 @@ html[data-theme='dark'] .thumb::after {
     }
 }
 /* The assistant chat */
+.dup-progress {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.dup-progress progress {
+    width: 160px;
+    height: 6px;
+    vertical-align: middle;
+    accent-color: var(--accent);
+}
 .sort-bar {
     position: sticky;
     top: var(--mast-h);
