@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- An S3-compatible bucket (Backblaze B2) can now be the store of record for the files, with the VPS disk as a cache in front of
+  it (`S3_*`, `BLOB_CACHE_GB`). Files are written to the bucket before an upload counts as stored, in parts for big ones (the
+  old single request stopped at 5 GB); a file that is not on the disk streams from the bucket to the reader at once and is
+  cached on the way, once however many people ask for it; the least recently used files are removed from the disk when the
+  cache is full or the disk is short, never the only copy; files stored before the bucket was added are copied into it in the
+  background. See the deploy README for the Backblaze setup.
+
 ## [0.13.0] - 2026-11-08
 
 ### Added
