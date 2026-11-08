@@ -15,13 +15,49 @@ export function setSessionLostHandler(handler: () => void): void {
     onSessionLost = handler;
 }
 
+/** The header that carries a trace id; the server logs it, sends it back and puts it in every error. */
+export const TRACE_HEADER = 'X-Trace-Id';
+
+/** @returns A new trace id: 12 hex characters, made here so it exists even when the server is never reached. */
+export function newTraceId(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * What a person is told. A refusal (wrong input, not allowed, not found) is explained by the server's own words.
+ * A failure that is not their doing (the server broke, or could not be reached) gets a plain sentence and the trace
+ * id, which is what they quote to find out what happened.
+ */
+export function describeFailure(
+    status: number,
+    message: string,
+    traceId: string | undefined,
+): string {
+    const reference = traceId ? ` Reference: ${traceId}` : '';
+    if (status === 0)
+        return `Could not reach the server. Check your connection and try again.${reference}`;
+    if (status < 500) return message;
+    // A server that says something useful (the assistant is not running) is believed; its generic sentence is not.
+    const generic = /^(Internal Server Error|Request failed)/.test(message);
+    return `${generic ? 'Something went wrong on our side. Please try again in a moment.' : message}${reference}`;
+}
+
 export class ApiError extends Error {
     readonly status: number;
     readonly issues: { path: string; message: string }[];
-    constructor(status: number, message: string, issues: { path: string; message: string }[] = []) {
-        super(message);
+    /** The id of the request that failed, for support. */
+    readonly traceId: string | undefined;
+    constructor(
+        status: number,
+        message: string,
+        issues: { path: string; message: string }[] = [],
+        traceId?: string,
+    ) {
+        super(describeFailure(status, message, traceId));
         this.status = status;
         this.issues = issues;
+        this.traceId = traceId;
     }
 }
 
@@ -29,7 +65,7 @@ export class ApiError extends Error {
 export function refreshSession(): Promise<boolean> {
     refreshing ??= fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { 'X-Requested-With': 'burrow' },
+        headers: { 'X-Requested-With': 'burrow', [TRACE_HEADER]: newTraceId() },
     })
         .then(async (response) => {
             if (!response.ok) return false;
@@ -46,7 +82,16 @@ export function refreshSession(): Promise<boolean> {
 async function send(path: string, init: RequestInit): Promise<Response> {
     const headers = new Headers(init.headers);
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-    return fetch(path, { ...init, headers });
+    const traceId = newTraceId();
+    headers.set(TRACE_HEADER, traceId);
+    try {
+        return await fetch(path, { ...init, headers });
+    } catch (error) {
+        // The browser could not get an answer at all (offline, the server restarting, a proxy that dropped it).
+        // A cancelled request is not a failure to report.
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        throw new ApiError(0, 'Could not reach the server.', [], traceId);
+    }
 }
 
 /** Sends a request, refreshing the session once on 401. */
@@ -65,14 +110,20 @@ export async function request(path: string, init: RequestInit = {}): Promise<Res
 async function fail(response: Response): Promise<never> {
     let message = `Request failed (${String(response.status)})`;
     let issues: { path: string; message: string }[] = [];
+    let traceId = response.headers.get(TRACE_HEADER) ?? undefined;
     try {
-        const body = (await response.json()) as { message?: string; issues?: typeof issues };
+        const body = (await response.json()) as {
+            message?: string;
+            issues?: typeof issues;
+            traceId?: string;
+        };
         message = body.message ?? message;
         issues = body.issues ?? [];
+        traceId ??= body.traceId;
     } catch {
-        // not JSON
+        // not JSON (a proxy's own error page): the id the page made is still in the server's log if it got that far
     }
-    throw new ApiError(response.status, message, issues);
+    throw new ApiError(response.status, message, issues, traceId);
 }
 
 /** JSON in, JSON out; non-2xx becomes an ApiError carrying the server's own message. */
@@ -130,10 +181,12 @@ export function uploadWithProgress<T>(
             const xhr = new XMLHttpRequest();
             xhr.open('POST', path);
             if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+            const traceId = newTraceId();
+            xhr.setRequestHeader(TRACE_HEADER, traceId);
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) onProgress(event.loaded / event.total);
             };
-            xhr.onerror = () => reject(new Error('Could not reach the server.'));
+            xhr.onerror = () => reject(new ApiError(0, 'Could not reach the server.', [], traceId));
             xhr.onload = () => {
                 if (xhr.status === 401 && retry) {
                     void refreshSession().then((ok) =>
@@ -154,6 +207,7 @@ export function uploadWithProgress<T>(
                             xhr.status,
                             body.message ?? `Request failed (${String(xhr.status)})`,
                             body.issues ?? [],
+                            xhr.getResponseHeader(TRACE_HEADER) ?? traceId,
                         ),
                     );
             };
@@ -178,8 +232,10 @@ function putWithProgress(
         xhr.open('PUT', path);
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
         if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        const traceId = newTraceId();
+        xhr.setRequestHeader(TRACE_HEADER, traceId);
         xhr.upload.onprogress = (event) => onProgress(event.loaded);
-        xhr.onerror = () => reject(new Error('Could not reach the server.'));
+        xhr.onerror = () => reject(new ApiError(0, 'Could not reach the server.', [], traceId));
         xhr.onload = () => {
             if (xhr.status === 401 && retry) {
                 void refreshSession().then((ok) =>
@@ -188,7 +244,15 @@ function putWithProgress(
                         : reject(new ApiError(401, 'Session ended.')),
                 );
             } else if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new ApiError(xhr.status, `Upload piece failed (${String(xhr.status)})`));
+            else
+                reject(
+                    new ApiError(
+                        xhr.status,
+                        `Upload piece failed (${String(xhr.status)})`,
+                        [],
+                        xhr.getResponseHeader(TRACE_HEADER) ?? traceId,
+                    ),
+                );
         };
         xhr.send(body);
     });
@@ -206,7 +270,9 @@ let uploadBase: Promise<string> | null = null;
 function resolveUploadBase(): Promise<string> {
     uploadBase ??= (async () => {
         try {
-            const info = (await (await fetch('/api/version')).json()) as { uploadOrigin?: string };
+            const info = (await (
+                await fetch('/api/version', { headers: { [TRACE_HEADER]: newTraceId() } })
+            ).json()) as { uploadOrigin?: string };
             const origin = info.uploadOrigin;
             if (!origin || origin === window.location.origin) return '';
             const probe = await fetch(`${origin}/livez`, {

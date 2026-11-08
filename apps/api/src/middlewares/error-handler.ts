@@ -4,6 +4,7 @@ import { MulterError } from 'multer';
 import { isProduction } from '../config/index.ts';
 import { AppError, NotFoundError, ValidationError } from '../lib/errors.ts';
 import { logger } from '../lib/logger.ts';
+import { currentTraceId } from '../lib/trace.ts';
 
 /**
  * Catch-all for unmatched routes -> forwards a 404 to the error handler.
@@ -36,6 +37,7 @@ export function errorHandler(
             error: err.name,
             message: err.expose || !isProduction ? err.message : 'Internal Server Error',
             statusCode: err.statusCode,
+            traceId: currentTraceId(),
             ...(err instanceof ValidationError ? { issues: err.issues } : {}),
         });
         return;
@@ -49,6 +51,7 @@ export function errorHandler(
             error: tooLarge ? 'PayloadTooLargeError' : 'BadRequestError',
             message: tooLarge ? 'The file is larger than the upload limit.' : err.message,
             statusCode: tooLarge ? 413 : 400,
+            traceId: currentTraceId(),
         });
         return;
     }
@@ -62,5 +65,6 @@ export function errorHandler(
         error: 'InternalServerError',
         message: isProduction ? 'Internal Server Error' : message,
         statusCode: 500,
+        traceId: currentTraceId(),
     });
 }

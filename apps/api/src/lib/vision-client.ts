@@ -2,6 +2,7 @@ import { openAsBlob } from 'node:fs';
 import { basename } from 'node:path';
 
 import { config } from '../config/index.ts';
+import { currentTraceId, TRACE_HEADER } from './trace.ts';
 
 /** One zero-shot label with its probability among the labels asked about. */
 export interface LabelScore {
@@ -11,9 +12,14 @@ export interface LabelScore {
 
 /** The shared secret between the two services; without it a vision service that has a token answers 401. */
 function serviceHeaders(): Record<string, string> {
-    return config.vision.serviceToken
-        ? { 'X-Internal-Service-Token': config.vision.serviceToken }
-        : {};
+    const traceId = currentTraceId();
+    return {
+        ...(config.vision.serviceToken
+            ? { 'X-Internal-Service-Token': config.vision.serviceToken }
+            : {}),
+        // The same id on the other side, so a slow or failed call can be followed from the request that caused it.
+        ...(traceId ? { [TRACE_HEADER]: traceId } : {}),
+    };
 }
 
 async function post<T>(

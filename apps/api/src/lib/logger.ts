@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
 import pino from 'pino';
 
 import { config } from '../config/index.ts';
+import { currentTraceId } from './trace.ts';
 
 // Field names (timestamp/level/message) deliberately match
 // apps/vision's JSON formatter, so a
@@ -10,16 +10,12 @@ export const logger = pino({
     level: config.logLevel,
     timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
     messageKey: 'message',
+    // Every line written while a request is handled carries its trace id, whoever wrote it.
+    mixin: () => {
+        const traceId = currentTraceId();
+        return traceId ? { traceId } : {};
+    },
     formatters: {
         level: (label) => ({ level: label.toUpperCase() }),
     },
 });
-
-/** The header both services read/write a correlation id under. */
-export const CORRELATION_ID_HEADER = 'x-correlation-id';
-
-export function correlationId(headers: { [key: string]: string | string[] | undefined }): string {
-    const header = headers[CORRELATION_ID_HEADER];
-    if (typeof header === 'string' && header.length > 0) return header;
-    return randomUUID();
-}

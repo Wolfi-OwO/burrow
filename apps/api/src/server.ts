@@ -10,7 +10,8 @@ import { pinoHttp } from 'pino-http';
 
 import { config, validateConfig } from './config/index.ts';
 import { getPool } from './database/connection.ts';
-import { correlationId, logger } from './lib/logger.ts';
+import { logger } from './lib/logger.ts';
+import { currentTraceId, newTraceId, TRACE_HEADER, traceMiddleware } from './lib/trace.ts';
 import { httpRequestDuration } from './lib/metrics.ts';
 import { errorHandler, notFound } from './middlewares/error-handler.ts';
 import { apiRateLimiter } from './middlewares/rate-limit.ts';
@@ -36,6 +37,9 @@ export const app = express();
 // Caddy terminates TLS and forwards plain HTTP with X-Forwarded-*; `1` trusts exactly that hop. Without it
 // req.protocol is always http (breaking the OAuth redirect_uri) and every client shares Caddy's rate-limit key.
 app.set('trust proxy', 1);
+
+// Before everything else, so even a request the rest refuses has an id in the log and in the answer.
+app.use(traceMiddleware);
 
 app.use(
     helmet({
@@ -63,6 +67,9 @@ const corsOptions: CorsOptions = {
     preflightContinue: true,
     // A browser may remember the answer, so a big upload does not ask before every piece.
     maxAge: 7200,
+    // A page on the upload origin can read the id of a failed piece to show it.
+    exposedHeaders: [TRACE_HEADER],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', TRACE_HEADER],
 };
 app.use(cors(corsOptions));
 // The preflight for a piece sent to the upload origin: cors() has already checked the Origin and set the headers.
@@ -70,7 +77,7 @@ app.use(cors(corsOptions));
 app.options('/api/uploads/:id/chunks/:index', (_req, res) => {
     res.status(204).end();
 });
-app.use(pinoHttp({ logger, genReqId: (req) => correlationId(req.headers) }));
+app.use(pinoHttp({ logger, genReqId: () => currentTraceId() ?? newTraceId() }));
 app.use(express.json({ limit: '100kb' }));
 
 // Latency per matched route pattern (not raw path), so /files/<a> and /files/<b> are one series.

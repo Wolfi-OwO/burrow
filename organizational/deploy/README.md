@@ -112,6 +112,26 @@ token limit; the 3B model followed the answer format in every test. Answers are 
 time (`LLM_CONCURRENCY`), the rest wait and the page says how many are ahead. Without the model file, or with
 `LLM_SERVICE_URL` unset, the chat page says the assistant is not running and nothing else is affected.
 
+## When someone reports an error: trace ids
+
+Every request has a trace id. The browser makes it (12 hex characters) and sends it as `X-Trace-Id`; the server accepts
+it when it is well formed, or makes one, writes it on every log line of that request (`"traceId"`), returns it in the
+`X-Trace-Id` header and in every error body, and passes it on to the vision and language-model services. When
+something fails that is not the person's doing (the server broke, or could not be reached), the page says so in plain
+words and shows `Reference: <id>` with a button that copies it.
+
+To find out what happened, take the reference from the person and run, on the VPS:
+
+```bash
+/opt/burrow/trace.sh 3f9a1c04d7e2          # the last 48 hours
+/opt/burrow/trace.sh 3f9a1c04d7e2 7d       # or further back, as far as the rotated logs go
+```
+
+It prints the lines of that request from every burrow container. A reference from a request that never arrived (a
+dropped connection) has no line: then the time the person says and the server's own `message` lines around it are the
+place to look. Ids are not secret and carry no personal data, but they are only useful to someone with access to the
+logs, which is why the page shows them and the operator reads them.
+
 ## Backups
 
 Everything that leaves the box is encrypted (ADR-0006). On the VPS:

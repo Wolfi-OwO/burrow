@@ -1251,6 +1251,23 @@ html[data-theme='dark'] .thumb::after {
     vertical-align: middle;
     accent-color: var(--accent);
 }
+.toast-ref {
+    display: block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: var(--r);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    color: inherit;
+    font: inherit;
+    font-family: var(--mono, monospace);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.toast-ref:hover,
+.toast-ref:focus-visible {
+    background: color-mix(in srgb, currentColor 26%, transparent);
+}
 .sort-bar {
     position: sticky;
     top: var(--mast-h);
