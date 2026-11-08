@@ -106,13 +106,22 @@ export const FILE_KINDS: { key: string; label: string }[] = [
     { key: 'other', label: 'Other' },
 ];
 
-/** One thing the assistant did in answer to a message, shown as a card under it. */
+/** One thing the assistant did, or proposes to do and waits for a yes on, shown as a card under its message. */
 export interface ChatAction {
-    type: 'create_category' | 'add_hint';
-    status: 'done' | 'exists' | 'skipped';
+    type:
+        | 'create_category'
+        | 'add_hint'
+        | 'unsort_category'
+        | 'unsort_all'
+        | 'remove_category'
+        | 'remove_all_categories'
+        | 'create_file';
+    status: 'done' | 'exists' | 'skipped' | 'pending' | 'declined';
     label: string;
     detail?: string;
     categoryId?: number;
+    fileId?: string;
+    mime?: string;
 }
 
 export interface ChatMessage {

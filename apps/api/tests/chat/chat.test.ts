@@ -7,7 +7,8 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { config } from '../../src/config/index.ts';
 import type { Category } from '../../src/models/category.model.ts';
 import { descend } from '../../src/services/classification-service.ts';
-import { api, closeServer, registerOwner, resetDatabase } from '../helpers.ts';
+import { svgProblem } from '../../src/services/chat-service.ts';
+import { api, base, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
 
 after(closeServer);
 
@@ -75,12 +76,15 @@ async function talk(token: string, message: string): Promise<Streamed[]> {
 }
 
 const turn = (reply: string, actions: object[]): string => JSON.stringify({ reply, actions });
-const make = (name: string, parent = ''): object => ({
-    type: 'create_category',
+const act = (type: string, name = '', extra: Record<string, string> = {}): object => ({
+    type,
     name,
-    parent,
+    parent: '',
     phrase: '',
+    content: '',
+    ...extra,
 });
+const make = (name: string, parent = ''): object => act('create_category', name, { parent });
 
 describe('the assistant chat', () => {
     it('needs a login', async () => {
@@ -134,12 +138,10 @@ describe('the assistant chat', () => {
         const { token } = await registerOwner();
         next = turn('ok', [make('Cats')]);
         await talk(token, 'make Cats');
-        next = turn('ok', [
-            { type: 'add_hint', name: 'Cats', parent: '', phrase: 'an orange tabby cat' },
-        ]);
+        next = turn('ok', [act('add_hint', 'Cats', { phrase: 'an orange tabby cat' })]);
         await talk(token, 'Cats is my orange cat');
         await talk(token, 'what do you know?');
-        assert.match(seenPrompt, /- Cats \(also scored as: an orange tabby cat\)/);
+        assert.match(seenPrompt, /- Cats \(0 files; also scored as: an orange tabby cat\)/);
         assert.match(seenPrompt, /user: make Cats/);
     });
 
@@ -162,7 +164,7 @@ describe('the assistant chat', () => {
         const { token } = await registerOwner();
         next = turn('ok', [
             make('Italy', 'Nowhere'),
-            { type: 'add_hint', name: 'Ghost', parent: '', phrase: 'a ghost' },
+            act('add_hint', 'Ghost', { phrase: 'a ghost' }),
             make('   '),
             make('x'.repeat(200)),
         ]);
@@ -186,7 +188,7 @@ describe('the assistant chat', () => {
         next = turn('ok', [make('Private')]);
         await talk(first.token, 'make Private');
         next = turn('ok', [
-            { type: 'add_hint', name: 'Private', parent: '', phrase: 'secret things' },
+            act('add_hint', 'Private', { phrase: 'secret things' }),
             make('Inside', 'Private'),
         ]);
         const actions = (await talk(other, 'use it'))
@@ -236,6 +238,273 @@ describe('the assistant chat', () => {
             ((await api('GET', '/api/chat', { token })).json.messages as unknown[]).length,
             0,
         );
+    });
+});
+
+describe('the assistant changing and removing what is there', () => {
+    /** Sends one turn and returns the id of the assistant message and its actions. */
+    async function ask(
+        token: string,
+        actions: object[],
+    ): Promise<{ id: number; actions: { status: string }[] }> {
+        next = turn('ok', actions);
+        const events = await talk(token, 'do it');
+        return events.at(-1)?.data.message as { id: number; actions: { status: string }[] };
+    }
+    const answer = (
+        token: string,
+        id: number,
+        index: number,
+        decision: string,
+    ): ReturnType<typeof api> =>
+        api('POST', `/api/chat/messages/${String(id)}/actions/${String(index)}`, {
+            token,
+            body: { decision },
+        });
+    async function filed(token: string): Promise<{ name: string; categoryId: number | null }> {
+        const cat = (
+            await api('POST', '/api/categories', { token, body: { name: 'Pics', parentId: null } })
+        ).json.id as number;
+        const id = (await upload(token, 'a.png', await png(1))).json.file.id as string;
+        await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: cat } });
+        return { name: 'Pics', categoryId: cat };
+    }
+
+    it("waits for the person's yes before unsorting, and then does exactly that", async () => {
+        const { token } = await registerOwner();
+        await filed(token);
+        const message = await ask(token, [act('unsort_all')]);
+        assert.equal(message.actions[0]?.status, 'pending');
+        assert.equal(
+            (await api('GET', '/api/files?limit=5', { token })).json.files[0].categoryId !== null,
+            true,
+            'nothing changed yet',
+        );
+
+        const done = await answer(token, message.id, 0, 'confirm');
+        assert.equal(done.json.action.status, 'done');
+        assert.equal(
+            (await api('GET', '/api/files?limit=5', { token })).json.files[0].categoryId,
+            null,
+        );
+        assert.equal(
+            ((await api('GET', '/api/categories', { token })).json.categories as unknown[]).length,
+            1,
+            'the folder stays',
+        );
+        assert.equal(
+            (await answer(token, message.id, 0, 'confirm')).status,
+            400,
+            'it cannot be confirmed twice',
+        );
+    });
+
+    it('leaves everything as it was when the person says no', async () => {
+        const { token } = await registerOwner();
+        await filed(token);
+        const message = await ask(token, [act('remove_all_categories')]);
+        const declined = await answer(token, message.id, 0, 'decline');
+        assert.equal(declined.json.action.status, 'declined');
+        assert.equal(
+            ((await api('GET', '/api/categories', { token })).json.categories as unknown[]).length,
+            1,
+        );
+        const stored = (await api('GET', '/api/chat', { token })).json.messages.at(-1).actions[0];
+        assert.equal(stored.status, 'declined', 'the answer is remembered');
+    });
+
+    it('removes a folder by lifting its files and subfolders up, and never deletes a file', async () => {
+        const { token } = await registerOwner();
+        const parent = (
+            await api('POST', '/api/categories', {
+                token,
+                body: { name: 'Travel', parentId: null },
+            })
+        ).json.id as number;
+        const child = (
+            await api('POST', '/api/categories', {
+                token,
+                body: { name: 'Italy', parentId: parent },
+            })
+        ).json.id as number;
+        const id = (await upload(token, 'rome.png', await png(2))).json.file.id as string;
+        await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: child } });
+
+        const message = await ask(token, [act('remove_category', 'Italy')]);
+        assert.match((message.actions[0] as unknown as { detail: string }).detail, /1 file/);
+        await answer(token, message.id, 0, 'confirm');
+        assert.equal(
+            (await api('GET', `/api/files/${id}`, { token })).json.categoryId,
+            parent,
+            'the file moved up',
+        );
+        assert.equal(
+            ((await api('GET', '/api/categories', { token })).json.categories as unknown[]).length,
+            1,
+        );
+    });
+
+    it('unsorts everything and removes every folder in the order they were confirmed, keeping all files', async () => {
+        const { token } = await registerOwner();
+        await filed(token);
+        const message = await ask(token, [act('unsort_all'), act('remove_all_categories')]);
+        await answer(token, message.id, 0, 'confirm');
+        await answer(token, message.id, 1, 'confirm');
+        assert.equal(
+            ((await api('GET', '/api/categories', { token })).json.categories as unknown[]).length,
+            0,
+        );
+        const files = (await api('GET', '/api/files?limit=5', { token })).json.files as {
+            categoryId: number | null;
+        }[];
+        assert.equal(files.length, 1, 'the file is still there');
+        assert.equal(files[0]?.categoryId, null);
+    });
+
+    it('unsorts one folder only', async () => {
+        const { token } = await registerOwner();
+        const a = (
+            await api('POST', '/api/categories', { token, body: { name: 'A', parentId: null } })
+        ).json.id as number;
+        const b = (
+            await api('POST', '/api/categories', { token, body: { name: 'B', parentId: null } })
+        ).json.id as number;
+        const fa = (await upload(token, 'a.png', await png(3))).json.file.id as string;
+        const fb = (await upload(token, 'b.png', await png(4))).json.file.id as string;
+        await api('PATCH', `/api/files/${fa}`, { token, body: { categoryId: a } });
+        await api('PATCH', `/api/files/${fb}`, { token, body: { categoryId: b } });
+        const message = await ask(token, [act('unsort_category', 'A')]);
+        await answer(token, message.id, 0, 'confirm');
+        assert.equal((await api('GET', `/api/files/${fa}`, { token })).json.categoryId, null);
+        assert.equal((await api('GET', `/api/files/${fb}`, { token })).json.categoryId, b);
+    });
+
+    it('skips what has nothing to do and cannot be confirmed by someone else', async () => {
+        const first = await registerOwner();
+        const other = (
+            await api('POST', '/api/auth/register', {
+                body: { username: 'other', password: 'correct horse battery' },
+            })
+        ).json.accessToken as string;
+        const empty = await ask(first.token, [
+            act('unsort_all'),
+            act('remove_all_categories'),
+            act('remove_category', 'Nope'),
+        ]);
+        assert.deepEqual(
+            empty.actions.map((a) => a.status),
+            ['skipped', 'skipped', 'skipped'],
+        );
+
+        await filed(first.token);
+        const message = await ask(first.token, [act('unsort_all')]);
+        assert.equal((await answer(other, message.id, 0, 'confirm')).status, 404);
+        assert.equal((await answer(first.token, message.id, 5, 'confirm')).status, 404);
+    });
+
+    it('tells the model how many files each folder holds', async () => {
+        const { token } = await registerOwner();
+        await filed(token);
+        await talk(token, 'how is my drive?');
+        assert.match(seenPrompt, /Files in total: 1\. Not in any folder: 0\./);
+        assert.match(seenPrompt, /- Pics \(1 file\)/);
+    });
+});
+
+describe('the assistant writing files', () => {
+    const file = (name: string, content: string, parent = ''): object =>
+        act('create_file', name, { content, parent });
+    async function written(
+        token: string,
+        actions: object[],
+    ): Promise<{ status: string; fileId?: string; detail?: string }[]> {
+        next = turn('ok', actions);
+        const events = await talk(token, 'write it');
+        return events
+            .filter((e) => e.event === 'action')
+            .map((e) => e.data.action as { status: string; fileId?: string; detail?: string });
+    }
+
+    it('saves a Markdown document, a PlantUML diagram and an SVG drawing as ordinary files, in the folder asked for', async () => {
+        const { token } = await registerOwner();
+        await api('POST', '/api/categories', { token, body: { name: 'Docs', parentId: null } });
+        const svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="red"/></svg>';
+        const results = await written(token, [
+            file('notes.md', '# Notes\n\nHello.', 'Docs'),
+            file('login.puml', '@startuml\nA -> B\n@enduml'),
+            file('circle.svg', svg),
+        ]);
+        assert.deepEqual(
+            results.map((r) => r.status),
+            ['done', 'done', 'done'],
+        );
+        const md = (await api('GET', `/api/files/${results[0]?.fileId as string}`, { token })).json;
+        assert.equal(md.name, 'notes.md');
+        assert.equal(md.categoryPath.join('/'), 'Docs');
+        const content = await fetch(`${base}/api/files/${results[1]?.fileId as string}/content`, {
+            headers: { authorization: `Bearer ${token}` },
+        });
+        assert.equal(await content.text(), '@startuml\nA -> B\n@enduml');
+        assert.equal(
+            content.headers.get('content-security-policy'),
+            "default-src 'none'; sandbox",
+            'served without scripts',
+        );
+    });
+
+    it('refuses kinds that a browser would run, broken or dangerous SVG, and empty files', async () => {
+        const { token } = await registerOwner();
+        const results = await written(token, [
+            file('page.html', '<h1>x</h1>'),
+            file('run.js', 'alert(1)'),
+            file('noext', 'text'),
+            file(
+                'evil.svg',
+                '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+            ),
+            file(
+                'click.svg',
+                '<svg xmlns="http://www.w3.org/2000/svg"><rect onclick="alert(1)" width="1" height="1"/></svg>',
+            ),
+            file(
+                'remote.svg',
+                '<svg xmlns="http://www.w3.org/2000/svg"><image href="http://evil.example/x.png"/></svg>',
+            ),
+        ]);
+        const more = await written(token, [
+            file('half.svg', '<svg><circle'),
+            file('empty.md', ' '),
+            file('ghost.md', 'text', 'Nowhere'),
+        ]);
+        assert.deepEqual(
+            [...results, ...more].map((r) => r.status),
+            Array(9).fill('skipped'),
+        );
+        assert.equal(
+            ((await api('GET', '/api/files?limit=5', { token })).json.files as unknown[]).length,
+            0,
+        );
+    });
+
+    it('judges SVG on its own', () => {
+        assert.equal(
+            svgProblem('<?xml version="1.0"?>\n<svg viewBox="0 0 1 1"><path d="M0 0L1 1"/></svg>'),
+            null,
+        );
+        assert.notEqual(
+            svgProblem('<svg><a href="javascript:alert(1)"><text>x</text></a></svg>'),
+            null,
+        );
+        assert.notEqual(
+            svgProblem('<svg><foreignObject><body onload="x()"/></foreignObject></svg>'),
+            null,
+        );
+        assert.notEqual(
+            svgProblem('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>'),
+            null,
+        );
+        assert.equal(svgProblem('<svg><image href="data:image/png;base64,AAAA"/></svg>'), null);
     });
 });
 

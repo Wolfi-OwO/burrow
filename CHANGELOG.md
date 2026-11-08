@@ -12,6 +12,11 @@ first release is cut.
 
 ### Added
 
+- The assistant can also unsort a folder or everything, remove a folder or all folders, and write files into the
+  drive: Markdown, plain text, CSV, SVG drawings, and PlantUML, Mermaid or Graphviz diagrams. Anything that changes
+  or removes what is there waits as a card with "Do it" and "Keep as it is" until you answer; nothing is deleted (a
+  removed folder lifts its files and subfolders up one level). It now also knows how many files each folder holds.
+  SVG drawings with scripts, outside references or event handlers are refused, and every file is served in a sandbox.
 - "Sort now" can be left alone: close the browser, come back later, and the same bar is there with how many files are
   done of how many, and the time left. The bar sits at the top of every page while the sorter works, not only on Review.
 - "Same picture, other size" is searched in the background, a batch of 1,000 files a minute (`DUPLICATE_BATCH`) and
@@ -24,6 +29,7 @@ first release is cut.
 
 ### Fixed
 
+- A message you typed showed twice in the chat while the answer was being written.
 - The sorter's three workers all started by asking for the same file, so a picture could be classified up to three
   times and counted each time, which pushed the progress past 100%. They now take turns claiming the next file.
 

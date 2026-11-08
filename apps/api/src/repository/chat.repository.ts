@@ -1,13 +1,28 @@
 import type { DatabaseRow, Queryable } from '../database/connection.ts';
 import { getPool } from '../database/connection.ts';
 
+export type ChatActionType =
+    | 'create_category'
+    | 'add_hint'
+    | 'unsort_category'
+    | 'unsort_all'
+    | 'remove_category'
+    | 'remove_all_categories'
+    | 'create_file';
+
 export interface ChatAction {
-    type: 'create_category' | 'add_hint';
-    /** done: it happened. exists: it was already so. skipped: it could not be done, `detail` says why. */
-    status: 'done' | 'exists' | 'skipped';
+    type: ChatActionType;
+    /**
+     * done: it happened. exists: it was already so. skipped: it could not be done, `detail` says why.
+     * pending: it changes or removes something, so it waits for the person's yes. declined: the person said no.
+     */
+    status: 'done' | 'exists' | 'skipped' | 'pending' | 'declined';
     label: string;
     detail?: string;
     categoryId?: number;
+    /** A file the assistant wrote into the drive: what the page needs to open it. */
+    fileId?: string;
+    mime?: string;
 }
 
 export interface ChatMessage {
@@ -55,6 +70,28 @@ export const chatRepository = {
             [userId, role, content, JSON.stringify(actions)],
         );
         return toMessage(rows[0] as DatabaseRow);
+    },
+
+    /** One of the person's own messages, or null. */
+    async find(userId: string, id: number, db: Queryable = getPool()): Promise<ChatMessage | null> {
+        const { rows } = await db.query(
+            `SELECT id, role, content, actions, created_at FROM chat_messages
+              WHERE id = $1 AND user_id = $2`,
+            [id, userId],
+        );
+        return rows[0] ? toMessage(rows[0]) : null;
+    },
+
+    async setActions(
+        userId: string,
+        id: number,
+        actions: ChatAction[],
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query(
+            'UPDATE chat_messages SET actions = $3::jsonb WHERE id = $1 AND user_id = $2',
+            [id, userId, JSON.stringify(actions)],
+        );
     },
 
     async clear(userId: string, db: Queryable = getPool()): Promise<void> {
