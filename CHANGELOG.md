@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-08
+
 ### Added
 
 - A storage limit per account (`USER_QUOTA_GB`, 25 by default, 0 for none; one account can have its own in
