@@ -17,5 +17,9 @@ export const categoryMoveSchema = z
     .object({ parentId: z.number().int().positive().nullable() })
     .strict();
 export const categoryDeleteQuerySchema = z.object({
-    onNonEmpty: z.enum(['block', 'moveUp']).default('block'),
+    // subtree: the folder and every folder below it go; the files are lifted up and never deleted.
+    onNonEmpty: z.enum(['block', 'moveUp', 'subtree']).default('block'),
 });
+export const categoryDeleteManySchema = z
+    .object({ ids: z.array(z.number().int().positive()).min(1).max(500) })
+    .strict();

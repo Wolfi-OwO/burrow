@@ -201,6 +201,43 @@ export const categoryRepository = {
         );
     },
 
+    /**
+     * Moves every file filed in this folder or anywhere below it to `to` (null = Unsorted), so a folder can be
+     * removed with everything under it without a single file going with it.
+     *
+     * @returns How many files moved.
+     */
+    async refileSubtree(
+        userId: string,
+        top: number,
+        to: number | null,
+        db: Queryable = getPool(),
+    ): Promise<number> {
+        const { rowCount } = await db.query(
+            `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE status END
+             WHERE user_id = $1 AND category_id IN (
+                 SELECT id FROM categories WHERE user_id = $1
+                   AND path <@ (SELECT path FROM categories WHERE id = $2 AND user_id = $1))`,
+            [userId, top, to],
+        );
+        return rowCount ?? 0;
+    },
+
+    /** The ids of a folder and everything below it, the deepest first: the order they can be deleted in. */
+    async subtreeIdsDeepestFirst(
+        userId: string,
+        top: number,
+        db: Queryable = getPool(),
+    ): Promise<number[]> {
+        const { rows } = await db.query(
+            `SELECT id FROM categories WHERE user_id = $1
+               AND path <@ (SELECT path FROM categories WHERE id = $2 AND user_id = $1)
+             ORDER BY nlevel(path) DESC, id`,
+            [userId, top],
+        );
+        return rows.map((r) => Number(r.id));
+    },
+
     /** Deletes one node; its children and files must already have been moved away. */
     async remove(userId: string, id: number, db: Queryable = getPool()): Promise<boolean> {
         const { rowCount } = await db.query(

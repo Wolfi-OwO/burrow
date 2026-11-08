@@ -117,7 +117,7 @@ export function systemPrompt(
         '- add_hint: teach the sorter what belongs in an existing folder. "name" is that folder, "phrase" is a short English description of a typical picture in it, such as "an orange tabby cat on a sofa". The sorter reads pictures in English only.',
         '- unsort_category: send every file of the folder "name" (and its subfolders) back to Unsorted. The folder stays.',
         '- unsort_all: send every file of the drive back to Unsorted. "name" is "".',
-        '- remove_category: remove the folder "name". Its files and subfolders move up one level; no file is deleted.',
+        '- remove_category: remove the folder "name" together with every folder below it. Their files move up to the parent folder (or Unsorted); no file is deleted.',
         '- remove_all_categories: remove every folder. "name" is "". Files are not deleted.',
         '- create_file: write a file into the drive. "name" is the file name with its extension, "content" its text, "parent" is "" unless the person named the folder it goes in. Allowed: .md (Markdown), .txt, .csv, .svg (a drawing, as SVG code starting with <svg), .puml (PlantUML), .mmd (Mermaid), .dot (Graphviz). Use it when the person asks for a document, a diagram, a drawing or a table. You can write drawings and diagrams as text; you cannot make photos or other pixel images.',
         'unsort_category, unsort_all, remove_category and remove_all_categories change what is already there, so the person is asked to confirm each one: just list them when the person clearly asked for them, and say that they wait for the yes.',
@@ -136,7 +136,7 @@ export function systemPrompt(
         'Person: Unsort the folder Nature.',
         '{"reply":"Nature is ready to be unsorted below; its files go back to Unsorted once you confirm.","actions":[{"type":"unsort_category","name":"Nature","parent":"","phrase":"","content":""}]}',
         'Person: Entferne den Ordner Spain.',
-        '{"reply":"Bestätige unten, dann entferne ich Spain. Die Dateien darin kommen eine Ebene nach oben.","actions":[{"type":"remove_category","name":"Spain","parent":"","phrase":"","content":""}]}',
+        '{"reply":"Bestätige unten, dann entferne ich Spain mit allen Unterordnern. Die Dateien bleiben erhalten und kommen eine Ebene nach oben.","actions":[{"type":"remove_category","name":"Spain","parent":"","phrase":"","content":""}]}',
         'Person: Draw a simple red circle as SVG.',
         '{"reply":"Here is a red circle, saved as circle.svg.","actions":[{"type":"create_file","name":"circle.svg","parent":"","phrase":"","content":"<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 100 100\\"><circle cx=\\"50\\" cy=\\"50\\" r=\\"40\\" fill=\\"red\\"/></svg>"}]}',
         'Person: Make a PlantUML diagram of login.',
@@ -242,12 +242,12 @@ async function propose(
                   },
         );
     }
-    const children = await categoryRepository.countChildren(userId, target.id);
+    const below = pool.filter((c) => c.path.startsWith(`${target.path}.`)).length;
     return done({
         type: 'remove_category',
         status: 'pending',
         label: target.name,
-        detail: `The folder is removed; its ${plural(files, 'file', 'files')} and ${plural(children, 'subfolder', 'subfolders')} move up one level. No file is deleted.`,
+        detail: `The folder${below > 0 ? ` and its ${plural(below, 'subfolder', 'subfolders')} are` : ' is'} removed. The ${plural(files, 'file', 'files')} in ${below > 0 ? 'them' : 'it'} move up one level. No file is deleted.`,
         categoryId: target.id,
     });
 }
@@ -282,18 +282,23 @@ async function execute(userId: string, action: ChatAction): Promise<ChatAction> 
                 !(await categoryRepository.findById(userId, action.categoryId))
             )
                 return { ...action, status: 'skipped', detail: 'The folder is gone.' };
-            await categoryService.remove(userId, action.categoryId, 'moveUp');
-            return { ...action, status: 'done', detail: 'Removed. Its contents moved up.' };
-        }
-        case 'remove_all_categories': {
-            // Deepest first, each one lifting what it holds, so nothing is ever deleted with a folder.
-            const all = await categoryRepository.listAll(userId);
-            for (const c of [...all].sort((a, b) => b.path.length - a.path.length))
-                await categoryService.remove(userId, c.id, 'moveUp');
+            const removed = await categoryService.removeTree(userId, [action.categoryId]);
             return {
                 ...action,
                 status: 'done',
-                detail: `${plural(all.length, 'folder', 'folders')} removed.`,
+                detail: `${plural(removed.categories, 'folder', 'folders')} removed, ${plural(removed.files, 'file', 'files')} moved up.`,
+            };
+        }
+        case 'remove_all_categories': {
+            const all = await categoryRepository.listAll(userId);
+            const removed = await categoryService.removeTree(
+                userId,
+                all.filter((c) => c.parentId === null).map((c) => c.id),
+            );
+            return {
+                ...action,
+                status: 'done',
+                detail: `${plural(removed.categories, 'folder', 'folders')} removed, ${plural(removed.files, 'file', 'files')} are in Unsorted.`,
             };
         }
         default:

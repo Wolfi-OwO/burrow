@@ -34,7 +34,17 @@ export const move = asyncHandler(async (req, res) => {
 });
 
 export const remove = asyncHandler(async (req, res) => {
-    const { onNonEmpty } = req.query as unknown as { onNonEmpty: 'block' | 'moveUp' };
+    const { onNonEmpty } = req.query as unknown as { onNonEmpty: 'block' | 'moveUp' | 'subtree' };
+    if (onNonEmpty === 'subtree') {
+        res.json(await categoryService.removeTree(uid(req), [id(req)]));
+        return;
+    }
     await categoryService.remove(uid(req), id(req), onNonEmpty);
     res.status(204).end();
+});
+
+/** Several folders at once, each with everything below it. */
+export const removeMany = asyncHandler(async (req, res) => {
+    const { ids } = req.body as { ids: number[] };
+    res.json(await categoryService.removeTree(uid(req), ids));
 });

@@ -535,6 +535,37 @@ textarea.input {
     flex: 1;
     min-height: 0;
 }
+.tree-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--raise);
+}
+.tree-bulk .small {
+    flex: 1 1 100%;
+    color: var(--muted);
+}
+.tree-actions .btn.on {
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.room .pick-box {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-right: 2px;
+    accent-color: var(--accent);
+}
+.room.picked {
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.room.implied {
+    opacity: 0.6;
+}
 .room {
     position: relative;
     display: flex;
