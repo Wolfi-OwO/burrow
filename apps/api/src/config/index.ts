@@ -1,6 +1,8 @@
 // Centralised application configuration (12-factor: read from the environment).
-// The only file that reads process.env; everything else imports `config`.
+// The only file that reads process.env; everything else
+// imports `config`.
 
+import { parseKey } from '../lib/blob-crypto.ts';
 import { pinVerifyFullSsl } from '../lib/database-url.ts';
 
 const MEBIBYTE = 1024 * 1024;
@@ -118,6 +120,14 @@ export const config = {
          * removed from the disk, but only after the S3 store is confirmed to hold them, and are fetched back on use.
          */
         cacheMaxBytes: Number(process.env.BLOB_CACHE_GB ?? 0) * 1024 * MEBIBYTE,
+        /**
+         * Base64 of 32 random bytes (`openssl rand -base64 32`). Set: everything sent to the object store is encrypted
+         * on this server first (AES-256-GCM), so the provider only ever holds bytes it cannot read. Keep it somewhere
+         * safe apart from the server: without it the bucket's contents cannot be read by anyone. Unset: stored as is.
+         */
+        encryptionKey: process.env.BLOB_ENCRYPTION_KEY
+            ? parseKey(process.env.BLOB_ENCRYPTION_KEY)
+            : undefined,
     },
 
     vision: {
