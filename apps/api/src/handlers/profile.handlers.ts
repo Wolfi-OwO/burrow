@@ -1,4 +1,5 @@
 import { rm, stat } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 
 import type { Request } from 'express';
 import sharp from 'sharp';
@@ -69,10 +70,13 @@ async function storeAvatar(
 export const putAvatar = asyncHandler(async (req, res) => {
     const staged = req.file;
     if (!staged) throw new BadRequestError('Send the image as the "file" field.');
+    const safe = resolve(staged.path);
+    if (!safe.startsWith(resolve(config.storage.dir) + sep))
+        throw new Error('Path is outside its folder.');
     try {
-        res.json(await storeAvatar(uid(req), staged.path));
+        res.json(await storeAvatar(uid(req), safe));
     } finally {
-        await rm(within(config.storage.dir, staged.path), { force: true });
+        await rm(safe, { force: true });
     }
 });
 

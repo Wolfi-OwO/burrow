@@ -67,8 +67,12 @@ export function DrivePage(): ReactNode {
             : undefined,
     };
     const counts = useQuery({
-        queryKey: ['types'],
-        queryFn: () => api<{ counts: Record<string, number> }>('GET', '/api/files/types'),
+        queryKey: ['types', category ?? 'all'],
+        queryFn: () =>
+            api<{ counts: Record<string, number> }>(
+                'GET',
+                `/api/files/types${category === undefined ? '' : `?category=${String(category)}`}`,
+            ),
     });
     const pickKind = (key: string | null): void =>
         setParams(

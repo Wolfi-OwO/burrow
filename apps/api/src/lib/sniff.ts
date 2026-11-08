@@ -1,14 +1,17 @@
 import { open } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 
 import { config } from '../config/index.ts';
-import { within } from './within.ts';
 
 /**
  * A guess at the type from the first bytes, for files that arrive without an extension or as a generic type
  * (a name like "media-5" says nothing). Only the common kinds people file are recognised; null means "no idea".
  */
 export async function sniffMime(path: string): Promise<string | null> {
-    const handle = await open(within(config.storage.dir, path), 'r');
+    const safe = resolve(path);
+    if (!safe.startsWith(resolve(config.storage.dir) + sep))
+        throw new Error('Path is outside its folder.');
+    const handle = await open(safe, 'r');
     try {
         const buf = Buffer.alloc(16);
         const { bytesRead } = await handle.read(buf, 0, 16, 0);

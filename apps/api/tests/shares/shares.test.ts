@@ -55,7 +55,7 @@ describe('shares', () => {
         );
     });
 
-    it('shares a whole category with its subtree', async () => {
+    it('shares a whole category: its own files, and every folder below it that opens in turn', async () => {
         const { owner, categoryId, inside } = await setup();
         const sub = (
             await api('POST', '/api/categories', {
@@ -65,14 +65,56 @@ describe('shares', () => {
         ).json.id as number;
         const deep = (await upload(owner, 'deep.png', await png(3))).json.file.id as string;
         await api('PATCH', `/api/files/${deep}`, { token: owner, body: { categoryId: sub } });
+        const other = (
+            await api('POST', '/api/categories', { token: owner, body: { name: 'Elsewhere' } })
+        ).json.id as number;
         const made = await api('POST', '/api/shares', {
             token: owner,
             body: { categoryId, access: 'link', expiresInHours: null },
         });
-        const page = await api('GET', `/api/s/${made.json.share.token as string}`);
+        const token = made.json.share.token as string;
+
+        const root = await api('GET', `/api/s/${token}`);
         assert.deepEqual(
-            page.json.files.map((f: { id: string }) => f.id).sort(),
-            [inside, deep].sort(),
+            root.json.files.map((f: { id: string }) => f.id),
+            [inside],
+        );
+        assert.deepEqual(
+            root.json.folders.map((f: { name: string }) => f.name),
+            ['Alps'],
+        );
+
+        const alps = await api('GET', `/api/s/${token}?folder=${String(sub)}`);
+        assert.deepEqual(
+            alps.json.files.map((f: { id: string }) => f.id),
+            [deep],
+        );
+        assert.equal(alps.json.trail.length, 2);
+        assert.equal(
+            (await api('GET', `/api/s/${token}/files/${deep}/content`)).status,
+            200,
+            'a file in a subfolder can be opened',
+        );
+
+        // A folder outside the shared one is not reachable through this link.
+        assert.equal((await api('GET', `/api/s/${token}?folder=${String(other)}`)).status, 404);
+    });
+
+    it('counts the kinds of file per folder, so the filter bar offers only what the folder holds', async () => {
+        const { owner, categoryId } = await setup();
+        const all = await api('GET', '/api/files/types', { token: owner });
+        const here = await api('GET', `/api/files/types?category=${String(categoryId)}`, {
+            token: owner,
+        });
+        assert.equal(all.json.counts.all, 2);
+        assert.equal(here.json.counts.all, 1);
+        const empty = (
+            await api('POST', '/api/categories', { token: owner, body: { name: 'Empty' } })
+        ).json.id as number;
+        assert.equal(
+            (await api('GET', `/api/files/types?category=${String(empty)}`, { token: owner })).json
+                .counts.all,
+            0,
         );
     });
 

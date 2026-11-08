@@ -3453,3 +3453,14 @@ html[data-theme='dark'] .hljs-name {
         flex: none;
     }
 }
+
+.linklike {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}

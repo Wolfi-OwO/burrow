@@ -52,13 +52,18 @@ export const searchUsers = asyncHandler(async (req, res) => {
 /** The public page behind a link: what it points at and the files it covers. */
 export const open = asyncHandler(async (req, res) => {
     const offset = Math.max(0, Number(req.query.offset) || 0);
-    const { share, files, hasMore } = await shareService.open(
+    const folder =
+        typeof req.query.folder === 'string' && /^\d{1,12}$/.test(req.query.folder)
+            ? Number(req.query.folder)
+            : undefined;
+    const { share, files, hasMore, folders, trail } = await shareService.open(
         req.params.token as string,
         viewer(req),
         offset,
+        folder,
     );
     res.set('Cache-Control', 'private, no-store');
-    res.json({ share: shareService.view(share), files, hasMore });
+    res.json({ share: shareService.view(share), files, hasMore, folders, trail });
 });
 
 export const content = asyncHandler(async (req, res) => {

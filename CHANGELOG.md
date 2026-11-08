@@ -10,6 +10,14 @@ first release is cut.
 
 ## [0.15.5] - 2026-11-08
 
+### Added
+
+- A shared folder now opens like the drive: its own files plus a card for every subfolder, each of which opens in turn, with a path to climb back up. Only folders inside the shared one can be reached through the link.
+
+### Fixed
+
+- The kind filter above the files counts only what the open folder holds, so it lists just the kinds that are in it.
+
 ### Security
 
 - Every place that reads, writes or removes a staged upload, an unpacked zip entry or a cached blob now first proves the path lies inside the storage folder, which closes the code-scanning path-injection findings at their source instead of dismissing them.

@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { rm, stat } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 
 import { config } from '../config/index.ts';
-import { within } from '../lib/within.ts';
 
 import type { Request, Response } from 'express';
 
@@ -48,7 +47,10 @@ export async function ingest(
     categoryId: number | null,
 ): Promise<void> {
     if (categoryId !== null && !(await categoryRepository.findById(userId, categoryId))) {
-        await rm(within(config.storage.dir, staged.path), { force: true });
+        const safe = resolve(staged.path);
+        if (!safe.startsWith(resolve(config.storage.dir) + sep))
+            throw new Error('Path is outside its folder.');
+        await rm(safe, { force: true });
         throw new NotFoundError('Category not found.');
     }
     if (/\.zip$/i.test(staged.name)) {
@@ -160,7 +162,14 @@ export const search = asyncHandler(async (req, res) => {
 });
 
 export const typeCounts = asyncHandler(async (req, res) => {
-    res.json({ counts: await fileRepository.typeCounts(uid(req)) });
+    const raw = typeof req.query.category === 'string' ? req.query.category : undefined;
+    const category =
+        raw === 'unsorted'
+            ? 'unsorted'
+            : raw !== undefined && /^\d{1,12}$/.test(raw)
+              ? Number(raw)
+              : undefined;
+    res.json({ counts: await fileRepository.typeCounts(uid(req), category) });
 });
 
 /**
