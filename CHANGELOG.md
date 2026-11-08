@@ -8,8 +8,16 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-08
+
 ### Added
 
+- Assistant chat: a page where you tell a language model how your pictures should be organised. It creates folders
+  (also inside other folders) and teaches the sorter your own words for what a folder holds: each phrase is scored next
+  to the folder name from then on. The answer streams in as it is written, with the actions shown as cards. The model
+  (llama.cpp, Qwen2.5 3B) runs in a container on the same server with no route to the internet or the database, so
+  nothing is sent to a third party. The chat and what it taught go into the account export and are deleted with the
+  account. Needs `LLM_SERVICE_URL`; see the deploy README.
 - Review: select several files at once. Click selects, shift-click takes the whole range from the last click, ctrl-click
   adds one, "Select all guessed as..." takes every file with the same best guess. A bar then accepts the guesses, files
   the selection into one category or leaves it unsorted.

@@ -25,9 +25,13 @@ jobs:
       - name: Install gitleaks
         run: |
           set -euo pipefail
-          VERSION="$(curl -sSf https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
+          # Downloaded to a file with retries: GitHub's download host drops connections now and then, and a piped
+          # `curl | tar` turned every such hiccup into a failed secret scan on an unrelated change.
+          RETRY=(--retry 6 --retry-all-errors --retry-delay 5)
+          VERSION="$(curl -sSf "${RETRY[@]}" https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
+          curl -sSfL "${RETRY[@]}" -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
           sudo mv gitleaks /usr/local/bin/gitleaks
 
       # --no-git is load-bearing: `gitleaks detect` (no flag) only scans

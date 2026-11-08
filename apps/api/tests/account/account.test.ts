@@ -49,6 +49,7 @@ describe('account export (Art 15 and 20 DSGVO)', () => {
         for (const name of [
             'account.json',
             'categories.json',
+            'assistant.json',
             'files.json',
             'files/Unsorted/mine.png',
         ]) {

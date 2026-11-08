@@ -9,6 +9,7 @@ import { visionClient } from '../lib/vision-client.ts';
 import type { Category } from '../models/category.model.ts';
 import type { FileRecord } from '../models/file.model.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
+import { chatRepository } from '../repository/chat.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { userRepository } from '../repository/user.repository.ts';
 
@@ -58,9 +59,10 @@ const ALIASES: Record<string, string[]> = {
 };
 
 /** Every phrasing a folder is scored under; its score is the sum over them, as they all say the same thing. */
-export function labelsFor(name: string): string[] {
+export function labelsFor(name: string, hints: string[] = []): string[] {
     const aliases = ALIASES[name.trim().toLowerCase()] ?? [];
-    return [name, `${name} artwork`, `an illustration of ${name}`, ...aliases];
+    // Hints are what the person taught through the chat: their own words for what the folder holds.
+    return [name, `${name} artwork`, `an illustration of ${name}`, ...aliases, ...hints];
 }
 
 function competitorsFor(candidates: Category[]): string[] {
@@ -95,6 +97,7 @@ export async function descend(
     threshold: number,
     nsfw: number | null = null,
     reviewFloor = 0.3,
+    hints: Map<number, string[]> = new Map(),
 ): Promise<Decision> {
     let current: Category | null = null;
     let confidence: number | null = null;
@@ -123,7 +126,7 @@ export async function descend(
         }
 
         const scores = await score([
-            ...candidates.flatMap((c) => labelsFor(c.name)),
+            ...candidates.flatMap((c) => labelsFor(c.name, hints.get(c.id))),
             ...competitorsFor(candidates),
         ]);
         const best = candidates
@@ -131,7 +134,7 @@ export async function descend(
                 category: c,
                 score: Math.min(
                     1,
-                    labelsFor(c.name).reduce(
+                    labelsFor(c.name, hints.get(c.id)).reduce(
                         (sum, label) => sum + (scores.find((s) => s.label === label)?.score ?? 0),
                         0,
                     ),
@@ -247,6 +250,7 @@ export const classificationService = {
                     config.sorting.autoFileThreshold,
                     nsfw,
                     config.sorting.reviewFloor,
+                    await chatRepository.hintsByCategory(file.userId),
                 ),
                 place,
                 placeScore,

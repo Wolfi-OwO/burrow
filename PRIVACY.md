@@ -27,14 +27,15 @@ deleted on request.
 
 ## 3. What Is Collected
 
-| Data | Where it lives | Legal basis |
-| - | - | - |
-| Username, Argon2id password hash, linked provider ids, the email the provider confirmed, and whether the NSFW check is switched on | PostgreSQL on the VPS | Art 6(1)(b): needed to give the account holder the service they asked for |
-| Active sessions: user agent, creation and expiry time | PostgreSQL | Art 6(1)(f): keeping the account secure and letting a user end a session |
-| Profile: display name, bio, avatar | PostgreSQL, avatar in the blob store | Art 6(1)(b) |
-| Uploaded files and the category tree | Metadata in PostgreSQL, bytes in `/opt/burrow/data` on the VPS, plus an encrypted copy in an Azure container (§ 5) | Art 6(1)(b) |
-| Per-file sorter output: suggested category, confidence, NSFW score, a 512-number image embedding | PostgreSQL, in the same row as the file | Art 6(1)(b), and see § 4 for the Art 9 question |
-| Server logs: request line, status, correlation id; no request bodies, no passwords | The container log, rotated at 3 x 10 MB | Art 6(1)(f) |
+| Data                                                                                                                                          | Where it lives                                                                                                     | Legal basis                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Username, Argon2id password hash, linked provider ids, the email the provider confirmed, and whether the NSFW check is switched on            | PostgreSQL on the VPS                                                                                              | Art 6(1)(b): needed to give the account holder the service they asked for                                       |
+| Active sessions: user agent, creation and expiry time                                                                                         | PostgreSQL                                                                                                         | Art 6(1)(f): keeping the account secure and letting a user end a session                                        |
+| Profile: display name, bio, avatar                                                                                                            | PostgreSQL, avatar in the blob store                                                                               | Art 6(1)(b)                                                                                                     |
+| Uploaded files and the category tree                                                                                                          | Metadata in PostgreSQL, bytes in `/opt/burrow/data` on the VPS, plus an encrypted copy in an Azure container (§ 5) | Art 6(1)(b)                                                                                                     |
+| Per-file sorter output: suggested category, confidence, NSFW score, a 512-number image embedding                                              | PostgreSQL, in the same row as the file                                                                            | Art 6(1)(b), and see § 4 for the Art 9 question                                                                 |
+| Assistant chat: what the account holder wrote to the assistant, what it answered and did, and the phrases it taught the sorter about a folder | PostgreSQL                                                                                                         | Art 6(1)(b): the feature the account holder uses; deleted with the account, or by "Clear chat" for the messages |
+| Server logs: request line, status, correlation id; no request bodies, no passwords                                                            | The container log, rotated at 3 x 10 MB                                                                            | Art 6(1)(f)                                                                                                     |
 
 The last column is the legal basis relied on for each row.
 
@@ -63,6 +64,9 @@ Art 9 attaches to the nature of the data, not to audience size, which is why the
 
 ## 5. Recipients and Third-Country Transfers
 
+- **The assistant chat runs on a language model on the same VPS** (llama.cpp, a container with no network route to
+  the internet or the database). The messages, the account holder's folder names and the phrases already taught are
+  sent to it and nowhere else; no third-party AI service is involved, so no third-country transfer arises here either.
 - **Vision processing (`apps/vision`) runs locally on the operator's own
   Contabo VPS.** No file, photo, or classification request is sent to a
   third-party or cloud vision API — this was an explicit design constraint

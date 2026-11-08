@@ -94,6 +94,24 @@ not matter. `IMPORT_ENABLED=false` switches it off, `IMPORT_MAX_GB` (default 10)
 (default 2) caps parallel downloads per account. Never set `IMPORT_ALLOW_PRIVATE=true` in production: it lets a link point
 at this machine and exists only for tests.
 
+## The assistant's language model
+
+The chat page talks to `burrow-llm`: llama.cpp serving a 4-bit Qwen2.5 3B Instruct (about 2.1 GB on disk, 2.3 GiB
+resident, 12 tokens a second on three EPYC cores, measured). It joins only the internal `llm-net`, so it can reach
+neither the internet nor the database. The model file is not part of any image; put it on the box once:
+
+```bash
+sudo install -d -o deploy -g deploy /opt/burrow/models
+curl -L -o /opt/burrow/models/qwen2.5-3b-instruct-q4_k_m.gguf \
+  https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf
+docker compose -f docker-compose.prod.yml --env-file .env up -d burrow-llm
+```
+
+Why 3B and not 1.5B: the 1.5B model wrote its actions into the reply text and then repeated itself until it hit the
+token limit; the 3B model followed the answer format in every test. Answers are cut at 450 tokens and one runs at a
+time (`LLM_CONCURRENCY`), the rest wait and the page says how many are ahead. Without the model file, or with
+`LLM_SERVICE_URL` unset, the chat page says the assistant is not running and nothing else is affected.
+
 ## Backups
 
 Everything that leaves the box is encrypted (ADR-0006). On the VPS:

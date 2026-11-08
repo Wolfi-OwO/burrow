@@ -105,3 +105,20 @@ export const FILE_KINDS: { key: string; label: string }[] = [
     { key: 'video', label: 'Video' },
     { key: 'other', label: 'Other' },
 ];
+
+/** One thing the assistant did in answer to a message, shown as a card under it. */
+export interface ChatAction {
+    type: 'create_category' | 'add_hint';
+    status: 'done' | 'exists' | 'skipped';
+    label: string;
+    detail?: string;
+    categoryId?: number;
+}
+
+export interface ChatMessage {
+    id: number;
+    role: 'user' | 'assistant';
+    content: string;
+    actions: ChatAction[];
+    createdAt: string;
+}

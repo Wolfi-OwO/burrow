@@ -26,7 +26,7 @@ function safeName(name: string): string {
 export const accountService = {
     /**
      * Writes everything the account holds as a zip (Art 15 and 20 DSGVO): `account.json`, `categories.json`,
-     * `files.json` with every stored field, and the file bytes under `files/<category>/<name>`.
+     * `assistant.json` (the chat and what it taught the sorter), `files.json` with every stored field, and the file bytes under `files/<category>/<name>`.
      * The zip is streamed, so a large drive never has to fit in memory.
      *
      * @param userId - The account to export.
@@ -100,6 +100,24 @@ export const accountService = {
                 { name: 'account.json' },
             );
             zip.append(json(categories.rows), { name: 'categories.json' });
+            // What was said to the assistant and what it taught the sorter are the person's data too.
+            zip.append(
+                json({
+                    messages: (
+                        await getPool().query(
+                            'SELECT role, content, actions, created_at FROM chat_messages WHERE user_id = $1 ORDER BY id',
+                            [userId],
+                        )
+                    ).rows,
+                    learnedPhrases: (
+                        await getPool().query(
+                            'SELECT category_id, phrase, created_at FROM category_hints WHERE user_id = $1 ORDER BY id',
+                            [userId],
+                        )
+                    ).rows,
+                }),
+                { name: 'assistant.json' },
+            );
 
             const seen = new Set<string>();
             const entries = files.rows.map((f: DatabaseRow) => {

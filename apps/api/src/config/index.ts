@@ -101,6 +101,19 @@ export const config = {
         timeoutMs: Number(process.env.VISION_TIMEOUT_MS) || 30_000,
     },
 
+    llm: {
+        /** Base URL of a llama.cpp server (OpenAI-compatible). Unset → the assistant chat is switched off. */
+        url: process.env.LLM_SERVICE_URL,
+        /** A generation that takes longer than this is cut off. A small model on CPU needs a while. */
+        timeoutMs: Number(process.env.LLM_TIMEOUT_MS) || 180_000,
+        /** Generations running at the same time; the rest wait their turn (the model runs on the server's CPU). */
+        concurrency: Number(process.env.LLM_CONCURRENCY) || 1,
+        /** Longest answer, in tokens. */
+        maxTokens: Number(process.env.LLM_MAX_TOKENS) || 450,
+        /** Messages one account may send per minute: each answer costs seconds of the server's CPU. */
+        rateLimitMax: Number(process.env.CHAT_RATE_LIMIT_MAX) || 12,
+    },
+
     sorting: {
         /** FR-035: below this confidence a file goes to the review queue instead of being auto-filed. */
         /** Below this a best guess is not even offered for review; the file stays in Unsorted. */
