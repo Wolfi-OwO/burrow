@@ -181,6 +181,25 @@ describe('the assistant chat', () => {
         );
     });
 
+    it('builds the tree but leaves the words around it out of the folder names, and answers the question', async () => {
+        const { token } = await registerOwner();
+        next = turn('Maybe Pets, Food and Friends.', []);
+        const events = await talk(
+            token,
+            'Good, create these:\n\nPrivate\n|- Furry\n|- Nature\n\nWhich categories would you also recommend?',
+        );
+        const tree = (await api('GET', '/api/categories', { token })).json.categories as Category[];
+        assert.deepEqual(tree.map((c) => c.name).sort(), ['Furry', 'Nature', 'Private']);
+        assert.equal(
+            events
+                .filter((e) => e.event === 'delta')
+                .map((e) => e.data.text)
+                .join(''),
+            'Maybe Pets, Food and Friends.',
+        );
+        assert.equal(events.filter((e) => e.event === 'action').length, 3);
+    });
+
     it('tells the model the folders that exist and what it learned, so the next answer can build on them', async () => {
         const { token } = await registerOwner();
         next = turn('ok', [make('Cats')]);

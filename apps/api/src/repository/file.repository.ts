@@ -430,6 +430,21 @@ export const fileRepository = {
     },
 
     /** How many files of each kind the user has, for the filter chips. */
+    /** @returns The most common places or scenes the sorter recognised in pictures that are in no folder yet. */
+    async topPlaces(
+        userId: string,
+        limit: number,
+        db: Queryable = getPool(),
+    ): Promise<{ place: string; count: number }[]> {
+        const { rows } = await db.query(
+            `SELECT f.place, count(*)::int AS count FROM files f
+             WHERE f.user_id = $1 AND f.place IS NOT NULL AND f.category_id IS NULL
+             GROUP BY f.place ORDER BY count DESC, f.place LIMIT $2`,
+            [userId, limit],
+        );
+        return rows.map((r: DatabaseRow) => ({ place: String(r.place), count: Number(r.count) }));
+    },
+
     async typeCounts(userId: string, db: Queryable = getPool()): Promise<Record<string, number>> {
         const cols = FILE_TYPES.map(
             (t) => `count(*) FILTER (WHERE ${typeCondition(t)})::int AS "${t}"`,

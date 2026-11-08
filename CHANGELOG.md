@@ -12,7 +12,8 @@ first release is cut.
 
 ### Fixed
 
-- A lint error in the folder outline reader that failed CI on 0.15.2; no behaviour change.
+- A pasted folder tree no longer turns the sentences around it ("Good, create these:", "Which categories would you also recommend?") into folders. A question next to the tree is answered by the assistant, which now also sees what the sorter recognised in the unfiled pictures, so its recommendations are based on your images.
+- A lint error and a slow regex in the folder outline reader that failed CI on 0.15.2.
 
 ## [0.15.2] - 2026-11-08
 
