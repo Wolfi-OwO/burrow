@@ -1,4 +1,5 @@
 import { openAsBlob } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 
 import { config } from '../config/index.ts';
@@ -22,6 +23,19 @@ function serviceHeaders(): Record<string, string> {
     };
 }
 
+/** Pictures up to this size are read into memory before sending, so nothing is read from the disk while the request runs. */
+const BUFFER_LIMIT = 64 * 1024 * 1024;
+
+/**
+ * The file as something fetch can send. A file-backed Blob is read lazily while the request runs; if the request is
+ * cut off at that moment (a timeout, a vision service that restarts) the failed read is thrown outside any promise and
+ * stopped the whole process once. Buffering what fits avoids that; only a huge file stays lazy.
+ */
+async function pictureBlob(file: string): Promise<Blob> {
+    if ((await stat(file)).size <= BUFFER_LIMIT) return new Blob([await readFile(file)]);
+    return openAsBlob(file);
+}
+
 async function post<T>(
     path: string,
     file: string,
@@ -29,7 +43,7 @@ async function post<T>(
 ): Promise<T> {
     if (!config.vision.url) throw new Error('VISION_SERVICE_URL is not set.');
     const form = new FormData();
-    form.append('file', await openAsBlob(file), basename(file));
+    form.append('file', await pictureBlob(file), basename(file));
     for (const [key, value] of Object.entries(fields)) form.append(key, value);
 
     const response = await fetch(new URL(path, config.vision.url), {

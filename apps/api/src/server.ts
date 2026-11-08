@@ -131,6 +131,16 @@ const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
     validateConfig();
+    // A file-backed upload to the vision service that is cut off mid-read throws from inside Node's stream code, where
+    // no handler can catch it. It only fails that one request, so it is logged and the server keeps running.
+    process.on('uncaughtException', (error: Error) => {
+        if (error.name === 'NotReadableError') {
+            logger.error({ err: error }, 'a file could not be read while it was being sent');
+            return;
+        }
+        logger.fatal({ err: error }, 'uncaught exception');
+        process.exit(1);
+    });
     const server = app.listen(config.port, () => {
         logger.info({ port: config.port }, 'apps/api listening');
     });

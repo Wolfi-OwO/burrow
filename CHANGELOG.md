@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.8] - 2026-11-08
+
+### Fixed
+
+- A picture sent to the vision service is read into memory first (up to 64 MB), and a read that fails while a request is cut off no longer stops the server. This crashed Burrow once right after the object store was switched on.
+
 ## [0.15.7] - 2026-11-08
 
 ### Changed
