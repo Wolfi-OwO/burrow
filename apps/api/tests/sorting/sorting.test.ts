@@ -6,6 +6,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 
 import { config } from '../../src/config/index.ts';
 import { getPool } from '../../src/database/connection.ts';
+import { schedulerRepository } from '../../src/repository/scheduler.repository.ts';
 import { schedulerService } from '../../src/services/scheduler-service.ts';
 import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
 
@@ -323,5 +324,59 @@ describe('sorting', () => {
         assert.equal(status.visionHealthy, true);
         assert.equal(status.runsPerDay, 10);
         assert.equal(status.autoFileThreshold, config.sorting.autoFileThreshold);
+    });
+    /** Waits until the background sorter has stopped, whoever started it. */
+    async function settled(
+        token: string,
+    ): Promise<{ running: boolean; total: number; done: number }> {
+        for (let i = 0; i < 100; i++) {
+            const { progress } = (await api('GET', '/api/sorting/status', { token })).json as {
+                progress: { running: boolean; total: number; done: number };
+            };
+            if (!progress.running) return progress;
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        throw new Error('the sorter did not stop');
+    }
+
+    it('runs "Sort now" in the background, writes the run down while it goes and clears it at the end', async () => {
+        const { token } = await registerOwner();
+        await category(token, 'Furry');
+        for (let i = 0; i < 3; i++) await upload(token, `a${String(i)}.png`, await png(20 + i));
+        const started = await api('POST', '/api/sorting/run?async=1', { token });
+        assert.equal(started.status, 202);
+        assert.equal(started.json.started, true);
+        assert.equal(started.json.total, 3);
+        const progress = await settled(token);
+        assert.equal(progress.total, 3);
+        assert.equal(progress.done, 3);
+        assert.equal((await api('GET', '/api/sorting/status', { token })).json.backlog, 0);
+        assert.equal(await schedulerRepository.activeRun(), null, 'nothing is left to resume');
+    });
+
+    it('picks an interrupted run up again after a restart, with the same total and what is left of it', async () => {
+        const { token } = await registerOwner();
+        await category(token, 'Furry');
+        for (let i = 0; i < 2; i++) await upload(token, `b${String(i)}.png`, await png(30 + i));
+        // The server stopped in the middle of a run over 5 files; 3 of them were decided before it did.
+        await schedulerRepository.beginRun(5);
+        assert.equal(await schedulerService.resumeInterrupted(), true);
+        const progress = await settled(token);
+        assert.equal(progress.total, 5);
+        assert.equal(progress.done, 5);
+        assert.equal((await api('GET', '/api/sorting/status', { token })).json.backlog, 0);
+        assert.equal(await schedulerRepository.activeRun(), null);
+    });
+
+    it('does not resume anything when no run was interrupted, or when nothing is left to sort', async () => {
+        await registerOwner();
+        assert.equal(await schedulerService.resumeInterrupted(), false);
+        await schedulerRepository.beginRun(4);
+        assert.equal(
+            await schedulerService.resumeInterrupted(),
+            false,
+            'nothing waiting: the run is over',
+        );
+        assert.equal(await schedulerRepository.activeRun(), null);
     });
 });
