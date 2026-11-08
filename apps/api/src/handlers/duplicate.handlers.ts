@@ -10,7 +10,10 @@ const uid = (req: Request): string => (req.user as { sub: string }).sub;
 
 export const list = asyncHandler(async (req, res) => {
     const { mode } = req.query as unknown as { mode: DuplicateMode };
-    res.json({ groups: await duplicateService.groups(uid(req), mode) });
+    res.json({
+        groups: await duplicateService.groups(uid(req), mode),
+        progress: await duplicateService.progress(uid(req)),
+    });
 });
 
 export const resolve = asyncHandler(async (req, res) => {

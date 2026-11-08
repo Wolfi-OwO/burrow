@@ -181,6 +181,10 @@ async function runInBackground(): Promise<void> {
             await schedulerRepository.endRun().catch((error: unknown) => {
                 logger.error({ err: error }, 'could not write down the end of the sort run');
             });
+            // The run produced many new picture embeddings: compare them now that the CPU is free again.
+            await duplicateService.checkAll().catch((error: unknown) => {
+                logger.warn({ err: error }, 'duplicate comparison after the sort run failed');
+            });
         }
     }
 }
@@ -236,11 +240,13 @@ export const schedulerService = {
     async sortAll(): Promise<{ decided: number; remaining: number } | null> {
         if (!config.vision.url) return null;
         if ((await fileRepository.backlogSize()) === 0) return { decided: 0, remaining: 0 };
-        return getPool().transaction(async (tx) => {
+        const result = await getPool().transaction(async (tx) => {
             if (!(await schedulerRepository.tryLock(tx))) return null;
             await schedulerRepository.markRun(tx);
             return runUntilEmpty();
         });
+        if (result) await duplicateService.checkAll();
+        return result;
     },
 
     /**
@@ -280,6 +286,13 @@ export const schedulerService = {
             if (ticks % PURGE_EVERY_TICKS === 0) {
                 sessionRepository.purgeEnded(SESSION_RETENTION_DAYS).catch((error: unknown) => {
                     logger.error({ err: error }, 'session purge failed');
+                });
+            }
+            // The "same picture, other size" search trickles along a batch a minute, except while a sort run needs
+            // the CPU (it compares everything itself when it ends).
+            if (!job.running) {
+                duplicateService.checkBatch().catch((error: unknown) => {
+                    logger.warn({ err: error }, 'duplicate comparison step failed');
                 });
             }
             schedulerService.tick().then(

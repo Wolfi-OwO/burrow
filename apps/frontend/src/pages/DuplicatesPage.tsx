@@ -20,8 +20,16 @@ export function DuplicatesPage(): ReactNode {
     const [confirmAll, setConfirmAll] = useState(false);
     const groups = useQuery({
         queryKey: ['duplicates', mode],
-        queryFn: () => api<{ groups: DuplicateGroup[] }>('GET', `/api/duplicates?mode=${mode}`),
+        queryFn: () =>
+            api<{ groups: DuplicateGroup[]; progress?: { checked: number; pending: number } }>(
+                'GET',
+                `/api/duplicates?mode=${mode}`,
+            ),
+        // The comparison goes on by itself in the background: new pairs show up while the page stays open.
+        refetchInterval: (query) =>
+            mode === 'similar' && (query.state.data?.progress?.pending ?? 0) > 0 ? 15_000 : false,
     });
+    const progress = groups.data?.progress;
     const refresh = (): void => {
         for (const key of ['duplicates', 'files', 'tree', 'review'])
             void client.invalidateQueries({ queryKey: [key] });
@@ -115,10 +123,31 @@ export function DuplicatesPage(): ReactNode {
                 </button>
             </div>
             {mode === 'similar' ? (
-                <p className="muted small" style={{ marginBottom: 16 }}>
-                    Compares what the sorter saw in each picture, so it only covers pictures it has
-                    already looked at. Check each group before removing.
-                </p>
+                <div className="dup-progress" role="status">
+                    <p className="muted small">
+                        The comparison runs by itself in the background, a few hundred pictures at a
+                        time, so there is nothing to start. It uses what the sorter saw in each
+                        picture, so it only covers pictures the sorter has already looked at. Check
+                        each group before removing.
+                    </p>
+                    {progress && progress.pending > 0 ? (
+                        <p className="small">
+                            <progress
+                                value={progress.checked}
+                                max={Math.max(1, progress.checked + progress.pending)}
+                                aria-label="Pictures compared"
+                            />{' '}
+                            {progress.checked.toLocaleString()} of{' '}
+                            {(progress.checked + progress.pending).toLocaleString()} pictures
+                            compared, the rest follows. Results appear here as they are found.
+                        </p>
+                    ) : progress && progress.checked > 0 ? (
+                        <p className="small muted">
+                            All {progress.checked.toLocaleString()} pictures are compared. New ones
+                            are added automatically.
+                        </p>
+                    ) : null}
+                </div>
             ) : null}
 
             {groups.isLoading ? (

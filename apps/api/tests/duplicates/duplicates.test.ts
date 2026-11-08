@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 
 import { getPool } from '../../src/database/connection.ts';
+import { duplicateRepository } from '../../src/repository/duplicate.repository.ts';
+import { duplicateService } from '../../src/services/duplicate-service.ts';
 import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
 
 const vector = (head: number, tail = 0): string =>
@@ -56,11 +58,104 @@ describe('duplicates and ratings', () => {
             vector(0, 1),
         ]);
 
+        // Nothing is searched when the page asks: until the background step has run there is nothing to show.
+        const before = await api('GET', '/api/duplicates?mode=similar', { token });
+        assert.equal(before.json.groups.length, 0);
+        assert.deepEqual(before.json.progress, { checked: 0, pending: 3 });
+
+        assert.equal(await duplicateService.checkBatch(), 3);
         const found = await api('GET', '/api/duplicates?mode=similar', { token });
+        assert.deepEqual(found.json.progress, { checked: 3, pending: 0 });
         assert.equal(found.json.groups.length, 1);
         assert.deepEqual(
             found.json.groups[0].files.map((f: { id: string }) => f.id).sort(),
             [ids[0], ids[1]].sort(),
+        );
+    });
+
+    it("compares in batches, finds a new file's older copies from the new side, and never compares twice", async () => {
+        const { token } = await registerOwner();
+        const old = (await upload(token, 'old.png', await png(60))).json.file.id as string;
+        const db = getPool();
+        await db.query('UPDATE files SET embedding = $2::vector WHERE id = $1', [
+            old,
+            vector(1, 0),
+        ]);
+        assert.equal(await duplicateService.checkBatch(), 1, 'the first file is compared alone');
+        assert.equal(await duplicateService.checkBatch(), 0, 'and not again');
+
+        const fresh = (await upload(token, 'new.png', await png(61))).json.file.id as string;
+        await db.query('UPDATE files SET embedding = $2::vector WHERE id = $1', [
+            fresh,
+            vector(1, 0.005),
+        ]);
+        assert.equal(await duplicateService.checkBatch(), 1, 'only the new file is compared');
+        const found = await api('GET', '/api/duplicates?mode=similar', { token });
+        assert.equal(found.json.groups.length, 1);
+        assert.equal(found.json.groups[0].files.length, 2);
+        const stored = await db.query('SELECT count(*)::int AS n FROM duplicate_pairs');
+        assert.equal(stored.rows[0]?.n, 1, 'one row per pair');
+    });
+
+    it('works through a long list a limited number of files per step', async () => {
+        const { token } = await registerOwner();
+        const db = getPool();
+        for (let i = 0; i < 5; i++) {
+            const id = (await upload(token, `q${String(i)}.png`, await png(70 + i))).json.file
+                .id as string;
+            await db.query('UPDATE files SET embedding = $2::vector WHERE id = $1', [
+                id,
+                vector(1, i),
+            ]);
+        }
+        assert.equal(await duplicateService.checkBatch(2), 2);
+        assert.deepEqual((await api('GET', '/api/duplicates', { token })).json.progress, {
+            checked: 2,
+            pending: 3,
+        });
+        assert.equal(await duplicateService.checkAll(), 3);
+        assert.deepEqual((await api('GET', '/api/duplicates', { token })).json.progress, {
+            checked: 5,
+            pending: 0,
+        });
+    });
+
+    it("forgets a file's pairs when it is deleted, and compares it again when its picture was looked at anew", async () => {
+        const { token } = await registerOwner();
+        const db = getPool();
+        const ids: string[] = [];
+        for (let i = 0; i < 2; i++) {
+            ids.push(
+                (await upload(token, `r${String(i)}.png`, await png(80 + i))).json.file
+                    .id as string,
+            );
+            await db.query('UPDATE files SET embedding = $2::vector WHERE id = $1', [
+                ids[i],
+                vector(1, 0.001 * i),
+            ]);
+        }
+        await duplicateService.checkAll();
+        assert.equal(
+            (await api('GET', '/api/duplicates?mode=similar', { token })).json.groups.length,
+            1,
+        );
+
+        // A new look at one picture makes it unknown again; it is compared anew.
+        await duplicateRepository.forget(ids[0] as string);
+        assert.equal(
+            (await api('GET', '/api/duplicates?mode=similar', { token })).json.groups.length,
+            0,
+        );
+        assert.equal(await duplicateService.checkAll(), 1);
+        assert.equal(
+            (await api('GET', '/api/duplicates?mode=similar', { token })).json.groups.length,
+            1,
+        );
+
+        await api('DELETE', `/api/files/${ids[1] as string}`, { token });
+        assert.equal(
+            (await db.query('SELECT count(*)::int AS n FROM duplicate_pairs')).rows[0]?.n,
+            0,
         );
     });
 
