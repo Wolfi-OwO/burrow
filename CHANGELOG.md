@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.6] - 2026-11-08
+
+### Fixed
+
+- On the Review page a long file name (such as a bare id) no longer wraps over the sorter's percentage and the buttons: it is cut with an ellipsis, and the buttons move to their own line when they do not fit beside the name.
+
 ## [0.15.5] - 2026-11-08
 
 ### Added

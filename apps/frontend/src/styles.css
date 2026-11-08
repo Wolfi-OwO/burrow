@@ -907,7 +907,7 @@ html[data-theme='dark'] .thumb::after {
 }
 .review-item {
     display: grid;
-    grid-template-columns: 22px 120px 1fr auto auto;
+    grid-template-columns: 22px 120px minmax(0, 1fr) auto auto;
     gap: 16px;
     align-items: center;
     padding: 12px;
@@ -918,6 +918,43 @@ html[data-theme='dark'] .thumb::after {
 }
 .review-item .thumb {
     width: 120px;
+}
+/* A long name (a bare id has no spaces to break at) is cut with an ellipsis instead of wrapping over the figures. */
+.review-item .fname-line {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.review-item .acts {
+    flex-wrap: wrap;
+}
+/* When the buttons no longer fit beside the name, they take their own line under it. */
+@media (max-width: 1500px) {
+    .review-item {
+        grid-template-columns: 22px 120px minmax(0, 1fr) auto;
+    }
+    .review-item .acts {
+        grid-column: 3 / -1;
+        justify-content: flex-start !important;
+    }
+}
+@media (max-width: 640px) {
+    .review-item {
+        grid-template-columns: 22px 88px minmax(0, 1fr);
+    }
+    .review-item .thumb {
+        width: 88px;
+    }
+    .review-item .conf {
+        grid-column: 3;
+        justify-self: start;
+        grid-row: 2;
+    }
+    .review-item .acts {
+        grid-column: 1 / -1;
+    }
 }
 .review-item.selected {
     box-shadow: inset 0 0 0 2px var(--accent);

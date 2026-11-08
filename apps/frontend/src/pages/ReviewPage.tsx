@@ -407,7 +407,7 @@ function ReviewItem({
                 ) : null}
             </span>
             <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-                <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <strong className="fname-line" title={file.name}>
                     {file.name}
                 </strong>
                 <span className="muted small">
