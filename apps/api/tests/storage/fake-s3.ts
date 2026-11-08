@@ -86,7 +86,9 @@ export class FakeS3 {
         }
         if (method === 'POST' && url.searchParams.has('uploadId')) {
             await FakeS3.body(req);
-            const parts = this.uploads.get(url.searchParams.get('uploadId') ?? '') ?? new Map();
+            const parts =
+                this.uploads.get(url.searchParams.get('uploadId') ?? '') ??
+                new Map<number, Buffer>();
             const ordered = [...parts.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
             this.objects.set(key, Buffer.concat(ordered));
             res.setHeader('content-type', 'application/xml');
