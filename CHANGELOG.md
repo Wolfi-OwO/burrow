@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-08
+
 ### Added
 
 - An S3-compatible bucket (Backblaze B2) can now be the store of record for the files, with the VPS disk as a cache in front of
