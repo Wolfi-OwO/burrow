@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-08
+
 ### Added
 
 - Assistant chat: a page where you tell a language model how your pictures should be organised. It creates folders
