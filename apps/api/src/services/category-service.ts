@@ -21,6 +21,11 @@ export interface RemovedTree {
     files: number;
 }
 
+/** A folder's place in the tree is its parent, never its name, so "A > B" is stored as "B". */
+export function plainName(name: string): string {
+    return (name.split('>').pop() ?? '').trim() || name.trim();
+}
+
 export const categoryService = {
     /** @returns The user's whole tree in path order. */
     tree(userId: string): Promise<CategoryNode[]> {
@@ -36,9 +41,10 @@ export const categoryService = {
     async create(
         userId: string,
         parentId: number | null,
-        name: string,
+        rawName: string,
         publicPreview = false,
     ): Promise<Category> {
+        const name = plainName(rawName);
         if (parentId !== null && !(await categoryRepository.findById(userId, parentId)))
             throw new NotFoundError('Parent category not found.');
         try {
@@ -51,7 +57,8 @@ export const categoryService = {
     },
 
     /** Renames a category at any depth (FR-011). */
-    async rename(userId: string, id: number, name: string): Promise<Category> {
+    async rename(userId: string, id: number, rawName: string): Promise<Category> {
+        const name = plainName(rawName);
         try {
             const updated = await categoryRepository.rename(userId, id, name);
             if (!updated) throw new NotFoundError('Category not found.');

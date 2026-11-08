@@ -45,6 +45,7 @@ const ICON = { done: Check, exists: Minus, skipped: Info, pending: Info, decline
 
 const KIND = {
     create_category: { icon: FolderPlus, titles: ['Folder made', 'Folder exists', 'Not made'] },
+    rename_category: { icon: FolderPlus, titles: ['Folder renamed', 'Same name', 'Not renamed'] },
     add_hint: { icon: BookOpenCheck, titles: ['Sorter taught', 'Already known', 'Not taught'] },
     unsort_category: { icon: Undo2, titles: ['Folder unsorted', '', 'Not unsorted'] },
     unsort_all: { icon: Undo2, titles: ['Everything unsorted', '', 'Not unsorted'] },

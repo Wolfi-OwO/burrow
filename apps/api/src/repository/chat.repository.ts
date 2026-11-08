@@ -3,6 +3,7 @@ import { getPool } from '../database/connection.ts';
 
 export type ChatActionType =
     | 'create_category'
+    | 'rename_category'
     | 'add_hint'
     | 'unsort_category'
     | 'unsort_all'

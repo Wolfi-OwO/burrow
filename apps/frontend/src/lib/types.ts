@@ -110,6 +110,7 @@ export const FILE_KINDS: { key: string; label: string }[] = [
 export interface ChatAction {
     type:
         | 'create_category'
+        | 'rename_category'
         | 'add_hint'
         | 'unsort_category'
         | 'unsort_all'

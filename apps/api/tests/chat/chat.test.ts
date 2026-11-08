@@ -134,6 +134,53 @@ describe('the assistant chat', () => {
         assert.equal(history.ready, true);
     });
 
+    it('never puts the tree path into a folder name, and renames folders that have one', async () => {
+        const { token } = await registerOwner();
+        next = turn('Done.', [
+            make('Nature'),
+            make('Nature > Alps'),
+            make('Wrong', 'Nature'),
+            act('rename_category', 'Nature > Wrong', { phrase: 'Nature > Lakes' }),
+        ]);
+        await talk(token, 'make nature with alps and lakes');
+
+        const tree = (await api('GET', '/api/categories', { token })).json.categories as Category[];
+        const byName = new Map(tree.map((c) => [c.name, c]));
+        assert.deepEqual([...byName.keys()].sort(), ['Alps', 'Lakes', 'Nature']);
+        assert.equal(byName.get('Alps')?.parentId, byName.get('Nature')?.id);
+        assert.equal(byName.get('Lakes')?.parentId, byName.get('Nature')?.id);
+    });
+
+    it('builds a drawn folder tree exactly as drawn, even when a folder name already exists elsewhere', async () => {
+        const { token } = await registerOwner();
+        next = turn('x', [make('NSFW')]);
+        await talk(token, 'make nsfw');
+        next = turn('unused', []);
+        await talk(
+            token,
+            'Private\n|- Furry\n    |- NSFW\n        (maybe add kinks like -> foot, etc.\n    |- SFW\n|- Nature\n    (Then make categories for: Alps, Lakes)',
+        );
+        const tree = (await api('GET', '/api/categories', { token })).json.categories as Category[];
+        const path = (c: Category): string => {
+            const parent = tree.find((p) => p.id === c.parentId);
+            return parent ? `${path(parent)} > ${c.name}` : c.name;
+        };
+        assert.deepEqual(
+            tree.map(path).sort(),
+            [
+                'NSFW',
+                'Private',
+                'Private > Furry',
+                'Private > Furry > NSFW',
+                'Private > Furry > NSFW > Foot',
+                'Private > Furry > SFW',
+                'Private > Nature',
+                'Private > Nature > Alps',
+                'Private > Nature > Lakes',
+            ].sort(),
+        );
+    });
+
     it('tells the model the folders that exist and what it learned, so the next answer can build on them', async () => {
         const { token } = await registerOwner();
         next = turn('ok', [make('Cats')]);
