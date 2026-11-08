@@ -1,4 +1,4 @@
-import { useSortRun } from '../lib/sort-run.ts';
+import { useSortRun } from '../lib/sort-run.tsx';
 import { ImportLinkDialog } from '../components/ImportLinkDialog.tsx';
 import { useUploads } from '../lib/uploads.tsx';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

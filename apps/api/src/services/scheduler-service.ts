@@ -2,6 +2,7 @@ import { publish } from '../lib/events.ts';
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { logger } from '../lib/logger.ts';
+import type { FileRecord } from '../models/file.model.ts';
 import { fileRepository } from '../repository/file.repository.ts';
 import { sessionRepository } from '../repository/session.repository.ts';
 import { schedulerRepository } from '../repository/scheduler.repository.ts';
@@ -111,8 +112,12 @@ export interface SortJob {
     running: boolean;
     total: number;
     done: number;
+    /** When the run began, as an ISO time; a page that opens mid-run uses it for the time left. */
+    startedAt: string | null;
 }
-let job: SortJob = { running: false, total: 0, done: 0 };
+/** Set when the server is shutting down: a run cut short by that is not over, it is resumed by the next start. */
+let stopping = false;
+let job: SortJob = { running: false, total: 0, done: 0, startedAt: null };
 export const sortJob = (): SortJob => ({ ...job });
 
 /**
@@ -123,11 +128,22 @@ async function runInBackground(): Promise<void> {
     const tried: string[] = [];
     const perUser = new Map<string, number>();
     let lastTold = 0;
+    // One worker at a time asks for the next file and writes it down before the next one asks. Without that, the
+    // workers all start with the same question, get the same file, classify it several times and count it each time.
+    let gate: Promise<unknown> = Promise.resolve();
+    const claim = (): Promise<FileRecord | undefined> => {
+        const next = gate.then(async () => {
+            const [file] = await fileRepository.nextBacklog(1, tried);
+            if (file) tried.push(file.id);
+            return file;
+        });
+        gate = next.catch(() => undefined);
+        return next;
+    };
     const work = async (): Promise<void> => {
         for (;;) {
-            const [file] = await fileRepository.nextBacklog(1, tried);
+            const file = await claim();
             if (!file) return;
-            tried.push(file.id);
             if (await classificationService.classify(file))
                 perUser.set(file.userId, (perUser.get(file.userId) ?? 0) + 1);
             job.done += 1;
@@ -151,14 +167,21 @@ async function runInBackground(): Promise<void> {
             await duplicateService.ratingFix(userId).catch(() => undefined);
         tell(perUser);
     } catch (error) {
-        logger.error({ err: error }, 'sort now failed');
+        if (!stopping) logger.error({ err: error }, 'sort now failed');
     } finally {
-        for (const userId of perUser.keys())
-            publish(userId, {
-                type: 'sorting.progress',
-                data: { done: job.done, total: job.total, finished: true },
+        job = { running: false, total: job.total, done: job.done, startedAt: job.startedAt };
+        // A run stopped by a shutdown stays written down as active, so the next start takes it up again, and the
+        // pages are not told it finished.
+        if (!stopping) {
+            for (const userId of perUser.keys())
+                publish(userId, {
+                    type: 'sorting.progress',
+                    data: { done: job.done, total: job.total, finished: true },
+                });
+            await schedulerRepository.endRun().catch((error: unknown) => {
+                logger.error({ err: error }, 'could not write down the end of the sort run');
             });
-        job = { running: false, total: job.total, done: job.done };
+        }
     }
 }
 
@@ -174,9 +197,35 @@ export const schedulerService = {
         await fileRepository.requeueUnsorted();
         const total = await fileRepository.backlogSize();
         if (total === 0) return { started: false, total: 0, reason: 'Nothing is waiting.' };
-        job = { running: true, total, done: 0 };
+        job = { running: true, total, done: 0, startedAt: new Date().toISOString() };
+        await schedulerRepository.beginRun(total);
         void runInBackground();
         return { started: true, total };
+    },
+
+    /**
+     * Takes up a "Sort now" run that was going when the server stopped. The files already decided are not waiting any
+     * more, so the same total and what is left of the backlog give the same bar the page showed before.
+     */
+    async resumeInterrupted(): Promise<boolean> {
+        if (!config.vision.url || job.running) return false;
+        const run = await schedulerRepository.activeRun();
+        if (!run) return false;
+        const left = await fileRepository.backlogSize();
+        if (left === 0) {
+            await schedulerRepository.endRun();
+            return false;
+        }
+        const total = Math.max(run.total, left);
+        job = {
+            running: true,
+            total,
+            done: total - left,
+            startedAt: run.startedAt.toISOString(),
+        };
+        logger.info({ total, left }, 'resuming the sort run that was interrupted');
+        void runInBackground();
+        return true;
     },
 
     /**
@@ -222,6 +271,9 @@ export const schedulerService = {
             return () => undefined;
         }
         void startupRatingPass();
+        schedulerService.resumeInterrupted().catch((error: unknown) => {
+            logger.error({ err: error }, 'could not resume the sort run');
+        });
         let ticks = 0;
         const timer = setInterval(() => {
             ticks += 1;
@@ -238,6 +290,9 @@ export const schedulerService = {
             );
         }, TICK_MS);
         timer.unref();
-        return () => clearInterval(timer);
+        return () => {
+            stopping = true;
+            clearInterval(timer);
+        };
     },
 };

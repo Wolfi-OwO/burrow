@@ -1,4 +1,5 @@
-import { useSortRun } from '../lib/sort-run.ts';
+import { useSortRun } from '../lib/sort-run.tsx';
+import { useNow } from '../lib/use-now.ts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FolderInput, Play, ShieldCheck, Undo2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -79,6 +80,7 @@ export function ReviewPage(): ReactNode {
         onError: (e: Error) => toast.say(e.message),
     });
     const sortRun = useSortRun();
+    const now = useNow(sortRun.running);
 
     const files = useMemo(() => review.data?.files ?? [], [review.data]);
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -185,6 +187,7 @@ export function ReviewPage(): ReactNode {
                         />
                         <span>
                             {sortRun.progress.done} of {sortRun.progress.total} sorted
+                            {sortRun.timeLeft(now) === '' ? '' : ` · ${sortRun.timeLeft(now)}`}
                         </span>
                     </div>
                 ) : null}

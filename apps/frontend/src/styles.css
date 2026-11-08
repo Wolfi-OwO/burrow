@@ -1209,6 +1209,51 @@ html[data-theme='dark'] .thumb::after {
     }
 }
 /* The assistant chat */
+.sort-bar {
+    position: sticky;
+    top: var(--mast-h);
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: -4px 0 18px;
+    padding: 8px 12px;
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--raise);
+    font-size: 0.875rem;
+    animation: chat-in 280ms var(--ease) both;
+}
+.sort-bar svg {
+    flex: none;
+    color: var(--accent);
+}
+.sort-bar progress {
+    flex: 1 1 120px;
+    min-width: 80px;
+    height: 6px;
+    accent-color: var(--accent);
+}
+.sort-bar-text {
+    white-space: nowrap;
+}
+.sort-bar a {
+    color: var(--accent);
+    font-weight: 600;
+}
+@media (max-width: 640px) {
+    .sort-bar {
+        flex-wrap: wrap;
+    }
+    .sort-bar-text {
+        white-space: normal;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sort-bar {
+        animation: none;
+    }
+}
 .chat {
     display: flex;
     flex-direction: column;

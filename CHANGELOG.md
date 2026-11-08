@@ -8,6 +8,20 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-08
+
+### Added
+
+- "Sort now" can be left alone: close the browser, come back later, and the same bar is there with how many files are
+  done of how many, and the time left. The bar sits at the top of every page while the sorter works, not only on Review.
+- A run survives a server restart or a deploy. It is written down when it starts and taken up again by the next start,
+  with the same total and what was left of it.
+
+### Fixed
+
+- The sorter's three workers all started by asking for the same file, so a picture could be classified up to three
+  times and counted each time, which pushed the progress past 100%. They now take turns claiming the next file.
+
 ## [0.11.0] - 2026-11-08
 
 ### Added
