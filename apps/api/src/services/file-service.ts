@@ -1,4 +1,5 @@
 import { sniffMime } from '../lib/sniff.ts';
+import { within } from '../lib/within.ts';
 import { tidyFileName } from '../lib/file-name.ts';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -132,6 +133,7 @@ export const fileService = {
         originalName: string,
         claimedMime: string,
     ): Promise<UploadResult> {
+        stagedPath = within(config.storage.dir, stagedPath);
         try {
             const sha256 = await sha256File(stagedPath);
             const mime = await detectMime(stagedPath, claimedMime);
@@ -166,6 +168,7 @@ export const fileService = {
         onProgress?: (seen: number, total: number) => void,
         categoryId: number | null = null,
     ): Promise<ArchiveResult> {
+        stagedPath = within(config.storage.dir, stagedPath);
         try {
             // Unpacking may not add more than the account has room for (the zip itself is removed afterwards).
             const cap = Math.min(config.zip.maxTotalBytes, await storageService.remaining(userId));

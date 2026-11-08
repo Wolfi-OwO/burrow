@@ -1,8 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { FileText, Folder } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
 import { previewable } from '../components/FilePreview.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
@@ -11,21 +11,29 @@ import { ProtectedImage, Spinner } from '../components/ui.tsx';
 import { api, ApiError, fetchBlob } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
 import { formatBytes } from '../lib/format.ts';
-import type { FileItem, Share } from '../lib/types.ts';
+import type { FileItem, Share, SharedFolder } from '../lib/types.ts';
 
 /** What a share link opens: no sidebar, no account needed for open links, one quiet page of files. */
 export function SharePage(): ReactNode {
     const { token = '' } = useParams();
     const { user } = useAuth();
+    const [params, setParams] = useSearchParams();
+    const folder = /^\d{1,12}$/.test(params.get('f') ?? '') ? (params.get('f') as string) : null;
     const [open, setOpen] = useState<FileItem | null>(null);
     const pages = useInfiniteQuery({
-        queryKey: ['share', token, user?.id ?? 'guest'],
+        queryKey: ['share', token, user?.id ?? 'guest', folder ?? 'root'],
         retry: false,
         initialPageParam: 0,
         queryFn: ({ pageParam }) =>
-            api<{ share: Share; files: FileItem[]; hasMore: boolean }>(
+            api<{
+                share: Share;
+                files: FileItem[];
+                hasMore: boolean;
+                folders: SharedFolder[];
+                trail: SharedFolder[];
+            }>(
                 'GET',
-                `/api/s/${token}?offset=${String(pageParam)}`,
+                `/api/s/${token}?offset=${String(pageParam)}${folder ? `&folder=${folder}` : ''}`,
             ),
         getNextPageParam: (last, all) =>
             last.hasMore ? all.reduce((n, p) => n + p.files.length, 0) : undefined,
@@ -38,6 +46,8 @@ export function SharePage(): ReactNode {
             ? {
                   share: pages.data.pages[0]?.share as Share,
                   files: pages.data.pages.flatMap((p) => p.files),
+                  folders: pages.data.pages[0]?.folders ?? [],
+                  trail: pages.data.pages[0]?.trail ?? [],
               }
             : undefined,
     };
@@ -94,9 +104,55 @@ export function SharePage(): ReactNode {
                 {page.data ? (
                     <>
                         <h1>{page.data.share.name}</h1>
+                        {page.data.trail.length > 1 ? (
+                            <nav className="crumbs" aria-label="Where you are">
+                                {page.data.trail.map((c, i) => (
+                                    <span key={c.id}>
+                                        {i > 0 ? ' / ' : ''}
+                                        {i === (page.data?.trail.length ?? 0) - 1 ? (
+                                            <b>{c.name}</b>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="linklike"
+                                                onClick={() =>
+                                                    setParams(i === 0 ? {} : { f: String(c.id) })
+                                                }
+                                            >
+                                                {c.name}
+                                            </button>
+                                        )}
+                                    </span>
+                                ))}
+                            </nav>
+                        ) : null}
                         <p className="muted small" style={{ marginBottom: 20 }}>
+                            {page.data.folders.length > 0
+                                ? `${String(page.data.folders.length)} folder${page.data.folders.length === 1 ? '' : 's'} · `
+                                : ''}
                             {page.data.files.length} file{page.data.files.length === 1 ? '' : 's'}
                         </p>
+                        {page.data.folders.length > 0 ? (
+                            <div className="grid" style={{ marginBottom: 20 }}>
+                                {page.data.folders.map((f) => (
+                                    <button
+                                        key={f.id}
+                                        className="card"
+                                        onClick={() => setParams({ f: String(f.id) })}
+                                    >
+                                        <span className="thumb">
+                                            <Folder size={34} aria-hidden="true" />
+                                        </span>
+                                        <span className="fname" title={f.name}>
+                                            {f.name}
+                                        </span>
+                                        <span className="meta">
+                                            {f.fileCount} file{f.fileCount === 1 ? '' : 's'}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                         <div className="grid">
                             {page.data.files.map((file) => (
                                 <button

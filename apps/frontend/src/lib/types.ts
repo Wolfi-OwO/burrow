@@ -66,6 +66,13 @@ export interface ShareUser {
 
 export type ShareAccess = 'link' | 'users';
 
+/** A folder inside a shared folder, as a link's public page lists it. */
+export interface SharedFolder {
+    id: number;
+    name: string;
+    fileCount: number;
+}
+
 export interface Share {
     id: string;
     token: string;

@@ -445,13 +445,31 @@ export const fileRepository = {
         return rows.map((r: DatabaseRow) => ({ place: String(r.place), count: Number(r.count) }));
     },
 
-    async typeCounts(userId: string, db: Queryable = getPool()): Promise<Record<string, number>> {
+    /**
+     * How many files of each kind there are, for the whole drive or only inside one folder (with its subfolders), so the
+     * filter bar offers just the kinds that folder holds.
+     */
+    async typeCounts(
+        userId: string,
+        category?: number | 'unsorted',
+        db: Queryable = getPool(),
+    ): Promise<Record<string, number>> {
         const cols = FILE_TYPES.map(
             (t) => `count(*) FILTER (WHERE ${typeCondition(t)})::int AS "${t}"`,
         ).join(', ');
+        const values: unknown[] = [userId];
+        let scope = '';
+        if (category === 'unsorted') {
+            scope = ' AND f.category_id IS NULL';
+        } else if (typeof category === 'number') {
+            values.push(category);
+            scope =
+                ' AND c.path <@ (SELECT path FROM categories WHERE id = $2 AND user_id = f.user_id)';
+        }
         const { rows } = await db.query(
-            `SELECT count(*)::int AS "all", ${cols} FROM files f WHERE f.user_id = $1`,
-            [userId],
+            `SELECT count(*)::int AS "all", ${cols} FROM files f
+             LEFT JOIN categories c ON c.id = f.category_id WHERE f.user_id = $1${scope}`,
+            values,
         );
         return Object.fromEntries(
             Object.entries(rows[0] as DatabaseRow).map(([k, v]) => [k, Number(v)]),

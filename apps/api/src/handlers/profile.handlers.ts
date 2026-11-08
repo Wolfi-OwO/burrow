@@ -1,7 +1,11 @@
 import { rm, stat } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 
 import type { Request } from 'express';
 import sharp from 'sharp';
+
+import { config } from '../config/index.ts';
+import { within } from '../lib/within.ts';
 
 import { toAccount, toPublicProfile } from '../lib/account-view.ts';
 import { blobStore } from '../lib/blob-store.ts';
@@ -35,7 +39,11 @@ export const patchMe = asyncHandler(async (req, res) => {
  * FR-018: the avatar goes through the same blob store as every file, no second storage path. The picture is
  * re-encoded (not stored as sent): that strips metadata and guarantees a small, valid image.
  */
-async function storeAvatar(userId: string, source: string): Promise<ReturnType<typeof toAccount>> {
+async function storeAvatar(
+    userId: string,
+    sourcePath: string,
+): Promise<ReturnType<typeof toAccount>> {
+    const source = within(config.storage.dir, sourcePath);
     const normalized = `${source}.webp`;
     try {
         try {
@@ -62,10 +70,13 @@ async function storeAvatar(userId: string, source: string): Promise<ReturnType<t
 export const putAvatar = asyncHandler(async (req, res) => {
     const staged = req.file;
     if (!staged) throw new BadRequestError('Send the image as the "file" field.');
+    const safe = resolve(staged.path);
+    if (!safe.startsWith(resolve(config.storage.dir) + sep))
+        throw new Error('Path is outside its folder.');
     try {
-        res.json(await storeAvatar(uid(req), staged.path));
+        res.json(await storeAvatar(uid(req), safe));
     } finally {
-        await rm(staged.path, { force: true });
+        await rm(safe, { force: true });
     }
 });
 
