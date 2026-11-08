@@ -15,6 +15,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 
 import { config } from '../config/index.ts';
 import { blobCacheRepository } from '../repository/blob-cache.repository.ts';
+import { decryptStream, encryptStream } from './blob-crypto.ts';
 import { logger } from './logger.ts';
 
 /**
@@ -100,14 +101,16 @@ async function uploadRemote(sha256: string, path: string, mime: string): Promise
     const r = remote();
     if (!r) return;
     const { size } = await stat(path);
+    const key = config.storage.encryptionKey;
     // Upload splits big files into parts (each retried on its own) and sends a small one in a single request.
     await new Upload({
         client: r.client,
         params: {
             Bucket: r.bucket,
             Key: blobKey(sha256),
-            Body: createReadStream(path),
-            ContentType: mime,
+            // With a key the bytes are encrypted on the way out: the bucket never holds anything readable.
+            Body: key ? createReadStream(path).pipe(encryptStream(key)) : createReadStream(path),
+            ContentType: key ? 'application/octet-stream' : mime,
         },
         partSize: Math.max(config.storage.s3.partBytes, Math.ceil(size / 9_000)),
         queueSize: 4,
@@ -134,6 +137,21 @@ function noteUse(sha256: string, size?: number): void {
     utimes(localBlobPath(sha256), new Date(), new Date()).catch(() => undefined);
 }
 
+/**
+ * The plain bytes of a stored object. With an encryption key the object is decrypted as it streams, and a changed or
+ * wrong-key object fails the read at the end instead of being served. The decrypting starts only once the caller has had
+ * the chance to listen: a stream error emitted with nobody listening yet would otherwise crash the process.
+ */
+function plainFrom(stored: Readable): Readable {
+    const key = config.storage.encryptionKey;
+    if (!key) return stored;
+    const out = new PassThrough();
+    setImmediate(() => {
+        pipeline(stored, decryptStream(key), out).catch(() => undefined);
+    });
+    return out;
+}
+
 /** Blobs being fetched into the cache right now, so a second request for one does not write the same file. */
 const filling = new Map<string, Promise<void>>();
 
@@ -144,7 +162,10 @@ async function fetchRemote(sha256: string): Promise<{ body: Readable; size: numb
         const object = await r.client.send(
             new GetObjectCommand({ Bucket: r.bucket, Key: blobKey(sha256) }),
         );
-        return { body: object.Body as Readable, size: Number(object.ContentLength ?? 0) };
+        return {
+            body: plainFrom(object.Body as Readable),
+            size: Number(object.ContentLength ?? 0),
+        };
     } catch (error) {
         const name = (error as { name?: string }).name;
         if (name === 'NoSuchKey' || name === 'NotFound') throw new Error('Blob not found.');
@@ -157,10 +178,11 @@ function fillCache(sha256: string): Promise<void> {
     const running = filling.get(sha256);
     if (running) return running;
     const job = (async () => {
-        const { body } = await fetchRemote(sha256);
         const target = localBlobPath(sha256);
         await mkdir(dirname(target), { recursive: true });
         const part = `${target}.${String(process.pid)}.part`;
+        // The stream is made and used in the same breath (see plainFrom): nothing is awaited in between.
+        const { body } = await fetchRemote(sha256);
         try {
             await pipeline(body, createWriteStream(part));
             await rename(part, target);
@@ -225,14 +247,16 @@ export const blobStore = {
         }
         if (!remote()) throw new Error('Blob not found.');
 
-        const { body, size } = await fetchRemote(sha256);
+        const target = localBlobPath(sha256);
+        await mkdir(dirname(target), { recursive: true });
+        const part = `${target}.${String(process.pid)}.part`;
+        // From here to the listeners below nothing is awaited: the stream is made and used in the same breath, so
+        // an error can never be emitted before someone is there to hear it (see plainFrom).
+        const { body } = await fetchRemote(sha256);
         // Someone else is already filling the cache with this blob: just stream, do not write the same file twice.
         if (filling.has(sha256)) return body;
 
         const out = new PassThrough();
-        const target = localBlobPath(sha256);
-        await mkdir(dirname(target), { recursive: true });
-        const part = `${target}.${String(process.pid)}.part`;
         const file = createWriteStream(part);
         let settle: () => void = () => undefined;
         const job = new Promise<void>((resolve) => {
@@ -249,7 +273,7 @@ export const blobStore = {
         };
         file.on('finish', () => {
             rename(part, target)
-                .then(() => noteUse(sha256, size))
+                .then(async () => noteUse(sha256, (await stat(target)).size))
                 .catch(() => rm(part, { force: true }))
                 .finally(() => {
                     filling.delete(sha256);

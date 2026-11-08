@@ -292,3 +292,96 @@ async function readFileOf(hash: string): Promise<Buffer> {
     const { readFile } = await import('node:fs/promises');
     return readFile(localBlobPath(hash));
 }
+
+describe('encrypting what goes into the bucket', () => {
+    const key = Buffer.alloc(32, 7);
+    const bucketObject = (hash: string): Buffer | undefined =>
+        s3.objects.get(`blobs/${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash}`);
+    let plainKey: Buffer | undefined;
+    beforeEach(() => {
+        plainKey = config.storage.encryptionKey;
+        config.storage.encryptionKey = key;
+    });
+    afterEach(() => {
+        config.storage.encryptionKey = plainKey;
+    });
+
+    it('stores nothing readable in the bucket and reads the file back unchanged', async () => {
+        const secret = Buffer.from(
+            'a private picture, definitely not for the provider '.repeat(100),
+        );
+        const hash = await store(secret);
+        const stored = bucketObject(hash) as Buffer;
+        assert.equal(stored.subarray(0, 8).toString(), 'BURROWv1');
+        assert.ok(
+            !stored.includes('private picture'),
+            'the plain text is not in the stored object',
+        );
+        assert.equal(stored.length, secret.length + 8 + 12 + 16, 'magic, IV, ciphertext, tag');
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(hash));
+        assert.deepEqual(await read(hash), secret);
+    });
+
+    it('uses a new IV for every object, so the same bytes never look the same twice', async () => {
+        const a = await store(bytes(500, 31));
+        s3.objects.delete(`blobs/${a.slice(0, 2)}/${a.slice(2, 4)}/${a}`);
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(a));
+        const first = Buffer.from(bucketObject(a) ?? Buffer.alloc(0));
+        const again = await store(bytes(500, 31));
+        assert.equal(again, a);
+        assert.notDeepEqual(bucketObject(a)?.subarray(8, 20), first.subarray(8, 20));
+    });
+
+    it('refuses an object that was changed in the bucket, and caches nothing of it', async () => {
+        const hash = await store(bytes(40_000, 32));
+        const stored = bucketObject(hash) as Buffer;
+        stored[100] = (stored[100] ?? 0) ^ 0xff;
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(hash));
+        await assert.rejects(() => read(hash), /integrity/);
+        await new Promise((r) => setTimeout(r, 200));
+        assert.equal(await onDisk(hash), false);
+    });
+
+    it('refuses an object read with the wrong key', async () => {
+        const hash = await store(bytes(5_000, 33));
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(hash));
+        config.storage.encryptionKey = Buffer.alloc(32, 9);
+        await assert.rejects(() => read(hash), /integrity/);
+    });
+
+    it('still reads an object stored plain before encryption was switched on', async () => {
+        config.storage.encryptionKey = undefined;
+        const data = bytes(3_000, 34);
+        const hash = await store(data);
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(hash));
+        config.storage.encryptionKey = key;
+        assert.deepEqual(await read(hash), data);
+    });
+
+    it('encrypts a big blob in parts and reads it back', async () => {
+        config.storage.s3.partBytes = 5 * 1024 * 1024;
+        const data = Buffer.alloc(12 * 1024 * 1024);
+        for (let i = 0; i < data.length; i += 4093) data[i] = i % 247;
+        const hash = await store(data);
+        assert.ok(
+            s3.calls.some((c) => c.includes('uploads')),
+            'sent in parts',
+        );
+        const { rm } = await import('node:fs/promises');
+        await rm(localBlobPath(hash));
+        const got = await read(hash);
+        assert.equal(got.length, data.length);
+        assert.equal(sha(got), hash);
+    });
+
+    it('rejects a key that is not 32 bytes', async () => {
+        const { parseKey } = await import('../../src/lib/blob-crypto.ts');
+        assert.throws(() => parseKey(Buffer.alloc(16).toString('base64')), /32 bytes/);
+        assert.equal(parseKey(Buffer.alloc(32, 1).toString('base64')).length, 32);
+    });
+});

@@ -137,10 +137,15 @@ Set it up once:
    (bucket settings, lifecycle) so a deleted or overwritten file can be recovered, and **no default encryption needed**.
 2. Create an **application key restricted to that one bucket** with read and write (and delete). Note the key id, the key and
    the endpoint (`https://s3.<region>.backblazeb2.com`, shown on the bucket page).
-3. On the VPS add to `/opt/burrow/.env`: `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+3. Make the **encryption key** once and keep a copy apart from the server (the password manager): `openssl rand -base64 32`.
+   Every file is encrypted on the VPS with it before it is sent (AES-256-GCM, a new IV per file), so Backblaze only holds
+   bytes it cannot read. **Without the key nobody can read the bucket**, so losing it loses the files. Set it before the
+   first upload to the bucket; changing it later makes the files stored under the old key unreadable (anything stored
+   before encryption was switched on is still read as it is).
+4. On the VPS add to `/opt/burrow/.env`: `BLOB_ENCRYPTION_KEY` and `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
    and `BLOB_CACHE_GB=60` (leave the disk 30 GB for the database, thumbnails, uploads in flight and the other stacks), then
    `docker compose -f docker-compose.prod.yml --env-file .env up -d burrow`.
-4. Watch it copy the existing files: `docker logs burrow-burrow-1 | grep "object store"`. When it says the existing blobs were
+5. Watch it copy the existing files: `docker logs burrow-burrow-1 | grep "object store"`. When it says the existing blobs were
    copied, the bucket holds everything and the disk can shrink to the cache size by itself.
 
 The nightly `backup.sh` copies the files that are on the disk. With a bucket as the store of record the bucket's own version

@@ -8,6 +8,14 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-08
+
+### Added
+
+- Files can be encrypted on the server before they go to the bucket (`BLOB_ENCRYPTION_KEY`, AES-256-GCM, a new IV per
+  file), so the storage provider only holds bytes it cannot read. A changed object or a wrong key fails the read instead
+  of being served; objects stored before encryption was switched on are still readable. See the deploy README.
+
 ## [0.14.0] - 2026-11-08
 
 ### Added
