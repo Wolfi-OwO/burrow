@@ -395,6 +395,7 @@ function ReviewItem({
                 className="pick-box"
                 checked={selected}
                 aria-label={`Select ${file.name}`}
+                title={`Select ${file.name}`}
                 onChange={() => undefined}
                 onClick={(event) => {
                     event.stopPropagation();

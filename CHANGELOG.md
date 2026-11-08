@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.7] - 2026-11-08
+
+### Changed
+
+- Every button and control that shows only an icon (the folder tools, the viewer's close and arrows, the share and upload controls, the theme and account buttons, the send button and more) now tells you what it does when you hover it, not only to screen readers.
+
 ## [0.15.6] - 2026-11-08
 
 ### Fixed

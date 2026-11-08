@@ -14,6 +14,7 @@ export function ThemeToggle({ className = '' }: { className?: string }): ReactNo
             type="button"
             className={`theme-toggle ${className}`.trim()}
             aria-label={`Switch to ${next} mode`}
+            title={`Switch to ${next} mode`}
             data-tip={`Switch to ${next} mode`}
             onClick={() => {
                 document.documentElement.dataset.theme = next;

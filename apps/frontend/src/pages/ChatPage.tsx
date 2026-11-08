@@ -431,6 +431,7 @@ export function ChatPage(): ReactNode {
                         className="chat-send"
                         type="submit"
                         aria-label="Send"
+                        title="Send"
                         disabled={busy || offline || text.trim() === ''}
                     >
                         <ArrowUp size={18} strokeWidth={2.4} />

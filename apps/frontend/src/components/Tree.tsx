@@ -321,6 +321,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     checked={picked.has(node.id) || impliedByPick(node)}
                                     disabled={impliedByPick(node)}
                                     aria-label={`Select ${node.name}`}
+                                    title={`Select ${node.name}`}
                                     onChange={() => undefined}
                                     onClick={(event) => {
                                         event.stopPropagation();
@@ -333,6 +334,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     role="button"
                                     tabIndex={-1}
                                     aria-label={collapsed.has(node.id) ? 'Expand' : 'Collapse'}
+                                    title={collapsed.has(node.id) ? 'Expand' : 'Collapse'}
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         setCollapsed((s) => {
@@ -357,6 +359,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Add a subcategory to ${node.name}`}
+                                        title={`Add a subcategory to ${node.name}`}
                                         onClick={() => setModal({ kind: 'create', parent: node })}
                                     >
                                         <Plus size={14} />
@@ -364,6 +367,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Rename ${node.name}`}
+                                        title={`Rename ${node.name}`}
                                         onClick={() => setModal({ kind: 'rename', node })}
                                     >
                                         <Pencil size={14} />
@@ -371,6 +375,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Move ${node.name}`}
+                                        title={`Move ${node.name}`}
                                         onClick={() => setModal({ kind: 'move', node })}
                                     >
                                         <FolderInput size={14} />
@@ -378,6 +383,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Re-sort ${node.name}`}
+                                        title={`Re-sort ${node.name}`}
                                         onClick={() => setModal({ kind: 'resort', node })}
                                     >
                                         <RotateCcw size={14} />
@@ -385,6 +391,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Share ${node.name}`}
+                                        title={`Share ${node.name}`}
                                         onClick={() => setModal({ kind: 'share', node })}
                                     >
                                         <Share2 size={14} />
@@ -392,6 +399,7 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                     <button
                                         className="tool"
                                         aria-label={`Delete ${node.name}`}
+                                        title={`Delete ${node.name}`}
                                         onClick={() => setModal({ kind: 'delete', node })}
                                     >
                                         <Trash2 size={14} />

@@ -99,7 +99,7 @@ export function Masthead({
 
     return (
         <header className={`mast ${searching ? 'searching' : ''}`}>
-            <Link to="/" className="brand" aria-label="burrow, home">
+            <Link to="/" className="brand" aria-label="burrow, home" title="burrow, home">
                 <Mark size={30} />
                 <span className="brand-name">burrow</span>
             </Link>
@@ -124,6 +124,7 @@ export function Masthead({
                     ref={search}
                     type="search"
                     aria-label="Search your files"
+                    title="Search your files"
                     placeholder="Search files"
                     onFocus={() => setSearching(true)}
                     onBlur={() => setSearching(false)}
@@ -134,6 +135,7 @@ export function Masthead({
                 type="button"
                 className="tool mast-search-open"
                 aria-label="Search your files"
+                title="Search your files"
                 onClick={() => {
                     setSearching(true);
                     window.setTimeout(() => search.current?.focus(), 0);
@@ -209,6 +211,7 @@ function UserMenu(): ReactNode {
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-label="Account menu"
+                title="Account menu"
                 onClick={() => setOpen((v) => !v)}
             >
                 <span className="avatar">

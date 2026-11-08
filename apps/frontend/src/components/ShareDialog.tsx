@@ -80,6 +80,7 @@ function PeoplePicker({
                             <button
                                 type="button"
                                 aria-label={`Remove ${u.displayName}`}
+                                title={`Remove ${u.displayName}`}
                                 onClick={() => onChange(chosen.filter((c) => c.id !== u.id))}
                             >
                                 <X size={12} />
@@ -308,6 +309,7 @@ export function ShareRow({ share, onEdit }: { share: Share; onEdit: () => void }
                 type="button"
                 className="tool"
                 aria-label="Delete link"
+                title="Delete link"
                 onClick={() => remove.mutate()}
             >
                 <Trash2 size={15} />
@@ -374,6 +376,7 @@ export function ShareDialog({
                         value={shareUrl(created.token)}
                         onFocus={(e) => e.target.select()}
                         aria-label="Share link"
+                        title="Share link"
                     />
                     <div className="row">
                         <CopyLink token={created.token} />
