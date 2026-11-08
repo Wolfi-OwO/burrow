@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     ChevronDown,
     ChevronRight,
+    CheckSquare,
     FolderInput,
     Inbox,
     Pencil,
@@ -11,7 +12,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { DragEvent, ReactNode } from 'react';
+import type { DragEvent, MouseEvent, ReactNode } from 'react';
 
 import { api } from '../lib/api.ts';
 import type { CategoryNode } from '../lib/types.ts';
@@ -30,6 +31,7 @@ type Modal =
     | { kind: 'create'; parent: CategoryNode | null }
     | { kind: 'rename'; node: CategoryNode }
     | { kind: 'delete'; node: CategoryNode }
+    | { kind: 'deleteMany' }
     | { kind: 'share'; node: CategoryNode }
     | { kind: 'resort'; node: CategoryNode }
     | { kind: 'move'; node: CategoryNode };
@@ -59,6 +61,52 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                 return hidden !== undefined && n.path.startsWith(`${hidden.path}.`);
             }),
     );
+
+    // Select mode: tick several folders (shift-click takes a range of the visible rows) and delete them together.
+    const [selecting, setSelecting] = useState(false);
+    const [picked, setPicked] = useState<Set<number>>(new Set());
+    const [anchor, setAnchor] = useState<number | null>(null);
+    /** The folders that go when `ids` are deleted: each with everything below it. */
+    const impact = (
+        ids: Iterable<number>,
+    ): { tops: CategoryNode[]; folders: number; files: number } => {
+        const wanted = new Set(ids);
+        const chosen = nodes.filter((n) => wanted.has(n.id));
+        const tops = chosen.filter(
+            (n) => !chosen.some((o) => o.id !== n.id && n.path.startsWith(`${o.path}.`)),
+        );
+        const going = nodes.filter((n) =>
+            tops.some((t) => n.id === t.id || n.path.startsWith(`${t.path}.`)),
+        );
+        return {
+            tops,
+            folders: going.length,
+            files: going.reduce((sum, n) => sum + n.fileCount, 0),
+        };
+    };
+    const pick = (node: CategoryNode, event: { shiftKey: boolean }): void => {
+        const next = new Set(picked);
+        const from = anchor === null ? -1 : visible.findIndex((n) => n.id === anchor);
+        const to = visible.findIndex((n) => n.id === node.id);
+        if (event.shiftKey && from !== -1 && to !== -1) {
+            const [lo, hi] = from < to ? [from, to] : [to, from];
+            for (const n of visible.slice(lo, hi + 1)) next.add(n.id);
+        } else {
+            if (next.has(node.id)) next.delete(node.id);
+            else next.add(node.id);
+            setAnchor(node.id);
+        }
+        setPicked(next);
+    };
+    const stopSelecting = (): void => {
+        setSelecting(false);
+        setPicked(new Set());
+        setAnchor(null);
+    };
+    /** True for a row whose folder is not ticked itself but goes with a ticked folder above it. */
+    const impliedByPick = (node: CategoryNode): boolean =>
+        !picked.has(node.id) &&
+        nodes.some((o) => picked.has(o.id) && node.path.startsWith(`${o.path}.`));
 
     const refresh = (): void => {
         void client.invalidateQueries({ queryKey: ['tree'] });
@@ -96,12 +144,46 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
         onSuccess: refresh,
         onError: fail,
     });
+    const removed = (r: { categories: number; files: number }): void => {
+        toast.say(
+            `Deleted ${String(r.categories)} categor${r.categories === 1 ? 'y' : 'ies'}. ${
+                r.files > 0
+                    ? `${String(r.files)} file${r.files === 1 ? '' : 's'} moved up, none deleted.`
+                    : 'No files were in them.'
+            }`,
+        );
+    };
     const remove = useMutation({
-        mutationFn: (v: { id: number; onNonEmpty: 'block' | 'moveUp' }) =>
-            api('DELETE', `/api/categories/${String(v.id)}?onNonEmpty=${v.onNonEmpty}`),
-        onSuccess: () => {
+        mutationFn: (node: CategoryNode) =>
+            api<{ categories: number; files: number }>(
+                'DELETE',
+                `/api/categories/${String(node.id)}?onNonEmpty=subtree`,
+            ),
+        onSuccess: (r, node) => {
             refresh();
             setModal(null);
+            removed(r);
+            if (selected === node.id) onSelect(null);
+        },
+        onError: fail,
+    });
+    const removeMany = useMutation({
+        mutationFn: (ids: number[]) =>
+            api<{ categories: number; files: number }>('POST', '/api/categories/delete', { ids }),
+        onSuccess: (r, ids) => {
+            refresh();
+            setModal(null);
+            stopSelecting();
+            removed(r);
+            if (typeof selected === 'number' && impact(ids).tops.length > 0) {
+                const gone = new Set(impact(ids).tops.map((t) => t.path));
+                const current = nodes.find((n) => n.id === selected);
+                if (
+                    current &&
+                    [...gone].some((p) => current.path === p || current.path.startsWith(`${p}.`))
+                )
+                    onSelect(null);
+            }
         },
         onError: fail,
     });
@@ -142,7 +224,44 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                 >
                     <Plus size={15} /> New category
                 </button>
+                {nodes.length > 0 ? (
+                    <button
+                        className={`btn sm ghost${selecting ? ' on' : ''}`}
+                        aria-pressed={selecting}
+                        onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+                    >
+                        <CheckSquare size={15} /> {selecting ? 'Done' : 'Select'}
+                    </button>
+                ) : null}
             </div>
+            {selecting ? (
+                <div className="tree-bulk" role="toolbar" aria-label="Selected categories">
+                    <span className="small">
+                        {picked.size === 0
+                            ? 'Tick folders; shift-click takes a range.'
+                            : `${String(picked.size)} selected`}
+                    </span>
+                    <button
+                        className="btn sm ghost"
+                        onClick={() =>
+                            setPicked(
+                                picked.size === visible.length
+                                    ? new Set()
+                                    : new Set(visible.map((n) => n.id)),
+                            )
+                        }
+                    >
+                        {picked.size === visible.length ? 'None' : 'All'}
+                    </button>
+                    <button
+                        className="btn sm danger"
+                        disabled={picked.size === 0}
+                        onClick={() => setModal({ kind: 'deleteMany' })}
+                    >
+                        <Trash2 size={14} /> Delete
+                    </button>
+                </div>
+            ) : null}
             <nav className="tree" aria-label="Categories">
                 <button
                     className={`room ${selected === null ? 'active' : ''}`}
@@ -171,23 +290,44 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                         className={node.depth > 0 ? 'tunnel' : undefined}
                     >
                         <div
-                            className={`room ${selected === node.id ? 'active' : ''} ${over === node.id ? 'drop' : ''}`}
-                            draggable
+                            className={`room ${selected === node.id ? 'active' : ''} ${over === node.id ? 'drop' : ''}${picked.has(node.id) ? ' picked' : ''}${impliedByPick(node) ? ' implied' : ''}`}
+                            draggable={!selecting}
                             onDragStart={(event) =>
                                 event.dataTransfer.setData(DRAG_CATEGORY, String(node.id))
                             }
                             {...dropProps(node.id)}
-                            onClick={() => onSelect(node.id)}
+                            onClick={(event: MouseEvent) =>
+                                selecting ? pick(node, event) : onSelect(node.id)
+                            }
+                            onMouseDown={(event) => {
+                                // No text selection while shift-clicking a range.
+                                if (selecting && event.shiftKey) event.preventDefault();
+                            }}
                             role="button"
                             tabIndex={0}
                             onKeyDown={(event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
                                     event.preventDefault();
-                                    onSelect(node.id);
+                                    if (selecting) pick(node, event);
+                                    else onSelect(node.id);
                                 }
                             }}
                             aria-current={selected === node.id}
                         >
+                            {selecting ? (
+                                <input
+                                    type="checkbox"
+                                    className="pick-box"
+                                    checked={picked.has(node.id) || impliedByPick(node)}
+                                    disabled={impliedByPick(node)}
+                                    aria-label={`Select ${node.name}`}
+                                    onChange={() => undefined}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        pick(node, event);
+                                    }}
+                                />
+                            ) : null}
                             {hasChildren.has(node.id) ? (
                                 <span
                                     role="button"
@@ -212,50 +352,52 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                                 <span style={{ width: 15 }} />
                             )}
                             <span className="name">{node.name}</span>
-                            <span className="acts" onClick={(event) => event.stopPropagation()}>
-                                <button
-                                    className="tool"
-                                    aria-label={`Add a subcategory to ${node.name}`}
-                                    onClick={() => setModal({ kind: 'create', parent: node })}
-                                >
-                                    <Plus size={14} />
-                                </button>
-                                <button
-                                    className="tool"
-                                    aria-label={`Rename ${node.name}`}
-                                    onClick={() => setModal({ kind: 'rename', node })}
-                                >
-                                    <Pencil size={14} />
-                                </button>
-                                <button
-                                    className="tool"
-                                    aria-label={`Move ${node.name}`}
-                                    onClick={() => setModal({ kind: 'move', node })}
-                                >
-                                    <FolderInput size={14} />
-                                </button>
-                                <button
-                                    className="tool"
-                                    aria-label={`Re-sort ${node.name}`}
-                                    onClick={() => setModal({ kind: 'resort', node })}
-                                >
-                                    <RotateCcw size={14} />
-                                </button>
-                                <button
-                                    className="tool"
-                                    aria-label={`Share ${node.name}`}
-                                    onClick={() => setModal({ kind: 'share', node })}
-                                >
-                                    <Share2 size={14} />
-                                </button>
-                                <button
-                                    className="tool"
-                                    aria-label={`Delete ${node.name}`}
-                                    onClick={() => setModal({ kind: 'delete', node })}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </span>
+                            {selecting ? null : (
+                                <span className="acts" onClick={(event) => event.stopPropagation()}>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Add a subcategory to ${node.name}`}
+                                        onClick={() => setModal({ kind: 'create', parent: node })}
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Rename ${node.name}`}
+                                        onClick={() => setModal({ kind: 'rename', node })}
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Move ${node.name}`}
+                                        onClick={() => setModal({ kind: 'move', node })}
+                                    >
+                                        <FolderInput size={14} />
+                                    </button>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Re-sort ${node.name}`}
+                                        onClick={() => setModal({ kind: 'resort', node })}
+                                    >
+                                        <RotateCcw size={14} />
+                                    </button>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Share ${node.name}`}
+                                        onClick={() => setModal({ kind: 'share', node })}
+                                    >
+                                        <Share2 size={14} />
+                                    </button>
+                                    <button
+                                        className="tool"
+                                        aria-label={`Delete ${node.name}`}
+                                        onClick={() => setModal({ kind: 'delete', node })}
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </span>
+                            )}
                             <span className="n">{node.fileCount || ''}</span>
                         </div>
                     </div>
@@ -328,28 +470,28 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
                 />
             ) : null}
             {modal?.kind === 'delete' ? (
-                <Dialog title={`Delete "${modal.node.name}"?`} onClose={() => setModal(null)}>
-                    <p className="muted">
-                        {modal.node.fileCount > 0 || hasChildren.has(modal.node.id)
-                            ? 'It is not empty. Its subcategories and files can move up one level, or you can cancel and empty it yourself.'
-                            : 'It is empty.'}
-                    </p>
-                    <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        <button className="btn ghost" onClick={() => setModal(null)}>
-                            Cancel
-                        </button>
-                        <button
-                            className="btn danger"
-                            onClick={() =>
-                                remove.mutate({ id: modal.node.id, onNonEmpty: 'moveUp' })
-                            }
-                        >
-                            {modal.node.fileCount > 0 || hasChildren.has(modal.node.id)
-                                ? 'Delete and move contents up'
-                                : 'Delete'}
-                        </button>
-                    </div>
-                </Dialog>
+                <DeleteDialog
+                    title={`Delete "${modal.node.name}"?`}
+                    impact={impact([modal.node.id])}
+                    parentName={nodes.find((n) => n.id === modal.node.parentId)?.name ?? null}
+                    busy={remove.isPending}
+                    confirmLabel={
+                        impact([modal.node.id]).folders > 1 ? 'Delete with subcategories' : 'Delete'
+                    }
+                    onCancel={() => setModal(null)}
+                    onConfirm={() => remove.mutate(modal.node)}
+                />
+            ) : null}
+            {modal?.kind === 'deleteMany' ? (
+                <DeleteDialog
+                    title={`Delete ${String(picked.size)} categor${picked.size === 1 ? 'y' : 'ies'}?`}
+                    impact={impact(picked)}
+                    parentName={null}
+                    busy={removeMany.isPending}
+                    confirmLabel="Delete them"
+                    onCancel={() => setModal(null)}
+                    onConfirm={() => removeMany.mutate([...picked])}
+                />
             ) : null}
         </>
     );
@@ -396,6 +538,59 @@ function MoveDialog(props: {
                     onClick={() => props.onMove(target === '' ? null : Number(target))}
                 >
                     Move
+                </button>
+            </div>
+        </Dialog>
+    );
+}
+
+/** What deleting would take with it, said before it happens: folders, and where the files go (none is deleted). */
+function DeleteDialog({
+    title,
+    impact,
+    parentName,
+    busy,
+    confirmLabel,
+    onCancel,
+    onConfirm,
+}: {
+    title: string;
+    impact: { tops: CategoryNode[]; folders: number; files: number };
+    parentName: string | null;
+    busy: boolean;
+    confirmLabel: string;
+    onCancel: () => void;
+    onConfirm: () => void;
+}): ReactNode {
+    const below = impact.folders - impact.tops.length;
+    const single = impact.tops.length === 1 ? impact.tops[0] : undefined;
+    const destination = single
+        ? single.parentId === null
+            ? 'Unsorted'
+            : `"${parentName ?? 'the folder above'}"`
+        : 'the folder above each one, or Unsorted';
+    return (
+        <Dialog title={title} onClose={onCancel}>
+            <p>
+                {impact.folders === 1
+                    ? 'This folder will be deleted.'
+                    : `${String(impact.folders)} folders will be deleted${
+                          below > 0
+                              ? `: the ${String(impact.tops.length)} you chose and the ${String(below)} subcategor${below === 1 ? 'y' : 'ies'} inside ${impact.tops.length === 1 ? 'it' : 'them'}.`
+                              : '.'
+                      }`}
+            </p>
+            <p className="muted">
+                {impact.files > 0
+                    ? `The ${String(impact.files)} file${impact.files === 1 ? '' : 's'} in ${impact.folders === 1 ? 'it' : 'them'} ${impact.files === 1 ? 'is' : 'are'} not deleted: ${impact.files === 1 ? 'it moves' : 'they move'} to ${destination}.`
+                    : 'There are no files in it.'}
+            </p>
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+                <button className="btn ghost" onClick={onCancel}>
+                    Cancel
+                </button>
+                <button className="btn danger" disabled={busy} onClick={onConfirm}>
+                    {confirmLabel}
                 </button>
             </div>
         </Dialog>

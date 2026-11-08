@@ -13,6 +13,14 @@ function mapDuplicate(error: unknown): never {
     throw error;
 }
 
+/** What removing folders took with it. */
+export interface RemovedTree {
+    /** Folders removed, the ones asked for and every folder below them. */
+    categories: number;
+    /** Files that moved up (to the parent of the removed folder, or Unsorted). None is deleted. */
+    files: number;
+}
+
 export const categoryService = {
     /** @returns The user's whole tree in path order. */
     tree(userId: string): Promise<CategoryNode[]> {
@@ -107,5 +115,49 @@ export const categoryService = {
             await categoryRepository.refileFiles(userId, id, node.parentId, tx);
             await categoryRepository.remove(userId, id, tx);
         });
+    },
+
+    /**
+     * Removes folders together with every folder below them, in one transaction. The files in them are not deleted:
+     * they move up to the parent of the folder that was removed, or to Unsorted when that was a top-level folder.
+     * Asking for a folder and one of its descendants in the same call is fine; the descendant goes with its folder.
+     *
+     * @throws {NotFoundError} When any id is not the user's (nothing is removed then).
+     */
+    async removeTree(userId: string, ids: number[]): Promise<RemovedTree> {
+        const all = await categoryRepository.listAll(userId);
+        const byId = new Map(all.map((c) => [c.id, c]));
+        const asked = [...new Set(ids)];
+        for (const id of asked) if (!byId.has(id)) throw new NotFoundError('Category not found.');
+        // Only the topmost of the folders asked for matter; the rest are inside one of them.
+        const tops = asked
+            .map((id) => byId.get(id) as Category)
+            .filter(
+                (c) =>
+                    !asked.some((other) => {
+                        const parent = byId.get(other) as Category;
+                        return other !== c.id && c.path.startsWith(`${parent.path}.`);
+                    }),
+            );
+
+        const result: RemovedTree = { categories: 0, files: 0 };
+        await getPool().transaction(async (tx) => {
+            for (const top of tops) {
+                result.files += await categoryRepository.refileSubtree(
+                    userId,
+                    top.id,
+                    top.parentId,
+                    tx,
+                );
+                for (const id of await categoryRepository.subtreeIdsDeepestFirst(
+                    userId,
+                    top.id,
+                    tx,
+                )) {
+                    if (await categoryRepository.remove(userId, id, tx)) result.categories += 1;
+                }
+            }
+        });
+        return result;
     },
 };

@@ -10,8 +10,16 @@ first release is cut.
 
 ## [0.12.0] - 2026-11-08
 
+### Changed
+
+- Deleting a category now deletes the categories inside it too, in one step. The files in them are never deleted: they
+  move up to the parent of the deleted folder (or to Unsorted for a top-level one). The dialog says how many folders and
+  files are affected before you confirm. The assistant's "remove folder" follows the same rule.
+
 ### Added
 
+- Select several categories (the new Select button above the tree; click, or shift-click for a range) and delete them
+  together. A folder ticked together with its own subfolder is counted once.
 - The assistant can also unsort a folder or everything, remove a folder or all folders, and write files into the
   drive: Markdown, plain text, CSV, SVG drawings, and PlantUML, Mermaid or Graphviz diagrams. Anything that changes
   or removes what is there waits as a card with "Do it" and "Keep as it is" until you answer; nothing is deleted (a

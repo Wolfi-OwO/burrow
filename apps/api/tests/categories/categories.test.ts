@@ -3,6 +3,8 @@ import { after, beforeEach, describe, it } from 'node:test';
 
 import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../helpers.ts';
 
+after(closeServer);
+
 interface Node {
     id: number;
     name: string;
@@ -22,7 +24,6 @@ const tree = async (token: string): Promise<Node[]> =>
 
 describe('category tree', () => {
     beforeEach(resetDatabase);
-    after(closeServer);
 
     it('creates nodes at any depth and returns them parent-before-child (FR-010, FR-013)', async () => {
         const { token } = await registerOwner();
@@ -215,6 +216,134 @@ describe('category tree', () => {
         assert.equal(
             (await api('PATCH', '/api/categories/abc', { token, body: { name: 'Nope' } })).status,
             404,
+        );
+    });
+});
+
+interface Setup {
+    furry: number;
+    sfw: number;
+    wolf: number;
+    nsfw: number;
+    nature: number;
+    wolfFile: string;
+    sfwFile: string;
+    natureFile: string;
+}
+
+describe('deleting folders with everything below them', () => {
+    beforeEach(resetDatabase);
+
+    /** Furry > SFW > WOLF, Furry > NSFW, Nature, with one file in WOLF, one in SFW and one in Nature. */
+    async function setup(token: string): Promise<Setup> {
+        const furry = await make(token, 'Furry');
+        const sfw = await make(token, 'SFW', furry);
+        const wolf = await make(token, 'WOLF', sfw);
+        const nsfw = await make(token, 'NSFW', furry);
+        const nature = await make(token, 'Nature');
+        const put = async (name: string, seed: number, category: number): Promise<string> => {
+            const id = (await upload(token, name, await png(seed))).json.file.id as string;
+            await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: category } });
+            return id;
+        };
+        return {
+            furry,
+            sfw,
+            wolf,
+            nsfw,
+            nature,
+            wolfFile: await put('w.png', 1, wolf),
+            sfwFile: await put('s.png', 2, sfw),
+            natureFile: await put('n.png', 3, nature),
+        };
+    }
+    const where = async (token: string, id: string): Promise<number | null> =>
+        (await api('GET', `/api/files/${id}`, { token })).json.categoryId as number | null;
+
+    it('removes the folder and all folders below it, and moves their files up to the parent', async () => {
+        const { token } = await registerOwner();
+        const t = await setup(token);
+        const reply = await api('DELETE', `/api/categories/${String(t.sfw)}?onNonEmpty=subtree`, {
+            token,
+        });
+        assert.equal(reply.status, 200);
+        assert.deepEqual(reply.json, { categories: 2, files: 2 });
+        assert.deepEqual(
+            (await tree(token)).map((n) => n.name),
+            ['Furry', 'NSFW', 'Nature'],
+        );
+        assert.equal(
+            await where(token, t.wolfFile),
+            t.furry,
+            'the file from two levels down is in the parent',
+        );
+        assert.equal(await where(token, t.sfwFile), t.furry);
+        assert.equal(await where(token, t.natureFile), t.nature, 'other folders are untouched');
+    });
+
+    it('sends the files of a removed top-level folder to Unsorted, and deletes none', async () => {
+        const { token } = await registerOwner();
+        const t = await setup(token);
+        const reply = await api('DELETE', `/api/categories/${String(t.furry)}?onNonEmpty=subtree`, {
+            token,
+        });
+        assert.deepEqual(reply.json, { categories: 4, files: 2 });
+        assert.equal(await where(token, t.wolfFile), null);
+        assert.equal(await where(token, t.sfwFile), null);
+        assert.equal(
+            ((await api('GET', '/api/files?limit=10', { token })).json.files as unknown[]).length,
+            3,
+        );
+    });
+
+    it('deletes several at once, a folder and its own descendant in the same request counted once', async () => {
+        const { token } = await registerOwner();
+        const t = await setup(token);
+        const reply = await api('POST', '/api/categories/delete', {
+            token,
+            body: { ids: [t.furry, t.wolf, t.nature, t.furry] },
+        });
+        assert.equal(reply.status, 200);
+        assert.deepEqual(reply.json, { categories: 5, files: 3 });
+        assert.deepEqual(await tree(token), []);
+        assert.equal(
+            ((await api('GET', '/api/files?limit=10', { token })).json.files as unknown[]).length,
+            3,
+        );
+    });
+
+    it('removes nothing when one of the ids is not yours, and refuses an empty or oversized list', async () => {
+        const { token } = await registerOwner();
+        const other = (
+            await api('POST', '/api/auth/register', {
+                body: { username: 'other', password: 'correct horse battery' },
+            })
+        ).json.accessToken as string;
+        const mine = await make(token, 'Mine');
+        const theirs = await make(other, 'Theirs');
+        assert.equal(
+            (await api('POST', '/api/categories/delete', { token, body: { ids: [mine, theirs] } }))
+                .status,
+            404,
+        );
+        assert.equal((await tree(token)).length, 1, 'my folder is still there');
+        assert.equal((await tree(other)).length, 1);
+        assert.equal(
+            (await api('POST', '/api/categories/delete', { token, body: { ids: [] } })).status,
+            400,
+        );
+        assert.equal(
+            (
+                await api('POST', '/api/categories/delete', {
+                    token,
+                    body: { ids: Array.from({ length: 501 }, (_, i) => i + 1) },
+                })
+            ).status,
+            400,
+        );
+        assert.equal(
+            (await api('POST', '/api/categories/delete', { body: { ids: [mine] } })).status,
+            401,
         );
     });
 });
