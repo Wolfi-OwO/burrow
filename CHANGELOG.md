@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-08
+
+### Fixed
+
+- The assistant page no longer scrolls as a whole on wide screens; only the conversation scrolls and the message box stays in view.
+
 ## [0.15.0] - 2026-11-08
 
 ### Added

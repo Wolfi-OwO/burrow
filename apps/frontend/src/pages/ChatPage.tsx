@@ -300,7 +300,7 @@ export function ChatPage(): ReactNode {
     const offline = state.data !== undefined && (!state.data.enabled || !state.data.ready);
 
     return (
-        <>
+        <div className="chat-page">
             <header className="page-head">
                 <div>
                     <p className="kicker">Talk it through</p>
@@ -444,6 +444,6 @@ export function ChatPage(): ReactNode {
                     onClose={() => setOpened(null)}
                 />
             ) : null}
-        </>
+        </div>
     );
 }
