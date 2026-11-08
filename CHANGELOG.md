@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-11-08
+
+### Security
+
+- The account export is written with `yazl` instead of `archiver`, which removes the vulnerable `glob`/`minimatch` chain from the shipped dependencies; `npm audit --omit=dev` is clean. The export also opens one file at a time now.
+- Updated `re2js` (a lint-only dependency) to the patched release.
+
 ## [0.15.3] - 2026-11-08
 
 ### Fixed

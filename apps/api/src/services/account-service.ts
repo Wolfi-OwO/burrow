@@ -1,7 +1,8 @@
-import type { Writable } from 'node:stream';
+import { once } from 'node:events';
+import type { Readable, Writable } from 'node:stream';
 
-import archiver from 'archiver';
 import argon2 from 'argon2';
+import yazl from 'yazl';
 
 import type { DatabaseRow } from '../database/connection.ts';
 import { getPool } from '../database/connection.ts';
@@ -72,17 +73,25 @@ export const accountService = {
                 return parts.length > 0 ? parts.join('/') : 'Unsorted';
             };
 
-            const zip = archiver('zip', { store: true });
+            const zip = new yazl.ZipFile();
             const finished = new Promise<void>((resolve, reject) => {
-                zip.on('error', reject);
+                zip.outputStream.on('error', reject);
                 out.on('error', reject);
                 out.on('close', resolve);
                 out.on('finish', resolve);
             });
-            zip.pipe(out);
+            zip.outputStream.pipe(out);
+            // Entries are stored, not compressed: pictures and archives do not shrink, and it keeps the export fast.
+            const addText = (text: string, name: string): void =>
+                zip.addBuffer(Buffer.from(text), name, { compress: false });
+            // One file at a time: the next blob is opened only after the previous one has been written in full.
+            const addStream = async (stream: Readable, name: string): Promise<void> => {
+                zip.addReadStream(stream, name, { compress: false });
+                await once(stream, 'end');
+            };
 
             const json = (value: unknown): string => JSON.stringify(value, null, 2);
-            zip.append(
+            addText(
                 json({
                     exportedAt: new Date().toISOString(),
                     account: {
@@ -97,11 +106,11 @@ export const accountService = {
                     },
                     signInMethods: identities.rows,
                 }),
-                { name: 'account.json' },
+                'account.json',
             );
-            zip.append(json(categories.rows), { name: 'categories.json' });
+            addText(json(categories.rows), 'categories.json');
             // What was said to the assistant and what it taught the sorter are the person's data too.
-            zip.append(
+            addText(
                 json({
                     messages: (
                         await getPool().query(
@@ -116,7 +125,7 @@ export const accountService = {
                         )
                     ).rows,
                 }),
-                { name: 'assistant.json' },
+                'assistant.json',
             );
 
             const seen = new Set<string>();
@@ -129,26 +138,25 @@ export const accountService = {
                 seen.add(entry.toLowerCase());
                 return { row: f, exportPath: entry };
             });
-            zip.append(json(entries.map((e) => ({ ...e.row, exportPath: e.exportPath }))), {
-                name: 'files.json',
-            });
+            addText(
+                json(entries.map((e) => ({ ...e.row, exportPath: e.exportPath }))),
+                'files.json',
+            );
 
             for (const { row, exportPath } of entries) {
+                let blob: Readable | null = null;
                 try {
-                    zip.append(await blobStore.open(row.blob_sha256 as string), {
-                        name: exportPath,
-                    });
+                    blob = await blobStore.open(row.blob_sha256 as string);
                 } catch {
                     // A blob that cannot be read must not abort the whole export: say so inside the archive instead.
-                    zip.append(
+                    addText(
                         `The stored bytes of this file could not be read: ${row.id as string}\n`,
-                        {
-                            name: `${exportPath}.MISSING.txt`,
-                        },
+                        `${exportPath}.MISSING.txt`,
                     );
                 }
+                if (blob) await addStream(blob, exportPath);
             }
-            await zip.finalize();
+            zip.end();
             await finished;
         } finally {
             exporting.delete(userId);
