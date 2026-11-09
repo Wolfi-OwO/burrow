@@ -12,6 +12,7 @@ import {
 import { llmHealthy, streamCompletion } from '../lib/llm-client.ts';
 import type { LlmMessage } from '../lib/llm-client.ts';
 import { logger } from '../lib/logger.ts';
+import { visionClient } from '../lib/vision-client.ts';
 import { ReplyStream } from '../lib/reply-stream.ts';
 import type { Category } from '../models/category.model.ts';
 import { categoryRepository } from '../repository/category.repository.ts';
@@ -47,6 +48,7 @@ const TURN_SCHEMA = {
                             'create_category',
                             'rename_category',
                             'add_hint',
+                            'add_matching',
                             'unsort_category',
                             'unsort_all',
                             'remove_category',
@@ -124,6 +126,7 @@ export function systemPrompt(
         '- create_category: make a folder. "name" is only the folder\'s own short name, never a path and never with ">" in it. "parent" is "" (the top level) unless the person said where it goes; then it is the name of that folder, existing or created earlier in the same list.',
         '- rename_category: give the folder "name" a new name, written in "phrase" (again only the short name, no ">"). The folder stays where it is.',
         '- add_hint: teach the sorter what belongs in an existing folder. "name" is that folder, "phrase" is a short English description of a typical picture in it, such as "an orange tabby cat on a sofa". The sorter reads pictures in English only.',
+        '- add_matching: find the pictures that look like a description and put them in a folder. "name" is the folder (made when it does not exist yet, inside "parent" when the person said where), "phrase" is a short English description of what the pictures show, such as "a brown dog on a beach" or "snowy mountains". Use it when the person asks to find, collect or put certain pictures into a folder. The person is shown how many pictures matched and confirms before anything moves.',
         '- unsort_category: send every file of the folder "name" (and its subfolders) back to Unsorted. The folder stays.',
         '- unsort_all: send every file of the drive back to Unsorted. "name" is "".',
         '- remove_category: remove the folder "name" together with every folder below it. Their files move up to the parent folder (or Unsorted); no file is deleted.',
@@ -142,6 +145,7 @@ export function systemPrompt(
         '{"reply":"Erledigt, ich habe die Ordner Hunde und Katzen angelegt.","actions":[{"type":"create_category","name":"Hunde","parent":"","phrase":"","content":""},{"type":"create_category","name":"Katzen","parent":"","phrase":"","content":""}]}',
         'Person: Pets is for my dog Rex, a brown labrador.',
         '{"reply":"Renamed, it still sits inside Nature.","actions":[{"type":"rename_category","name":"Nature > Kals am Großglockner","parent":"","phrase":"Kals am Großglockner","content":""}]}',
+        '{"reply":"I looked for them; confirm below and they move into Dogs.","actions":[{"type":"add_matching","name":"Dogs","parent":"","phrase":"a dog","content":""}]}',
         '{"reply":"Got it, the sorter will look for brown labradors in Pets.","actions":[{"type":"add_hint","name":"Pets","parent":"","phrase":"a brown labrador dog","content":""}]}',
         'Person: Unsort everything and then remove all folders.',
         '{"reply":"Both are ready below. Confirm them in this order and your files stay, just unsorted.","actions":[{"type":"unsort_all","name":"","parent":"","phrase":"","content":""},{"type":"remove_all_categories","name":"","parent":"","phrase":"","content":""}]}',
@@ -283,6 +287,67 @@ async function propose(
     });
 }
 
+/**
+ * Finds the pictures that look like a description (a CLIP text embedding against the stored picture embeddings) and
+ * offers to file them in a folder. Nothing moves until the person confirms; the exact pictures found are kept on the
+ * card so the yes moves those and not whatever a later search would return.
+ */
+async function proposeMatching(
+    userId: string,
+    raw: RawAction,
+    name: string,
+    pool: Category[],
+    done: (action: ChatAction) => ChatAction,
+): Promise<ChatAction> {
+    const phrase = clean(raw.phrase, 120);
+    const label = plainName(name);
+    const skip = (detail: string): ChatAction =>
+        done({ type: 'add_matching', status: 'skipped', label, detail });
+    if (phrase.length < 3) return skip('It was not clear what the pictures should show.');
+    let vector: number[];
+    try {
+        vector = await visionClient.embedText(phrase);
+    } catch (error) {
+        logger.warn({ err: error }, 'picture search is not available');
+        return skip('The picture search is not available right now.');
+    }
+    const target = find(pool, name);
+    const found = await fileRepository.nearest(userId, vector, target?.id ?? null, config.find.max);
+    const best = found[0]?.similarity ?? 0;
+    const floor = Math.max(config.find.minSimilarity, best - config.find.window);
+    const hits = found.filter((f) => f.similarity >= floor);
+    if (hits.length === 0) return skip(`No picture looks like "${phrase}".`);
+
+    let categoryId = target?.id;
+    let made = false;
+    if (categoryId === undefined) {
+        const created = await perform(
+            userId,
+            { type: 'create_category', name, parent: raw.parent, phrase: '', content: '' },
+            pool,
+            () => undefined,
+        );
+        if (created.categoryId === undefined)
+            return skip(created.detail ?? 'The folder could not be made.');
+        categoryId = created.categoryId;
+        made = created.status === 'done';
+    }
+    const fresh = hits.filter((f) => f.categoryId === null).length;
+    const elsewhere = hits.length - fresh;
+    return done({
+        type: 'add_matching',
+        status: 'pending',
+        label: target?.name ?? label,
+        detail: `${plural(hits.length, 'picture', 'pictures')} that look like "${phrase}" go into it${
+            elsewhere > 0
+                ? ` (${String(fresh)} from Unsorted, ${String(elsewhere)} from other folders)`
+                : ''
+        }.${made ? ' The folder was made.' : ''}`,
+        categoryId,
+        fileIds: hits.map((f) => f.id),
+    });
+}
+
 /** Carries out a confirmed action, on the asking person's own data only. */
 async function execute(userId: string, action: ChatAction): Promise<ChatAction> {
     switch (action.type) {
@@ -292,6 +357,23 @@ async function execute(userId: string, action: ChatAction): Promise<ChatAction> 
                 ...action,
                 status: 'done',
                 detail: `${plural(n, 'file', 'files')} back in Unsorted.`,
+            };
+        }
+        case 'add_matching': {
+            if (
+                action.categoryId === undefined ||
+                !(await categoryRepository.findById(userId, action.categoryId))
+            )
+                return { ...action, status: 'skipped', detail: 'The folder is gone.' };
+            const n = await fileRepository.setCategoryMany(
+                userId,
+                action.fileIds ?? [],
+                action.categoryId,
+            );
+            return {
+                ...action,
+                status: 'done',
+                detail: `${plural(n, 'picture', 'pictures')} filed.`,
             };
         }
         case 'unsort_category': {
@@ -527,6 +609,7 @@ export async function perform(
         }
     }
 
+    if (raw.type === 'add_matching') return proposeMatching(userId, raw, name, pool, done);
     if (raw.type === 'create_file')
         return writeFileAction(userId, raw, clean(raw.name, 120), pool, done);
     if (raw.type !== 'add_hint') return propose(userId, raw.type, name, pool, done);

@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-09
+
+### Added
+
+- Tell the assistant to find certain pictures and put them in a folder ("put all the dog pictures into Dogs"). It matches your description against the pictures with the same CLIP model that sorts them, shows a card with how many matched (and a strip of thumbnails), and moves exactly those pictures only after you confirm. A folder that does not exist yet is made first; nothing is made when nothing matches. The vision service gained `POST /embed-text` for this. `FIND_MIN_SIMILARITY`, `FIND_WINDOW` and `FIND_MAX` tune how strict the match is.
+
 ## [0.15.9] - 2026-11-09
 
 ### Changed

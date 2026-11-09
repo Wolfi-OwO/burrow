@@ -56,6 +56,17 @@ async def embed(file: Annotated[UploadFile, File()]) -> EmbedResponse:
     return EmbedResponse(embedding=vector.astype("float32").tolist())
 
 
+@app.post("/embed-text", response_model=EmbedResponse, dependencies=[Depends(require_service_token)])
+async def embed_text(text: Annotated[str, Form()]) -> EmbedResponse:
+    """The embedding of a short description, in the same space as the image embeddings, so a sentence can be matched
+    against stored pictures with a plain similarity search."""
+    cleaned = " ".join(text.split())
+    if not cleaned or len(cleaned) > 200:
+        raise HTTPException(status_code=422, detail="text must be 1 to 200 characters")
+    vector = app.state.clip.embed_labels([cleaned])[0]
+    return EmbedResponse(embedding=vector.astype("float32").tolist())
+
+
 @app.post("/classify", response_model=ClassifyResponse, dependencies=[Depends(require_service_token)])
 async def classify(file: Annotated[UploadFile, File()], labels: Annotated[str, Form()]) -> ClassifyResponse:
     """Scores an image against caller-supplied label names (the user's own categories, FR-033).

@@ -56,7 +56,25 @@ async function post<T>(
     return (await response.json()) as T;
 }
 
+/** @returns The embedding of a short description, in the same space as the pictures' embeddings. */
+async function postText(path: string, text: string): Promise<number[]> {
+    if (!config.vision.url) throw new Error('VISION_SERVICE_URL is not set.');
+    const response = await fetch(new URL(path, config.vision.url), {
+        method: 'POST',
+        body: new URLSearchParams({ text }),
+        headers: serviceHeaders(),
+        signal: AbortSignal.timeout(config.vision.timeoutMs),
+    });
+    if (!response.ok) throw new Error(`vision ${path} answered ${String(response.status)}`);
+    return ((await response.json()) as { embedding: number[] }).embedding;
+}
+
 export const visionClient = {
+    /** @returns The embedding of a description such as "a brown dog on a beach", comparable with a picture's. */
+    embedText(text: string): Promise<number[]> {
+        return postText('/embed-text', text);
+    },
+
     /** @returns The 512-dim OpenCLIP ViT-B/32 embedding of an image (FR-032). */
     async embed(file: string): Promise<number[]> {
         return (await post<{ embedding: number[] }>('/embed', file)).embedding;

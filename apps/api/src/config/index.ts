@@ -151,6 +151,16 @@ export const config = {
         rateLimitMax: Number(process.env.CHAT_RATE_LIMIT_MAX) || 12,
     },
 
+    /** "Find pictures like this" in the assistant: how a description is matched against the stored pictures. */
+    find: {
+        /** A picture needs at least this cosine similarity to the description (CLIP matches sit around 0.2 to 0.35). */
+        minSimilarity: Number(process.env.FIND_MIN_SIMILARITY) || 0.21,
+        /** And it must be within this of the best match, so one clear hit does not drag in weak ones. */
+        window: Number(process.env.FIND_WINDOW) || 0.07,
+        /** The most pictures one request may move. */
+        max: Number(process.env.FIND_MAX) || 300,
+    },
+
     sorting: {
         /** FR-035: below this confidence a file goes to the review queue instead of being auto-filed. */
         /** Below this a best guess is not even offered for review; the file stays in Unsorted. */

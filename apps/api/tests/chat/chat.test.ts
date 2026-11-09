@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 
 import { config } from '../../src/config/index.ts';
+import { getPool } from '../../src/database/connection.ts';
 import type { Category } from '../../src/models/category.model.ts';
 import { descend } from '../../src/services/classification-service.ts';
 import { svgProblem } from '../../src/services/chat-service.ts';
@@ -603,5 +604,98 @@ describe('what the chat taught the sorter', () => {
         );
         assert.equal(taught.status, 'sorted');
         assert.equal(taught.category?.name, 'Cats');
+    });
+});
+
+describe('the assistant finding pictures and filing them', () => {
+    /** A stand-in for apps/vision that turns every description into the same unit vector. */
+    let vision: Server;
+    let textEmbedding = 0;
+    const unit = (axis: number, tilt = 0): string =>
+        `[${Array.from({ length: 512 }, (_, i) => (i === axis ? 1 : i === axis + 1 ? tilt : 0)).join(',')}]`;
+    let realUrl: string | undefined;
+
+    before(async () => {
+        vision = createServer((req, res) => {
+            req.resume();
+            req.on('end', () => {
+                res.setHeader('content-type', 'application/json');
+                res.end(
+                    JSON.stringify({
+                        embedding: JSON.parse(unit(textEmbedding)),
+                    }),
+                );
+            });
+        });
+        await new Promise<void>((resolve) => vision.listen(0, '127.0.0.1', resolve));
+        realUrl = config.vision.url;
+        config.vision.url = `http://127.0.0.1:${String((vision.address() as AddressInfo).port)}`;
+    });
+    after(() => {
+        config.vision.url = realUrl;
+        vision.close();
+    });
+
+    async function pictures(token: string): Promise<{ near: string; also: string; far: string }> {
+        const ids: string[] = [];
+        for (const n of [11, 12, 13])
+            ids.push(
+                (await upload(token, `p${String(n)}.png`, await png(n))).json.file.id as string,
+            );
+        const db = getPool();
+        const vectors = [unit(0), unit(0, 0.2), unit(5)];
+        for (const [i, id] of ids.entries())
+            await db.query('UPDATE files SET embedding = $2::vector WHERE id = $1', [
+                id,
+                vectors[i],
+            ]);
+        return { near: ids[0] as string, also: ids[1] as string, far: ids[2] as string };
+    }
+
+    it('finds what looks like the description, waits for the yes, then files exactly those pictures', async () => {
+        const { token } = await registerOwner();
+        const { near, also, far } = await pictures(token);
+        textEmbedding = 0;
+        next = turn('Found some.', [act('add_matching', 'Dogs', { phrase: 'a dog' })]);
+        const events = await talk(token, 'put the dogs into Dogs');
+        const message = events.at(-1)?.data.message as {
+            id: number;
+            actions: { status: string; fileIds: string[]; categoryId: number }[];
+        };
+        const card = message.actions[0];
+        assert.equal(card?.status, 'pending');
+        assert.deepEqual([...(card?.fileIds ?? [])].sort(), [near, also].sort());
+
+        const filedBefore = (await api('GET', `/api/files/${near}`, { token })).json;
+        assert.equal(filedBefore.categoryId, null, 'nothing moved before the yes');
+
+        const done = await api('POST', `/api/chat/messages/${String(message.id)}/actions/0`, {
+            token,
+            body: { decision: 'confirm' },
+        });
+        assert.equal(done.json.action.status, 'done');
+        for (const id of [near, also])
+            assert.equal(
+                (await api('GET', `/api/files/${id}`, { token })).json.categoryId,
+                card?.categoryId,
+            );
+        assert.equal(
+            (await api('GET', `/api/files/${far}`, { token })).json.categoryId,
+            null,
+            'the unrelated picture stays where it was',
+        );
+    });
+
+    it('says so when nothing looks like the description, and makes no folder for it', async () => {
+        const { token } = await registerOwner();
+        await pictures(token);
+        textEmbedding = 40;
+        next = turn('Looking.', [act('add_matching', 'Cats', { phrase: 'a cat' })]);
+        const events = await talk(token, 'find cats');
+        const action = (events.at(-1)?.data.message as { actions: { status: string }[] })
+            .actions[0];
+        assert.equal(action?.status, 'skipped');
+        const tree = (await api('GET', '/api/categories', { token })).json.categories as unknown[];
+        assert.equal(tree.length, 0);
     });
 });
