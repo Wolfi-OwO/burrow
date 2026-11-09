@@ -61,7 +61,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint markdown
-        uses: DavidAnson/markdownlint-cli2-action@v24
+        uses: DavidAnson/markdownlint-cli2-action@v25
         with:
           globs: "**/*.md"
 
@@ -157,7 +157,7 @@ jobs:
       # The export downloads and converts ~600 MB of weights; cache the result by the inputs that define it.
       - name: Cache exported models
         id: models
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: apps/vision/models
           key: vision-models-${{ hashFiles('apps/vision/scripts/export_models.py', 'apps/vision/requirements-export.txt') }}
