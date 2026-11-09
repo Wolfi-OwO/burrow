@@ -31,6 +31,10 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: [version-update:semver-major]
+      # numpy 2.5 needs Python 3.12; the vision image is on 3.11 (onnxruntime wheels), so its pull request can never
+      # install. Lift this together with the Python base image.
+      - dependency-name: numpy
+        versions: ['>=2.5']
 
   - package-ecosystem: docker
     directory: /apps/vision
