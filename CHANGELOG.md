@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.15.9] - 2026-11-09
+
 ### Changed
 
 - The object store for the files is now Contabo Object Storage in the EU instead of Backblaze B2 in the US: the privacy text and the setup guide say so, which also removes the transfer-to-a-third-country check.
