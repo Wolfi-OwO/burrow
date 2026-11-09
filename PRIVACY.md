@@ -75,15 +75,13 @@ Art 9 attaches to the nature of the data, not to audience size, which is why the
 - **User-uploaded file storage is the VPS disk** (`/opt/burrow/data` on the Contabo server), the same place as the
   database. Unless the object store below is switched on, uploads are not sent to any third-party storage service while
   they are in use.
-- **Object storage for the files: Backblaze B2 (Backblaze, Inc.), region US East, once the operator switches it on
-  (`S3_*` settings).** Then the VPS disk is only a cache and the bucket holds every file. Each file is **encrypted on the
-  VPS before it is sent** (AES-256-GCM, a fresh random IV per file, a key that exists only on the VPS and in the
-  operator's password manager), so Backblaze stores opaque bytes it cannot read, classify or act on, and the content of an
-  NSFW category does not depend on Backblaze's content policy. The file names, folders, accounts and everything else stay
-  in the database on the VPS. Backblaze is a US-headquartered provider and the region is in the United States, so this is
-  a transfer under Chapter V: **before the bucket is switched on the operator checks and records Backblaze's participation
-  in the EU-U.S. Data Privacy Framework (as was done for Microsoft below) or concludes its standard contractual clauses**,
-  and keeps the encryption key. The bucket keeps old file versions for 30 days so a mistaken delete can be undone.
+- **Object storage for the files: Contabo Object Storage (Contabo GmbH, Germany), region European Union, once the
+  operator switches it on (`S3_*` settings).** Then the VPS disk is only a cache and the bucket holds every file. Each file
+  is **encrypted on the VPS before it is sent** (AES-256-GCM, a fresh random IV per file, a key that exists only on the VPS
+  and in the operator's password manager), so Contabo stores opaque bytes it cannot read, classify or act on, and the
+  content of an NSFW category does not depend on Contabo's content policy. The file names, folders, accounts and
+  everything else stay in the database on the VPS. Contabo is the same EU provider that hosts the VPS and the bucket is in
+  the EU, so storing the files there is not a transfer to a third country.
 - **Offsite backup: Microsoft Azure Blob Storage, West Europe (Netherlands), Standard LRS.** Every night the database
   dump (GPG-encrypted to a public key whose private half is not on the server) and any new blobs (encrypted
   with rclone `crypt`, which encrypts both contents and file names) are copied to a private container. Microsoft

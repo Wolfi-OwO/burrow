@@ -112,7 +112,7 @@ token limit; the 3B model followed the answer format in every test. Answers are 
 time (`LLM_CONCURRENCY`), the rest wait and the page says how many are ahead. Without the model file, or with
 `LLM_SERVICE_URL` unset, the chat page says the assistant is not running and nothing else is affected.
 
-## Storing the files in Backblaze B2 (500 GB and more)
+## Storing the files in an S3 bucket (Contabo Object Storage)
 
 The VPS disk is 96 GB shared with the other applications. With an S3-compatible bucket as the store of record, the disk
 only holds a cache of the files used recently, and the bucket holds all of them.
@@ -133,23 +133,25 @@ How it behaves, with `S3_*` and `BLOB_CACHE_GB` set:
 
 Set it up once:
 
-1. At backblaze.com create a bucket (private, region in the EU, e.g. `eu-central-003`), with **file versions kept for 30 days**
-   (bucket settings, lifecycle) so a deleted or overwritten file can be recovered, and **no default encryption needed**.
-2. Create an **application key restricted to that one bucket** with read and write (and delete). Note the key id, the key and
-   the endpoint (`https://s3.<region>.backblazeb2.com`, shown on the bucket page).
+1. In the Contabo customer panel order **Object Storage** (region **European Union**, 250 GB for EUR 2.49 a month excluding tax,
+   more in 250 GB steps under "Mehr GB hinzufügen", optional auto-scaling with a cap) and create a **private** bucket in it.
+   Public access stays off. Any other S3-compatible provider works the same way.
+2. The access key and secret key are under Account, "S3 Object Storage Anmeldedaten" (one pair per Object Storage). The
+   endpoint is `https://eu2.contabostorage.com`, the region `eu2`, and the code already uses path-style addressing.
 3. Make the **encryption key** once and keep a copy apart from the server (the password manager): `openssl rand -base64 32`.
-   Every file is encrypted on the VPS with it before it is sent (AES-256-GCM, a new IV per file), so Backblaze only holds
+   Every file is encrypted on the VPS with it before it is sent (AES-256-GCM, a new IV per file), so the provider only holds
    bytes it cannot read. **Without the key nobody can read the bucket**, so losing it loses the files. Set it before the
    first upload to the bucket; changing it later makes the files stored under the old key unreadable (anything stored
    before encryption was switched on is still read as it is).
 4. On the VPS add to `/opt/burrow/.env`: `BLOB_ENCRYPTION_KEY` and `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
-   and `BLOB_CACHE_GB=60` (leave the disk 30 GB for the database, thumbnails, uploads in flight and the other stacks), then
+   and `BLOB_CACHE_GB=40` (leave the disk 30 GB for the database, thumbnails, uploads in flight and the other stacks), then
    `docker compose -f docker-compose.prod.yml --env-file .env up -d burrow`.
 5. Watch it copy the existing files: `docker logs burrow-burrow-1 | grep "object store"`. When it says the existing blobs were
    copied, the bucket holds everything and the disk can shrink to the cache size by itself.
 
-The nightly `backup.sh` copies the files that are on the disk. With a bucket as the store of record the bucket's own version
-history is the protection for files (30 days above); the database dump is still the part that must never be lost.
+The nightly `backup.sh` copies the files that are on the disk. The bucket itself keeps no old versions, so a file deleted
+in Burrow is gone from it too; the database dump (and the Azure copy of the files that were on the disk) is what to restore
+from, and the encryption key must never be lost.
 
 ## Storage limits
 
