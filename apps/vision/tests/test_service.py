@@ -132,3 +132,19 @@ def test_the_tokenizer_pads_with_zero_and_ends_with_the_end_token(client):
     assert row[0] == 49406 and row.max() == 49407 and row[-1] == 0
     long_row = app.state.clip.tokenize("word " * 200)
     assert long_row[-1] == 49407
+
+
+@needs_models
+def test_text_embedding_is_normalised_and_closer_to_a_matching_picture(client):
+    red = send(client, "/embed", solid((200, 30, 30))).json()["embedding"]
+    near = client.post("/embed-text", data={"text": "a red surface"}).json()["embedding"]
+    far = client.post("/embed-text", data={"text": "a blue surface"}).json()["embedding"]
+    assert len(near) == 512
+    assert math.isclose(float(np.linalg.norm(near)), 1.0, rel_tol=1e-3)
+    assert float(np.dot(red, near)) > float(np.dot(red, far))
+
+
+@needs_models
+def test_text_embedding_rejects_empty_and_oversized_text(client):
+    assert client.post("/embed-text", data={"text": "   "}).status_code == 422
+    assert client.post("/embed-text", data={"text": "x" * 201}).status_code == 422

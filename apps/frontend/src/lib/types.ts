@@ -119,6 +119,7 @@ export interface ChatAction {
         | 'create_category'
         | 'rename_category'
         | 'add_hint'
+        | 'add_matching'
         | 'unsort_category'
         | 'unsort_all'
         | 'remove_category'
@@ -128,6 +129,8 @@ export interface ChatAction {
     label: string;
     detail?: string;
     categoryId?: number;
+    /** The pictures a pending or finished add_matching card is about. */
+    fileIds?: string[];
     fileId?: string;
     mime?: string;
 }

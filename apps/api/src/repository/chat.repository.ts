@@ -5,6 +5,7 @@ export type ChatActionType =
     | 'create_category'
     | 'rename_category'
     | 'add_hint'
+    | 'add_matching'
     | 'unsort_category'
     | 'unsort_all'
     | 'remove_category'
@@ -21,6 +22,8 @@ export interface ChatAction {
     label: string;
     detail?: string;
     categoryId?: number;
+    /** The pictures an add_matching card would move, kept so a yes moves exactly those. */
+    fileIds?: string[];
     /** A file the assistant wrote into the drive: what the page needs to open it. */
     fileId?: string;
     mime?: string;

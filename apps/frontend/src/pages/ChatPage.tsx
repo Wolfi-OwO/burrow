@@ -7,6 +7,7 @@ import {
     FileText,
     FolderMinus,
     FolderPlus,
+    ImagePlus,
     Info,
     Minus,
     Sparkles,
@@ -18,7 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 import { Lightbox } from '../components/Lightbox.tsx';
-import { Spinner, useToast } from '../components/ui.tsx';
+import { ProtectedImage, Spinner, useToast } from '../components/ui.tsx';
 import { api, request } from '../lib/api.ts';
 import type { ChatAction, ChatMessage } from '../lib/types.ts';
 
@@ -46,6 +47,7 @@ const ICON = { done: Check, exists: Minus, skipped: Info, pending: Info, decline
 const KIND = {
     create_category: { icon: FolderPlus, titles: ['Folder made', 'Folder exists', 'Not made'] },
     rename_category: { icon: FolderPlus, titles: ['Folder renamed', 'Same name', 'Not renamed'] },
+    add_matching: { icon: ImagePlus, titles: ['Pictures filed', '', 'Nothing filed'] },
     add_hint: { icon: BookOpenCheck, titles: ['Sorter taught', 'Already known', 'Not taught'] },
     unsort_category: { icon: Undo2, titles: ['Folder unsorted', '', 'Not unsorted'] },
     unsort_all: { icon: Undo2, titles: ['Everything unsorted', '', 'Not unsorted'] },
@@ -103,6 +105,13 @@ function ActionCard({
                 </b>
                 <span>{action.label}</span>
                 {action.detail ? <small>{action.detail}</small> : null}
+                {action.type === 'add_matching' && action.fileIds && action.fileIds.length > 0 ? (
+                    <span className="chat-card-thumbs">
+                        {action.fileIds.slice(0, 8).map((id) => (
+                            <ProtectedImage key={id} path={`/api/files/${id}/thumbnail`} alt="" />
+                        ))}
+                    </span>
+                ) : null}
                 {action.status === 'pending' && messageId !== undefined ? (
                     <span className="chat-card-buttons">
                         <button

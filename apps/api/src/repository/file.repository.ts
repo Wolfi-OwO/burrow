@@ -214,6 +214,50 @@ export const fileRepository = {
         if (result.embedding) await duplicateRepository.forget(id, db);
     },
 
+    /**
+     * The pictures nearest to a description's embedding (cosine similarity, best first), leaving out those already in
+     * `exceptCategory`. Only pictures that have an embedding can be found.
+     */
+    async nearest(
+        userId: string,
+        vector: number[],
+        exceptCategory: number | null,
+        limit: number,
+        db: Queryable = getPool(),
+    ): Promise<{ id: string; name: string; categoryId: number | null; similarity: number }[]> {
+        const { rows } = await db.query(
+            `SELECT f.id, f.name, f.category_id, 1 - (f.embedding <=> $2::vector) AS similarity
+             FROM files f
+             WHERE f.user_id = $1 AND f.embedding IS NOT NULL
+               AND ($3::bigint IS NULL OR f.category_id IS NULL OR f.category_id <> $3::bigint)
+             ORDER BY f.embedding <=> $2::vector
+             LIMIT $4`,
+            [userId, `[${vector.join(',')}]`, exceptCategory, limit],
+        );
+        return rows.map((r: DatabaseRow) => ({
+            id: String(r.id),
+            name: String(r.name),
+            categoryId: r.category_id === null ? null : Number(r.category_id),
+            similarity: Number(r.similarity),
+        }));
+    },
+
+    /** Files many pictures under one category in one statement (or back to unsorted with null). */
+    async setCategoryMany(
+        userId: string,
+        ids: string[],
+        categoryId: number | null,
+        db: Queryable = getPool(),
+    ): Promise<number> {
+        const { rowCount } = await db.query(
+            `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE 'sorted' END,
+                    suggested_category_id = NULL, classified_at = COALESCE(classified_at, now())
+             WHERE id = ANY($1::uuid[]) AND user_id = $2`,
+            [ids, userId, categoryId],
+        );
+        return rowCount ?? 0;
+    },
+
     /** Files filed by hand or by accepting a suggestion. */
     async setCategory(
         userId: string,
