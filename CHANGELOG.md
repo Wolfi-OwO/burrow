@@ -8,6 +8,8 @@ first release is cut.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-09
+
 ### Fixed
 
 - Unpacking a zip no longer hangs silently when storing one of its files fails: that file is skipped and counted, the rest is unpacked, and a failure that would hit every later file (no room left, storage unreachable) stops the unpacking and reports it.
