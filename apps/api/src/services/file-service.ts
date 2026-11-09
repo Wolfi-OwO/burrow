@@ -8,7 +8,7 @@ import sharp from 'sharp';
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
 import { blobStore } from '../lib/blob-store.ts';
-import { NotFoundError } from '../lib/errors.ts';
+import { NotFoundError, QuotaExceededError, ServiceUnavailableError } from '../lib/errors.ts';
 import { readExif } from '../lib/exif.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { extractZip } from '../lib/zip-extract.ts';
@@ -86,6 +86,8 @@ async function unpack(
             maxEntries: config.zip.maxEntries,
             maxEntryBytes: config.maxFileBytes,
             maxTotalBytes: Math.max(budget.cap - budget.used, 0),
+            isFatal: (error) =>
+                error instanceof QuotaExceededError || error instanceof ServiceUnavailableError,
         },
         async (path, size, name) => {
             budget.used += size;
@@ -172,10 +174,11 @@ export const fileService = {
         stagedPath = resolve(stagedPath);
         if (!stagedPath.startsWith(resolve(config.storage.dir) + sep))
             throw new Error('Path is outside its folder.');
+        let unpacked = false;
         try {
             // Unpacking may not add more than the account has room for (the zip itself is removed afterwards).
             const cap = Math.min(config.zip.maxTotalBytes, await storageService.remaining(userId));
-            return await unpack(
+            const result = await unpack(
                 userId,
                 stagedPath,
                 dirname(stagedPath),
@@ -187,8 +190,12 @@ export const fileService = {
                     cap,
                 },
             );
+            unpacked = true;
+            return result;
         } finally {
-            await rm(stagedPath, { force: true });
+            // Only a zip that was read to the end is removed. One that failed half way is the person's only copy of
+            // what was not unpacked yet (it may be many GB over a slow line), so it stays for the upload sweep.
+            if (unpacked) await rm(stagedPath, { force: true });
         }
     },
 

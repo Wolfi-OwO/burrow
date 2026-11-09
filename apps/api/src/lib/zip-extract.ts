@@ -14,6 +14,8 @@ export interface ZipLimits {
     maxEntryBytes: number;
     /** Everything extracted from one archive together: the zip-bomb bound. */
     maxTotalBytes: number;
+    /** Tells a failure of `onFile` that must stop the whole unpacking from one that only skips its entry. */
+    isFatal?: (error: unknown) => boolean;
 }
 
 export interface ZipSummary {
@@ -93,8 +95,10 @@ export function extractZip(
                         stagingDir,
                         `zip-${String(Date.now())}-${String(n)}`,
                     );
-                    if (!staged.startsWith(resolvePath(stagingDir) + sep))
-                        throw new Error('Path is outside its folder.');
+                    if (!staged.startsWith(resolvePath(stagingDir) + sep)) {
+                        zip.close();
+                        return reject(new Error('Path is outside its folder.'));
+                    }
                     let size = 0;
                     pipeline(
                         stream,
@@ -107,8 +111,22 @@ export function extractZip(
                         createWriteStream(staged),
                     ).then(
                         async () => {
-                            await onFile(staged, size, name);
-                            summary.extracted += 1;
+                            try {
+                                await onFile(staged, size, name);
+                                summary.extracted += 1;
+                            } catch (error) {
+                                await rm(staged, { force: true });
+                                // A failure that will hit every later entry too (no room left, storage down) ends the
+                                // unpacking with that reason; one bad entry only costs that entry. Either way the caller
+                                // hears about it: this used to be swallowed, and the unpacking then never finished.
+                                if (limits.isFatal?.(error)) {
+                                    zip.close();
+                                    return reject(
+                                        error instanceof Error ? error : new Error(String(error)),
+                                    );
+                                }
+                                summary.skipped += 1;
+                            }
                             next();
                         },
                         async (error: unknown) => {

@@ -8,6 +8,11 @@ first release is cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- Unpacking a zip no longer hangs silently when storing one of its files fails: that file is skipped and counted, the rest is unpacked, and a failure that would hit every later file (no room left, storage unreachable) stops the unpacking and reports it.
+- A zip that failed half way is no longer deleted afterwards; it stays so the person does not have to upload many GB again. Only a zip that was read to the end is removed.
+
 ### Security
 
 - The remaining code-scanning path findings are closed at the places that touch the disk (a path is proven to be inside the storage folder right there), the OpenDocument preview reads the XML with a parser instead of patterns, and `re2js` (lint tooling) is pinned to the patched release.
