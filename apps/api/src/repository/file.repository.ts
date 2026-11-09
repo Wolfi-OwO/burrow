@@ -131,16 +131,20 @@ export const fileRepository = {
         userId: string,
         query: string,
         limit: number,
+        category?: number,
         db: Queryable = getPool(),
     ): Promise<FileView[]> {
+        // With a folder: only files in it or in any folder below it (the same subtree rule as the file list).
         const { rows } = await db.query(
             `SELECT ${COLUMNS}, ${CATEGORY_PATH}, ts_rank(f.search, q.query) AS rank
              FROM files f
              CROSS JOIN websearch_to_tsquery('simple', $2) AS q(query)
              LEFT JOIN categories c ON c.id = f.category_id
              WHERE f.user_id = $1 AND f.search @@ q.query
+               AND ($4::bigint IS NULL
+                    OR c.path <@ (SELECT path FROM categories WHERE id = $4 AND user_id = $1))
              ORDER BY rank DESC, f.created_at DESC LIMIT $3`,
-            [userId, query, limit],
+            [userId, query, limit, category ?? null],
         );
         return rows.map(toView);
     },

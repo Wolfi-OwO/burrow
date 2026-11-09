@@ -22,6 +22,8 @@ export const filePatchSchema = z
     .refine((v) => v.name !== undefined || v.categoryId !== undefined, 'Nothing to change.');
 export const searchQuerySchema = z.object({
     q: z.string().trim().min(1).max(200),
+    /** Only look in this folder and the folders below it. */
+    category: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 export const reviewResolveSchema = z
