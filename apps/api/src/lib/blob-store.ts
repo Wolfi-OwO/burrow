@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { copyFile, mkdir, rename, rm, stat, utimes } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -16,7 +16,6 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { config } from '../config/index.ts';
 import { blobCacheRepository } from '../repository/blob-cache.repository.ts';
 import { decryptStream, encryptStream } from './blob-crypto.ts';
-import { within } from './within.ts';
 import { logger } from './logger.ts';
 
 /**
@@ -208,8 +207,11 @@ export const blobStore = {
      * @param mime - Content type stored with the durable object.
      */
     async put(sha256: string, staged: string, mime: string): Promise<void> {
-        const stagedPath = within(config.storage.dir, staged);
-        const target = within(config.storage.dir, localBlobPath(sha256));
+        const root = resolve(config.storage.dir);
+        const stagedPath = resolve(staged);
+        if (!stagedPath.startsWith(root + sep)) throw new Error('Path is outside its folder.');
+        const target = resolve(localBlobPath(sha256));
+        if (!target.startsWith(root + sep)) throw new Error('Path is outside its folder.');
         if (await existsLocal(sha256)) {
             await rm(stagedPath, { force: true });
         } else {

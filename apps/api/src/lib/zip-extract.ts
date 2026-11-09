@@ -1,8 +1,7 @@
 import { createWriteStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, resolve as resolvePath, sep } from 'node:path';
 
-import { within } from './within.ts';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -90,10 +89,12 @@ export function extractZip(
                         return next();
                     }
                     n += 1;
-                    const staged = within(
+                    const staged = resolvePath(
                         stagingDir,
-                        join(stagingDir, `zip-${String(Date.now())}-${String(n)}`),
+                        `zip-${String(Date.now())}-${String(n)}`,
                     );
+                    if (!staged.startsWith(resolvePath(stagingDir) + sep))
+                        throw new Error('Path is outside its folder.');
                     let size = 0;
                     pipeline(
                         stream,
