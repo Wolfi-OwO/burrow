@@ -5,7 +5,6 @@ import type { Request } from 'express';
 import sharp from 'sharp';
 
 import { config } from '../config/index.ts';
-import { within } from '../lib/within.ts';
 
 import { toAccount, toPublicProfile } from '../lib/account-view.ts';
 import { blobStore } from '../lib/blob-store.ts';
@@ -43,7 +42,9 @@ async function storeAvatar(
     userId: string,
     sourcePath: string,
 ): Promise<ReturnType<typeof toAccount>> {
-    const source = within(config.storage.dir, sourcePath);
+    const source = resolve(sourcePath);
+    if (!source.startsWith(resolve(config.storage.dir) + sep))
+        throw new Error('Path is outside its folder.');
     const normalized = `${source}.webp`;
     try {
         try {

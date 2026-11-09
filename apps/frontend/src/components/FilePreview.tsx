@@ -113,6 +113,35 @@ function parseDelimited(text: string, delimiter: string): string[][] {
     return rows;
 }
 
+/**
+ * The readable text of an OpenDocument body: paragraphs and headings one per line, the cells of a table row on one
+ * line. The XML is parsed rather than stripped with patterns, so entities and nesting are read the way the format
+ * defines them.
+ */
+function odfText(xml: string): string {
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const lines: string[] = [];
+    const walk = (node: Node): void => {
+        for (const child of Array.from(node.childNodes)) {
+            if (child.nodeType !== Node.ELEMENT_NODE) continue;
+            if (child.nodeName === 'text:p' || child.nodeName === 'text:h') {
+                lines.push(child.textContent ?? '');
+            } else if (child.nodeName === 'table:table-row') {
+                lines.push(
+                    Array.from(child.childNodes)
+                        .filter((c) => c.nodeName === 'table:table-cell')
+                        .map((c) => c.textContent ?? '')
+                        .join('\t'),
+                );
+            } else {
+                walk(child);
+            }
+        }
+    };
+    walk(doc);
+    return lines.join('\n').trim();
+}
+
 async function load(path: string, name: string, mime: string, kind: Kind): Promise<Loaded> {
     const blob = await fetchBlob(path);
     switch (kind) {
@@ -256,14 +285,7 @@ async function load(path: string, name: string, mime: string, kind: Kind): Promi
             const content = files['content.xml'];
             if (!content) return { kind: 'none', reason: 'No readable content in this document.' };
             const xml = strFromU8(content);
-            const text = xml
-                .replace(/<text:(p|h)[^>]*>/g, '\n')
-                .replace(/<table:table-cell[^>]*>/g, ' \t')
-                .replace(/<[^>]+>/g, '')
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .trim();
+            const text = odfText(xml);
             return {
                 kind: 'text',
                 text: text.slice(0, TEXT_LIMIT),

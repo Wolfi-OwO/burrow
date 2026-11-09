@@ -8,6 +8,10 @@ first release is cut.
 
 ## [Unreleased]
 
+### Security
+
+- The remaining code-scanning path findings are closed at the places that touch the disk (a path is proven to be inside the storage folder right there), the OpenDocument preview reads the XML with a parser instead of patterns, and `re2js` (lint tooling) is pinned to the patched release.
+
 ## [0.16.0] - 2026-11-09
 
 ### Added

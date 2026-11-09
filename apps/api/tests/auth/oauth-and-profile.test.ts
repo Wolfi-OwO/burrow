@@ -205,6 +205,6 @@ describe('profile (FR-018, FR-019)', () => {
         await oauthService.link(id, 'github', profile());
         const view = (await api('GET', `/api/users/${id}`, { token })).json;
         assert.deepEqual(Object.keys(view).sort(), ['bio', 'displayName', 'hasAvatar', 'id']);
-        assert.ok(!JSON.stringify(view).includes('example.org'));
+        assert.doesNotMatch(JSON.stringify(view), /@/);
     });
 });
