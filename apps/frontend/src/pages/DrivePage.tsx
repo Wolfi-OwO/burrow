@@ -199,7 +199,10 @@ export function DrivePage(): ReactNode {
                     role="search"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        if (query.trim()) navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+                        if (query.trim())
+                            navigate(
+                                `/search?q=${encodeURIComponent(query.trim())}${typeof category === 'number' ? `&c=${String(category)}` : ''}`,
+                            );
                     }}
                 >
                     <Search size={18} aria-hidden="true" />

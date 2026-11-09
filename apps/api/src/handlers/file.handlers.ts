@@ -155,9 +155,13 @@ export const remove = asyncHandler(async (req, res) => {
 });
 
 export const search = asyncHandler(async (req, res) => {
-    const { q, limit } = req.query as unknown as { q: string; limit: number };
+    const { q, limit, category } = req.query as unknown as {
+        q: string;
+        limit: number;
+        category?: number;
+    };
     // FR-022: the empty state is explicit, not a silently empty list.
-    const files = await fileService.search(uid(req), q, limit);
+    const files = await fileService.search(uid(req), q, limit, category);
     res.json({ query: q, total: files.length, empty: files.length === 0, files });
 });
 

@@ -6,21 +6,31 @@ import { Link, useSearchParams } from 'react-router';
 import { Spinner, ProtectedImage } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 import { formatBytes } from '../lib/format.ts';
-import type { FileItem } from '../lib/types.ts';
+import type { CategoryNode, FileItem } from '../lib/types.ts';
 
 /** Ranked results as a list, each with where it sits in the tree (FR-020 to FR-022). */
 export function SearchPage(): ReactNode {
     const [params] = useSearchParams();
     const q = params.get('q') ?? '';
+    const folderParam = params.get('c') ?? '';
+    const folderId = /^\d{1,12}$/.test(folderParam) ? Number(folderParam) : null;
+    const tree = useQuery({
+        queryKey: ['tree'],
+        queryFn: () => api<{ categories: CategoryNode[] }>('GET', '/api/categories'),
+    });
+    const folderName = tree.data?.categories.find((c) => c.id === folderId)?.name;
     const result = useQuery({
-        queryKey: ['search', q],
+        queryKey: ['search', q, folderId ?? 'all'],
         enabled: q.length > 0,
         queryFn: () =>
             api<{
                 total: number;
                 empty: boolean;
                 files: (FileItem & { categoryId: number | null })[];
-            }>('GET', `/api/search?q=${encodeURIComponent(q)}`),
+            }>(
+                'GET',
+                `/api/search?q=${encodeURIComponent(q)}${folderId === null ? '' : `&category=${String(folderId)}`}`,
+            ),
     });
     const best = Math.max(...(result.data?.files.map((f) => f.rank ?? 0) ?? [0]), 0.0001);
 
@@ -33,7 +43,19 @@ export function SearchPage(): ReactNode {
                     <p>
                         {q ? (
                             <>
-                                Results for <b>&ldquo;{q}&rdquo;</b>, best match first.
+                                Results for <b>&ldquo;{q}&rdquo;</b>
+                                {folderId !== null ? (
+                                    <>
+                                        {' '}
+                                        in <b>{folderName ?? 'this folder'}</b> and the folders
+                                        below it
+                                        {' · '}
+                                        <Link to={`/search?q=${encodeURIComponent(q)}`}>
+                                            Search everywhere
+                                        </Link>
+                                    </>
+                                ) : null}
+                                , best match first.
                             </>
                         ) : (
                             'Type a file name in the search box on the drive page.'

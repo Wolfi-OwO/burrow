@@ -272,7 +272,7 @@ export const fileService = {
         }
     },
 
-    search(userId: string, query: string, limit: number): Promise<FileView[]> {
-        return fileRepository.search(userId, query, limit);
+    search(userId: string, query: string, limit: number, category?: number): Promise<FileView[]> {
+        return fileRepository.search(userId, query, limit, category);
     },
 };

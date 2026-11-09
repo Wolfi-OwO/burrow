@@ -13,6 +13,10 @@ first release is cut.
 - Unpacking a zip no longer hangs silently when storing one of its files fails: that file is skipped and counted, the rest is unpacked, and a failure that would hit every later file (no room left, storage unreachable) stops the unpacking and reports it.
 - A zip that failed half way is no longer deleted afterwards; it stays so the person does not have to upload many GB again. Only a zip that was read to the end is removed.
 
+### Added
+
+- Searching while a folder is open looks in that folder and every folder below it. The results page says so and has a link to search everywhere.
+
 ### Changed
 
 - Dependabot no longer proposes numpy 2.5 for the vision service: it needs Python 3.12 and the image is on 3.11, so the monthly pull request could not install.
