@@ -363,6 +363,15 @@ export const fileRepository = {
         return Number((rows[0] as DatabaseRow).n);
     },
 
+    /** @returns How many files wait in the review queue. */
+    async reviewCount(userId: string, db: Queryable = getPool()): Promise<number> {
+        const { rows } = await db.query(
+            `SELECT count(*)::int AS n FROM files WHERE user_id = $1 AND status = 'review'`,
+            [userId],
+        );
+        return Number((rows[0] as DatabaseRow).n);
+    },
+
     /** @returns The review queue: files below the threshold, each with its suggestion. */
     async listReview(
         userId: string,
