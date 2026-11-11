@@ -8,7 +8,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import { UnsortAll } from '../components/UnsortAll.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
-import { ago } from '../lib/format.ts';
+import { ago, categoryOption } from '../lib/format.ts';
 import type { CategoryNode, FileItem, SortingStatus } from '../lib/types.ts';
 
 /** SFW / NSFW folders that hold pictures the NSFW classifier disagrees with, and a one-click fix. */
@@ -318,8 +318,7 @@ export function ReviewPage(): ReactNode {
                                 <option value="">Another category...</option>
                                 {(tree.data?.categories ?? []).map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {'  '.repeat(c.depth)}
-                                        {c.name}
+                                        {categoryOption(c.depth, c.name)}
                                     </option>
                                 ))}
                             </select>
@@ -456,8 +455,7 @@ function ReviewItem({
                     <option value="">Another category...</option>
                     {categories.map((c) => (
                         <option key={c.id} value={c.id}>
-                            {'  '.repeat(c.depth)}
-                            {c.name}
+                            {categoryOption(c.depth, c.name)}
                         </option>
                     ))}
                 </select>

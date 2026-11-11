@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-11
+
+### Fixed
+
+- The folder drop-downs (file a review item, move a folder, file from the drive) show the hierarchy again: subfolders carry a visible corner mark and an indent. The old indentation used invisible spaces that some browsers drop from a drop-down list.
+
 ## [1.0.0] - 2026-11-11
 
 The first stable release. Since 0.11 the app gained an object-store tier (files stored encrypted in an EU bucket, with a
