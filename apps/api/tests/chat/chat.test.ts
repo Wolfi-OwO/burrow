@@ -664,6 +664,11 @@ describe('the assistant finding pictures and filing them', () => {
         };
         const card = message.actions[0];
         assert.equal(card?.status, 'pending');
+        assert.equal(
+            (events.at(-1)?.data.message as { content: string }).content,
+            'I found 2 pictures for Dogs. Look at them below and confirm to file them; nothing has moved yet.',
+            'the sentence comes from what was found, not from what the model guessed',
+        );
         assert.deepEqual([...(card?.fileIds ?? [])].sort(), [near, also].sort());
 
         const filedBefore = (await api('GET', `/api/files/${near}`, { token })).json;
