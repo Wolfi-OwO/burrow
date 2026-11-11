@@ -8,6 +8,10 @@ first release is cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- When the assistant searches for pictures, its final sentence now states what the search really found and that nothing has moved yet. Before, it repeated the model's guess ("I found 66 pictures and moved them") written before the search ran.
+
 ## [0.17.0] - 2026-11-09
 
 ### Fixed

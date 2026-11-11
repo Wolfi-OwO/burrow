@@ -348,6 +348,22 @@ async function proposeMatching(
     });
 }
 
+/**
+ * What the assistant says in the end. The model writes its sentence before anything is searched, so for a picture search
+ * it can only guess ("I found 66 pictures and moved them"). The sentence is therefore the server's own, built from what
+ * the search actually found and from the fact that nothing has moved yet.
+ */
+export function finalReply(modelReply: string, results: ChatAction[]): string {
+    const matching = results.filter((r) => r.type === 'add_matching');
+    if (matching.length === 0) return modelReply.trim() === '' ? 'Done.' : modelReply.trim();
+    const pending = matching.filter((r) => r.status === 'pending');
+    if (pending.length === 0) return 'I could not find pictures for that. The card below says why.';
+    const counts = pending.map(
+        (r) => `${plural(r.fileIds?.length ?? 0, 'picture', 'pictures')} for ${r.label}`,
+    );
+    return `I found ${counts.join(' and ')}. Look at them below and confirm to file them; nothing has moved yet.`;
+}
+
 /** Carries out a confirmed action, on the asking person's own data only. */
 async function execute(userId: string, action: ChatAction): Promise<ChatAction> {
     switch (action.type) {
@@ -805,7 +821,7 @@ export const chatService = {
             const message = await chatRepository.add(
                 userId,
                 'assistant',
-                turn.reply.trim() === '' ? 'Done.' : turn.reply.trim(),
+                finalReply(turn.reply, results),
                 results,
             );
             emit({ type: 'done', message });
