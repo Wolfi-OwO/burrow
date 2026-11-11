@@ -13,7 +13,8 @@ first release is cut.
 The first stable release. Since 0.11 the app gained an object-store tier (files stored encrypted in an EU bucket, with a
 small disk cache), per-account quotas, trace ids, a self-hosted assistant that builds folders, teaches the sorter, finds
 pictures by description and writes files, a background sorter and duplicate search, shared folders with subfolders,
-folder-scoped search and a reworked review desk, and its dependency audit and code scanning are clean.
+folder-scoped search and a reworked review desk. Code scanning has no open alerts and the shipped dependencies audit
+clean; the one remaining finding is a moderate `minimatch` issue in the lint tooling, which never runs on the server.
 
 ### Fixed
 
