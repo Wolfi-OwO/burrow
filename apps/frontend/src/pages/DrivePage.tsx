@@ -26,7 +26,7 @@ import { UnzipDialog } from '../components/UnzipDialog.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { api, fetchBlob } from '../lib/api.ts';
-import { formatBytes } from '../lib/format.ts';
+import { categoryOption, formatBytes } from '../lib/format.ts';
 import { FILE_KINDS } from '../lib/types.ts';
 import type { CategoryNode, FileItem } from '../lib/types.ts';
 
@@ -513,8 +513,7 @@ function Details({
                     <option value="">Unsorted</option>
                     {categories.map((c) => (
                         <option key={c.id} value={c.id}>
-                            {'  '.repeat(c.depth)}
-                            {c.name}
+                            {categoryOption(c.depth, c.name)}
                         </option>
                     ))}
                 </select>

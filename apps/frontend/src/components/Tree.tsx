@@ -18,6 +18,7 @@ import { api } from '../lib/api.ts';
 import type { CategoryNode } from '../lib/types.ts';
 import { ShareDialog } from './ShareDialog.tsx';
 import { Dialog, PromptDialog, useToast } from './ui.tsx';
+import { categoryOption } from '../lib/format.ts';
 
 export const DRAG_FILE = 'application/x-burrow-file';
 export const DRAG_CATEGORY = 'application/x-burrow-category';
@@ -516,7 +517,7 @@ function MoveDialog(props: {
     const options = props.nodes.filter(
         (n) => n.path !== props.node.path && !n.path.startsWith(`${props.node.path}.`),
     );
-    const label = (n: CategoryNode): string => `${'  '.repeat(n.depth)}${n.name}`;
+    const label = (n: CategoryNode): string => categoryOption(n.depth, n.name);
     return (
         <Dialog title={`Move "${props.node.name}"`} onClose={props.onClose}>
             <div className="field">
