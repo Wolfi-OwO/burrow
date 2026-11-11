@@ -3,13 +3,14 @@ import { ImportLinkDialog } from '../components/ImportLinkDialog.tsx';
 import { useUploads } from '../lib/uploads.tsx';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    FileText,
-    FolderOpen,
     Download,
+    FileText,
+    FolderInput,
+    FolderOpen,
+    Link2,
     Maximize2,
     Play,
     Search,
-    Link2,
     Share2,
     Trash2,
     UploadCloud,
@@ -25,8 +26,9 @@ import { Lightbox } from '../components/Lightbox.tsx';
 import { UnzipDialog } from '../components/UnzipDialog.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
+import { CategorySelect } from '../components/CategorySelect.tsx';
 import { api, fetchBlob } from '../lib/api.ts';
-import { categoryOption, formatBytes } from '../lib/format.ts';
+import { formatBytes } from '../lib/format.ts';
 import { FILE_KINDS } from '../lib/types.ts';
 import type { CategoryNode, FileItem } from '../lib/types.ts';
 
@@ -40,6 +42,10 @@ export function DrivePage(): ReactNode {
     const kind = FILE_KINDS.some((k) => k.key === kindParam) ? kindParam : null;
     const [unzipping, setUnzipping] = useState<string[] | null>(null);
     const [openId, setOpenId] = useState<string | null>(null);
+    // Ticked files, for a bulk move (the box on a card, or ctrl/shift-click).
+    const [picked, setPicked] = useState<Set<string>>(new Set());
+    const anchor = useRef(-1);
+    const [moveTarget, setMoveTarget] = useState('');
     const [viewId, setViewId] = useState<string | null>(null);
     const [over, setOver] = useState(false);
     const input = useRef<HTMLInputElement>(null);
@@ -66,6 +72,50 @@ export function DrivePage(): ReactNode {
             ? { files: filesQuery.data.pages.flatMap((p) => p.files) }
             : undefined,
     };
+    const listed = files.data?.files ?? [];
+    const pick = (index: number, event: { shiftKey: boolean } | null): void => {
+        const file = listed[index];
+        if (!file) return;
+        setPicked((previous) => {
+            const next = new Set(previous);
+            if (event?.shiftKey && anchor.current >= 0) {
+                const [from, to] = [anchor.current, index].sort((a, b) => a - b) as [
+                    number,
+                    number,
+                ];
+                for (let i = from; i <= to; i += 1) next.add((listed[i] as FileItem).id);
+            } else {
+                if (next.has(file.id)) next.delete(file.id);
+                else next.add(file.id);
+                anchor.current = index;
+            }
+            return next;
+        });
+    };
+    // A file that is gone from the list (moved, deleted) cannot stay ticked; a new folder or filter starts afresh.
+    useEffect(() => {
+        const present = new Set(listed.map((f) => f.id));
+        setPicked((previous) => {
+            const kept = [...previous].filter((id) => present.has(id));
+            return kept.length === previous.size ? previous : new Set(kept);
+        });
+    }, [filesQuery.data]);
+    useEffect(() => {
+        setPicked(new Set());
+        anchor.current = -1;
+    }, [category, kind]);
+    useEffect(() => {
+        const clear = (): void => setPicked(new Set());
+        const onKey = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') clear();
+        };
+        window.addEventListener('burrow:files-moved', clear);
+        window.addEventListener('keydown', onKey);
+        return () => {
+            window.removeEventListener('burrow:files-moved', clear);
+            window.removeEventListener('keydown', onKey);
+        };
+    }, []);
     const counts = useQuery({
         queryKey: ['types', category ?? 'all'],
         queryFn: () =>
@@ -118,6 +168,18 @@ export function DrivePage(): ReactNode {
                 '/api/sorting/unplaced',
             ),
         enabled: category === 'unsorted',
+    });
+    const moveSelection = useMutation({
+        mutationFn: (v: { ids: string[]; categoryId: number | null }) =>
+            api<{ moved: number }>('POST', '/api/files/move', v),
+        onSuccess: (result) => {
+            for (const key of ['tree', 'files', 'sorting', 'types', 'review'])
+                void client.invalidateQueries({ queryKey: [key] });
+            toast.say(result.moved === 1 ? 'Filed.' : `Filed ${String(result.moved)} files.`);
+            setPicked(new Set());
+            setMoveTarget('');
+        },
+        onError: (e: Error) => toast.say(e.message),
     });
     const makeTypeFolders = useMutation({
         mutationFn: () => api<{ created: string[] }>('POST', '/api/sorting/type-folders'),
@@ -328,15 +390,70 @@ export function DrivePage(): ReactNode {
                     </p>
                 </div>
             ) : null}
-            <div className="grid">
-                {files.data?.files.map((file, index) => (
+            {picked.size > 0 ? (
+                <div className="bulk-bar" role="toolbar" aria-label="Selected files">
+                    <strong>{picked.size} selected</strong>
+                    <button
+                        className="btn sm ghost"
+                        onClick={() => setPicked(new Set(listed.map((f) => f.id)))}
+                    >
+                        Select all {listed.length}
+                        {filesQuery.hasNextPage ? ' loaded' : ''}
+                    </button>
+                    <button className="btn sm ghost" onClick={() => setPicked(new Set())}>
+                        Clear
+                    </button>
+                    <CategorySelect
+                        id="move-selection"
+                        value={moveTarget}
+                        onChange={setMoveTarget}
+                        categories={tree.data?.categories ?? []}
+                        emptyLabel="Move to..."
+                        width={200}
+                    />
+                    <button
+                        className="btn sm"
+                        disabled={moveTarget === '' || moveSelection.isPending}
+                        onClick={() =>
+                            moveSelection.mutate({
+                                ids: [...picked],
+                                categoryId: Number(moveTarget),
+                            })
+                        }
+                    >
+                        {moveSelection.isPending ? <Spinner /> : <FolderInput size={15} />}
+                        Move
+                    </button>
+                    <button
+                        className="btn sm ghost"
+                        disabled={moveSelection.isPending}
+                        onClick={() => moveSelection.mutate({ ids: [...picked], categoryId: null })}
+                    >
+                        Unsort
+                    </button>
+                    <span className="muted small grow">
+                        Or drag any ticked file onto a folder on the left: only the ticked ones
+                        move.
+                    </span>
+                </div>
+            ) : null}
+            <div className={`grid${picked.size > 0 ? ' picking' : ''}`}>
+                {listed.map((file, index) => (
                     <FileCard
                         key={file.id}
                         accession={index + 1}
                         lead={file.id === leadId}
                         file={file}
                         selected={file.id === openId}
-                        onOpen={() => setOpenId(file.id)}
+                        checked={picked.has(file.id)}
+                        dragIds={() => (picked.has(file.id) ? [...picked] : [file.id])}
+                        onPick={(event) => pick(index, event)}
+                        onOpen={(event) => {
+                            // With files ticked a plain click ticks too, like a file manager; ctrl/shift always tick.
+                            if (event.shiftKey || event.ctrlKey || event.metaKey || picked.size > 0)
+                                pick(index, event);
+                            else setOpenId(file.id);
+                        }}
                     />
                 ))}
             </div>
@@ -499,24 +616,16 @@ function Details({
             </form>
             <div className="field">
                 <label htmlFor="file-cat">Category</label>
-                <select
+                <CategorySelect
                     id="file-cat"
-                    className="input"
-                    value={file.categoryId ?? ''}
-                    onChange={(event) =>
-                        patch.mutate({
-                            categoryId:
-                                event.target.value === '' ? null : Number(event.target.value),
-                        })
+                    value={file.categoryId === null ? '' : String(file.categoryId)}
+                    onChange={(value) =>
+                        patch.mutate({ categoryId: value === '' ? null : Number(value) })
                     }
-                >
-                    <option value="">Unsorted</option>
-                    {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                            {categoryOption(c.depth, c.name)}
-                        </option>
-                    ))}
-                </select>
+                    categories={categories}
+                    emptyLabel="Unsorted"
+                    width="100%"
+                />
             </div>
             <dl className="kv">
                 <dt>Location</dt>

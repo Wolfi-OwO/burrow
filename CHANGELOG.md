@@ -8,6 +8,22 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-11
+
+### Added
+
+- Select certain or all pictures in a folder and move them together. Tick a card with the box in its corner (or ctrl-click;
+  shift-click ticks a range), then drag any ticked picture onto a folder in the tree, or use "Move to..." and "Unsort" in
+  the bar that appears. Only the ticked pictures move: dragging an unticked one moves just that one. `Escape` clears the
+  selection, and "Select all" takes everything loaded in the view. The server side is `POST /api/files/move`.
+
+### Changed
+
+- One shared folder picker replaces the four separate drop-downs (filing a review item, a file's category, moving a folder,
+  moving a selection). Its list is drawn by the app: indented by depth with a corner mark, never wider than the window,
+  opened above the button near the bottom of the screen, and usable from the keyboard (arrows, Enter, Escape, typing the
+  first letters of a name). This fixes folders running off the edge of the screen.
+
 ## [1.0.2] - 2026-11-11
 
 ### Fixed

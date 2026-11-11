@@ -141,6 +141,11 @@ export const thumbnail = asyncHandler(async (req, res) => {
     res.sendFile(resolve(path));
 });
 
+export const moveMany = asyncHandler(async (req, res) => {
+    const { ids, categoryId } = req.body as { ids: string[]; categoryId: number | null };
+    res.json({ moved: await fileService.moveMany(uid(req), ids, categoryId) });
+});
+
 export const patch = asyncHandler(async (req, res) => {
     const { name, categoryId } = req.body as { name?: string; categoryId?: number | null };
     const id = req.params.id as string;

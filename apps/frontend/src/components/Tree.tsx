@@ -16,11 +16,13 @@ import type { DragEvent, MouseEvent, ReactNode } from 'react';
 
 import { api } from '../lib/api.ts';
 import type { CategoryNode } from '../lib/types.ts';
+import { CategorySelect } from './CategorySelect.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { Dialog, PromptDialog, useToast } from './ui.tsx';
-import { categoryOption } from '../lib/format.ts';
 
 export const DRAG_FILE = 'application/x-burrow-file';
+/** A JSON list of file ids: everything a ticked selection carries when it is dragged. */
+export const DRAG_FILES = 'application/x-burrow-files';
 export const DRAG_CATEGORY = 'application/x-burrow-category';
 
 interface Props {
@@ -198,9 +200,37 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
         onError: fail,
     });
 
+    const refileMany = useMutation({
+        mutationFn: (v: { ids: string[]; categoryId: number | null }) =>
+            api<{ moved: number }>('POST', '/api/files/move', v),
+        onSuccess: (result) => {
+            refresh();
+            void client.invalidateQueries({ queryKey: ['types'] });
+            // The drive page drops its selection: what was ticked has been moved.
+            window.dispatchEvent(new Event('burrow:files-moved'));
+            toast.say(result.moved === 1 ? 'Filed.' : `Filed ${String(result.moved)} files.`);
+        },
+        onError: fail,
+    });
+
     const drop = (event: DragEvent, target: number | 'unsorted'): void => {
         event.preventDefault();
         setOver(null);
+        const many = event.dataTransfer.getData(DRAG_FILES);
+        if (many) {
+            let ids: unknown;
+            try {
+                ids = JSON.parse(many);
+            } catch {
+                return;
+            }
+            if (Array.isArray(ids) && ids.length > 0 && ids.every((i) => typeof i === 'string'))
+                refileMany.mutate({
+                    ids: ids as string[],
+                    categoryId: target === 'unsorted' ? null : target,
+                });
+            return;
+        }
         const fileId = event.dataTransfer.getData(DRAG_FILE);
         const categoryId = event.dataTransfer.getData(DRAG_CATEGORY);
         if (fileId) refile.mutate({ fileId, categoryId: target === 'unsorted' ? null : target });
@@ -517,26 +547,20 @@ function MoveDialog(props: {
     const options = props.nodes.filter(
         (n) => n.path !== props.node.path && !n.path.startsWith(`${props.node.path}.`),
     );
-    const label = (n: CategoryNode): string => categoryOption(n.depth, n.name);
     return (
         <Dialog title={`Move "${props.node.name}"`} onClose={props.onClose}>
             <div className="field">
                 <label htmlFor="move-target">
                     New parent (its subcategories and files come along)
                 </label>
-                <select
+                <CategorySelect
                     id="move-target"
-                    className="input"
                     value={target}
-                    onChange={(event) => setTarget(event.target.value)}
-                >
-                    <option value="">Top level</option>
-                    {options.map((n) => (
-                        <option key={n.id} value={n.id}>
-                            {label(n)}
-                        </option>
-                    ))}
-                </select>
+                    onChange={setTarget}
+                    categories={options}
+                    emptyLabel="Top level"
+                    width="100%"
+                />
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
                 <button className="btn ghost" onClick={props.onClose}>

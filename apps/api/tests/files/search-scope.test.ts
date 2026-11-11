@@ -49,3 +49,63 @@ describe('searching inside a folder', () => {
         assert.deepEqual(await ids(`&category=${String(home)}`), [elsewhere]);
     });
 });
+
+describe('moving a selection', () => {
+    it('files only the chosen files, only the account’s own, and can send them back to Unsorted', async () => {
+        const { token } = await registerOwner();
+        const other = await registerOwner('someone-else');
+        const make = async (name: string): Promise<number> =>
+            (await api('POST', '/api/categories', { token, body: { name, parentId: null } })).json
+                .id as number;
+        const from = await make('From');
+        const to = await make('To');
+        const ids: string[] = [];
+        for (const n of [41, 42, 43]) {
+            const id = (await upload(token, `m${String(n)}.png`, await png(n))).json.file
+                .id as string;
+            await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: from } });
+            ids.push(id);
+        }
+        const theirs = (await upload(other.token, 'theirs.png', await png(44))).json.file
+            .id as string;
+        const where = async (id: string): Promise<number | null> =>
+            (await api('GET', `/api/files/${id}`, { token })).json.categoryId as number | null;
+
+        const moved = await api('POST', '/api/files/move', {
+            token,
+            body: { ids: [ids[0], ids[1], theirs], categoryId: to },
+        });
+        assert.equal(moved.status, 200);
+        assert.equal(moved.json.moved, 2, 'the other account’s file is not counted');
+        assert.equal(await where(ids[0] as string), to);
+        assert.equal(await where(ids[1] as string), to);
+        assert.equal(await where(ids[2] as string), from, 'the unselected file stays');
+        assert.equal(
+            (await api('GET', `/api/files/${theirs}`, { token: other.token })).json.categoryId,
+            null,
+            'the other account’s file did not move',
+        );
+
+        const back = await api('POST', '/api/files/move', {
+            token,
+            body: { ids: [ids[0]], categoryId: null },
+        });
+        assert.equal(back.json.moved, 1);
+        assert.equal(await where(ids[0] as string), null);
+
+        assert.equal(
+            (
+                await api('POST', '/api/files/move', {
+                    token,
+                    body: { ids: [ids[0]], categoryId: 99999 },
+                })
+            ).status,
+            404,
+        );
+        assert.equal(
+            (await api('POST', '/api/files/move', { token, body: { ids: [], categoryId: to } }))
+                .status,
+            400,
+        );
+    });
+});

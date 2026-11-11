@@ -7,8 +7,9 @@ import type { MouseEvent, ReactNode } from 'react';
 
 import { UnsortAll } from '../components/UnsortAll.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
+import { CategorySelect } from '../components/CategorySelect.tsx';
 import { api } from '../lib/api.ts';
-import { ago, categoryOption } from '../lib/format.ts';
+import { ago } from '../lib/format.ts';
 import type { CategoryNode, FileItem, SortingStatus } from '../lib/types.ts';
 
 /** SFW / NSFW folders that hold pictures the NSFW classifier disagrees with, and a one-click fix. */
@@ -308,20 +309,14 @@ export function ReviewPage(): ReactNode {
                             <label className="sr" htmlFor="bulk-target">
                                 Category for the selected files
                             </label>
-                            <select
+                            <CategorySelect
                                 id="bulk-target"
-                                className="input"
-                                style={{ width: 170, minHeight: 32 }}
                                 value={bulkTarget}
-                                onChange={(event) => setBulkTarget(event.target.value)}
-                            >
-                                <option value="">Another category...</option>
-                                {(tree.data?.categories ?? []).map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {categoryOption(c.depth, c.name)}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={setBulkTarget}
+                                categories={tree.data?.categories ?? []}
+                                emptyLabel="Another category..."
+                                width={190}
+                            />
                             <button
                                 className="btn sm ghost"
                                 disabled={bulkBusy || bulkTarget === ''}
@@ -445,20 +440,14 @@ function ReviewItem({
                 <label className="sr" htmlFor={`pick-${file.id}`}>
                     Pick another category
                 </label>
-                <select
+                <CategorySelect
                     id={`pick-${file.id}`}
-                    className="input"
-                    style={{ width: 170, minHeight: 32 }}
                     value={other}
-                    onChange={(event) => setOther(event.target.value)}
-                >
-                    <option value="">Another category...</option>
-                    {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                            {categoryOption(c.depth, c.name)}
-                        </option>
-                    ))}
-                </select>
+                    onChange={setOther}
+                    categories={categories}
+                    emptyLabel="Another category..."
+                    width={190}
+                />
                 <button
                     className="btn sm ghost"
                     disabled={busy || other === ''}
