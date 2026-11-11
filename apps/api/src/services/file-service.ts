@@ -253,6 +253,18 @@ export const fileService = {
         return this.get(userId, id);
     },
 
+    /**
+     * Files many files under one category at once (or back to unsorted with null), for a selection dragged onto a
+     * folder. Only the account's own files are touched; an id that is not theirs is simply not counted.
+     *
+     * @returns How many files moved.
+     */
+    async moveMany(userId: string, ids: string[], categoryId: number | null): Promise<number> {
+        if (categoryId !== null && !(await categoryRepository.findById(userId, categoryId)))
+            throw new NotFoundError('Category not found.');
+        return fileRepository.setCategoryMany(userId, [...new Set(ids)], categoryId);
+    },
+
     async rename(userId: string, id: string, name: string): Promise<FileView> {
         if (!(await fileRepository.rename(userId, id, cleanFileName(name))))
             throw new NotFoundError('File not found.');

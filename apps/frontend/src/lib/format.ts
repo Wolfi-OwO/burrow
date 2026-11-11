@@ -1,15 +1,6 @@
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 /** @returns A short human size, 1024-based. */
-/**
- * The text of a category in a drop-down, indented by its depth. Plain spaces cannot do this: a browser drops the
- * leading spaces of an `<option>`, so every folder looked like a top-level one. Non-breaking spaces are kept, and a
- * corner mark shows which folder a subfolder belongs under.
- */
-export function categoryOption(depth: number, name: string): string {
-    return depth <= 0 ? name : `${'\u00A0\u00A0\u00A0'.repeat(depth)}\u2514\u00A0${name}`;
-}
-
 export function formatBytes(bytes: number): string {
     let value = bytes;
     let unit = 0;

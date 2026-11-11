@@ -13,6 +13,12 @@ export const fileListQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).default(60),
     offset: z.coerce.number().int().min(0).default(0),
 });
+export const fileMoveManySchema = z
+    .object({
+        ids: z.array(z.uuid()).min(1).max(1000),
+        categoryId: z.number().int().positive().nullable(),
+    })
+    .strict();
 export const filePatchSchema = z
     .object({
         name: z.string().trim().min(1).max(255).optional(),
