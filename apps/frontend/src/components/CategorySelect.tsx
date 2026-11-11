@@ -139,7 +139,7 @@ export function CategorySelect({
                 onClick={() => (open ? close(false) : show())}
                 onKeyDown={onKey}
             >
-                <span className={`catsel-text${value === '' ? ' empty' : ''}`}>
+                <span className={`catsel-text${value === '' ? ' catsel-placeholder' : ''}`}>
                     {chosen?.label}
                 </span>
                 <ChevronDown size={15} aria-hidden="true" />
