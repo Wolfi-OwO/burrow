@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-11
+
+### Fixed
+
+- The "Move to..." picker in the selection bar no longer shows as a huge boxed frame: its placeholder used the class name
+  `empty`, which the empty-state blocks already style (large padding, border, background).
+- The tick box on a card is a round white ring that becomes an accent circle with a check, placed on the picture instead of
+  over the specimen number, and readable on both light and dark pictures.
+
 ## [1.1.0] - 2026-11-11
 
 ### Added

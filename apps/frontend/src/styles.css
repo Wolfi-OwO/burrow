@@ -3537,7 +3537,7 @@ html[data-theme='dark'] .hljs-name {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.catsel-text.empty {
+.catsel-text.catsel-placeholder {
     color: var(--muted);
 }
 .catsel-list {
@@ -3592,23 +3592,29 @@ html[data-theme='dark'] .hljs-name {
     min-width: 0;
 }
 .card-pick {
+    /* On the picture, not on the number above it: that row is about 0.76rem plus the card's 7px gap tall. */
     position: absolute;
-    top: 8px;
+    top: calc(0.76rem + 7px + 8px);
     left: 8px;
     z-index: 2;
     display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     border: 0;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text) 45%, transparent);
-    color: var(--accent-ink, #fff);
+    border-radius: 50%;
+    /* A white ring on a soft dark disc reads on a light picture and on a dark one. */
+    background: rgb(0 0 0 / 0.32);
+    box-shadow:
+        inset 0 0 0 2px #fff,
+        0 1px 5px rgb(0 0 0 / 0.45);
+    color: #fff;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 120ms var(--ease);
+    transition:
+        opacity 120ms var(--ease),
+        background-color 120ms var(--ease);
 }
 .card-slot:hover .card-pick,
 .card-pick:focus-visible,
@@ -3618,7 +3624,6 @@ html[data-theme='dark'] .hljs-name {
 }
 .card-slot.picked .card-pick {
     background: var(--accent);
-    box-shadow: none;
 }
 .card-slot.picked .thumb {
     outline: 3px solid var(--accent);
