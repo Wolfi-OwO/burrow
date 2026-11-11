@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-11
+
+The first stable release. Since 0.11 the app gained an object-store tier (files stored encrypted in an EU bucket, with a
+small disk cache), per-account quotas, trace ids, a self-hosted assistant that builds folders, teaches the sorter, finds
+pictures by description and writes files, a background sorter and duplicate search, shared folders with subfolders,
+folder-scoped search and a reworked review desk, and its dependency audit and code scanning are clean.
+
 ### Fixed
 
 - When the assistant searches for pictures, its final sentence now states what the search really found and that nothing has moved yet. Before, it repeated the model's guess ("I found 66 pictures and moved them") written before the search ran.
