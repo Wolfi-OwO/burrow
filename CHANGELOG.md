@@ -8,6 +8,17 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-11
+
+### Fixed
+
+- Typing "yes" or "no" in the assistant chat answers the card that waits for one, exactly like its buttons. Before, the
+  model was asked what a bare "yes" meant and made something up.
+- The assistant no longer repeats a claim that it moved, made or found something when it listed no action: such an
+  answer is replaced by a plain "I have not changed anything yet" with an example of what to ask.
+- The assistant knows how many files wait in the review queue, and is told never to guess a number or say that it did
+  something itself.
+
 ## [1.0.1] - 2026-11-11
 
 ### Fixed
