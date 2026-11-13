@@ -8,10 +8,70 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-11
+
+### Fixed
+
+- The "Move to..." picker in the selection bar no longer shows as a huge boxed frame: its placeholder used the class name
+  `empty`, which the empty-state blocks already style (large padding, border, background).
+- The tick box on a card is a round white ring that becomes an accent circle with a check, placed on the picture instead of
+  over the specimen number, and readable on both light and dark pictures.
+
+## [1.1.0] - 2026-11-11
+
+### Added
+
+- Select certain or all pictures in a folder and move them together. Tick a card with the box in its corner (or ctrl-click;
+  shift-click ticks a range), then drag any ticked picture onto a folder in the tree, or use "Move to..." and "Unsort" in
+  the bar that appears. Only the ticked pictures move: dragging an unticked one moves just that one. `Escape` clears the
+  selection, and "Select all" takes everything loaded in the view. The server side is `POST /api/files/move`.
+
+### Changed
+
+- One shared folder picker replaces the four separate drop-downs (filing a review item, a file's category, moving a folder,
+  moving a selection). Its list is drawn by the app: indented by depth with a corner mark, never wider than the window,
+  opened above the button near the bottom of the screen, and usable from the keyboard (arrows, Enter, Escape, typing the
+  first letters of a name). This fixes folders running off the edge of the screen.
+
+## [1.0.2] - 2026-11-11
+
+### Fixed
+
+- Typing "yes" or "no" in the assistant chat answers the card that waits for one, exactly like its buttons. Before, the
+  model was asked what a bare "yes" meant and made something up.
+- The assistant no longer repeats a claim that it moved, made or found something when it listed no action: such an
+  answer is replaced by a plain "I have not changed anything yet" with an example of what to ask.
+- The assistant knows how many files wait in the review queue, and is told never to guess a number or say that it did
+  something itself.
+
+## [1.0.1] - 2026-11-11
+
+### Fixed
+
+- The folder drop-downs (file a review item, move a folder, file from the drive) show the hierarchy again: subfolders carry a visible corner mark and an indent. The old indentation used invisible spaces that some browsers drop from a drop-down list.
+
+## [1.0.0] - 2026-11-11
+
+The first stable release. Since 0.11 the app gained an object-store tier (files stored encrypted in an EU bucket, with a
+small disk cache), per-account quotas, trace ids, a self-hosted assistant that builds folders, teaches the sorter, finds
+pictures by description and writes files, a background sorter and duplicate search, shared folders with subfolders,
+folder-scoped search and a reworked review desk. Code scanning has no open alerts and the shipped dependencies audit
+clean; the one remaining finding is a moderate `minimatch` issue in the lint tooling, which never runs on the server.
+
+### Fixed
+
+- When the assistant searches for pictures, its final sentence now states what the search really found and that nothing has moved yet. Before, it repeated the model's guess ("I found 66 pictures and moved them") written before the search ran.
+
+## [0.17.0] - 2026-11-09
+
 ### Fixed
 
 - Unpacking a zip no longer hangs silently when storing one of its files fails: that file is skipped and counted, the rest is unpacked, and a failure that would hit every later file (no room left, storage unreachable) stops the unpacking and reports it.
 - A zip that failed half way is no longer deleted afterwards; it stays so the person does not have to upload many GB again. Only a zip that was read to the end is removed.
+
+### Added
+
+- Searching while a folder is open looks in that folder and every folder below it. The results page says so and has a link to search everywhere.
 
 ### Changed
 

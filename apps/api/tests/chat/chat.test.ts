@@ -315,7 +315,7 @@ describe('the assistant changing and removing what is there', () => {
         actions: object[],
     ): Promise<{ id: number; actions: { status: string }[] }> {
         next = turn('ok', actions);
-        const events = await talk(token, 'do it');
+        const events = await talk(token, 'tidy up my folders');
         return events.at(-1)?.data.message as { id: number; actions: { status: string }[] };
     }
     const answer = (
@@ -664,6 +664,11 @@ describe('the assistant finding pictures and filing them', () => {
         };
         const card = message.actions[0];
         assert.equal(card?.status, 'pending');
+        assert.equal(
+            (events.at(-1)?.data.message as { content: string }).content,
+            'I found 2 pictures for Dogs. Look at them below and confirm to file them; nothing has moved yet.',
+            'the sentence comes from what was found, not from what the model guessed',
+        );
         assert.deepEqual([...(card?.fileIds ?? [])].sort(), [near, also].sort());
 
         const filedBefore = (await api('GET', `/api/files/${near}`, { token })).json;
@@ -697,5 +702,79 @@ describe('the assistant finding pictures and filing them', () => {
         assert.equal(action?.status, 'skipped');
         const tree = (await api('GET', '/api/categories', { token })).json.categories as unknown[];
         assert.equal(tree.length, 0);
+    });
+});
+
+describe('the assistant answering a plain yes or no, and not claiming what it did not do', () => {
+    async function waitingUnsort(token: string): Promise<{ id: number }> {
+        const cat = (
+            await api('POST', '/api/categories', { token, body: { name: 'Pics', parentId: null } })
+        ).json.id as number;
+        const id = (await upload(token, 'a.png', await png(31))).json.file.id as string;
+        await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: cat } });
+        next = turn('Confirm below.', [act('unsort_all')]);
+        const events = await talk(token, 'unsort everything');
+        return events.at(-1)?.data.message as { id: number };
+    }
+    const categoryOfFirst = async (token: string): Promise<number | null> =>
+        (await api('GET', '/api/files?limit=5', { token })).json.files[0].categoryId as
+            number | null;
+
+    it('a typed "yes" confirms the card that waits, exactly like the button', async () => {
+        const { token } = await registerOwner();
+        await waitingUnsort(token);
+        assert.notEqual(await categoryOfFirst(token), null, 'nothing changed before the yes');
+        next = turn('this must not be asked of the model', []);
+        const events = await talk(token, 'Yes');
+        assert.equal(await categoryOfFirst(token), null, 'the file is unsorted now');
+        assert.equal((events.at(-1)?.data.message as { content: string }).content, 'Done.');
+        const history = (await api('GET', '/api/chat', { token })).json.messages as {
+            actions: { status: string }[];
+        }[];
+        assert.equal(history.find((m) => m.actions.length > 0)?.actions[0]?.status, 'done');
+    });
+
+    it('a typed "no" leaves everything as it was', async () => {
+        const { token } = await registerOwner();
+        await waitingUnsort(token);
+        const events = await talk(token, 'no');
+        assert.notEqual(await categoryOfFirst(token), null);
+        assert.equal(
+            (events.at(-1)?.data.message as { content: string }).content,
+            'Left as it is.',
+        );
+    });
+
+    it('a "yes" with nothing waiting says so instead of inventing an answer', async () => {
+        const { token } = await registerOwner();
+        const events = await talk(token, 'yes');
+        assert.equal(
+            (events.at(-1)?.data.message as { content: string }).content,
+            'Nothing is waiting for a yes right now.',
+        );
+    });
+
+    it('does not repeat a claim that something was done when no action was listed', async () => {
+        const { token } = await registerOwner();
+        next = turn('I found 66 pictures related to mountains and moved them to Nature.', []);
+        const events = await talk(token, 'put the mountains into nature');
+        const said = (events.at(-1)?.data.message as { content: string }).content;
+        assert.match(said, /^I have not changed anything yet/);
+        next = turn('Documents was made earlier, so it is already there.', []);
+        const plain = await talk(token, 'is there a documents folder?');
+        assert.match(
+            (plain.at(-1)?.data.message as { content: string }).content,
+            /^Documents was made earlier/,
+            'an ordinary answer is left alone',
+        );
+    });
+
+    it('tells the model how many files wait in the review queue', async () => {
+        const { token } = await registerOwner();
+        await upload(token, 'r.png', await png(32));
+        await getPool().query("UPDATE files SET status = 'review'");
+        next = turn('ok', []);
+        await talk(token, 'how many files are in review?');
+        assert.match(seenPrompt, /review queue[^\n]*: 1\./);
     });
 });

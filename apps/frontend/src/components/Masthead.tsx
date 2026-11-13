@@ -92,7 +92,15 @@ export function Masthead({
     const submit = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
         const q = search.current?.value.trim() ?? '';
-        if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
+        // Searching from inside a folder looks in that folder and the ones below it; the results page can widen it.
+        const folder =
+            window.location.pathname === '/'
+                ? new URLSearchParams(window.location.search).get('c')
+                : null;
+        if (q)
+            navigate(
+                `/search?q=${encodeURIComponent(q)}${folder && /^\d{1,12}$/.test(folder) ? `&c=${folder}` : ''}`,
+            );
         setSearching(false);
         search.current?.blur();
     };

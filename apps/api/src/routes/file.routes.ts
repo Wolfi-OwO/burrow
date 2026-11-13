@@ -12,6 +12,7 @@ import { validateBody, validateIdParam, validateQuery } from '../middlewares/val
 import { importUrlSchema, uploadStartSchema } from '../schemas/upload.schemas.ts';
 import {
     fileListQuerySchema,
+    fileMoveManySchema,
     filePatchSchema,
     reviewResolveSchema,
     searchQuerySchema,
@@ -39,6 +40,7 @@ fileRouter.get('/files', validateQuery(fileListQuerySchema), file.list);
 fileRouter.post('/files', uploadRateLimiter, ...uploadFile, file.upload);
 fileRouter.get('/files/types', file.typeCounts);
 fileRouter.post('/files/unzip', validateBody(unzipSchema), file.unzip);
+fileRouter.post('/files/move', validateBody(fileMoveManySchema), file.moveMany);
 fileRouter.get('/files/:id', validateIdParam(), file.get);
 fileRouter.get('/files/:id/content', validateIdParam(), file.content);
 fileRouter.get('/files/:id/thumbnail', validateIdParam(), file.thumbnail);

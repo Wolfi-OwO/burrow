@@ -87,6 +87,8 @@ export interface DriveSummary {
     counts: Map<number, number>;
     total: number;
     unsorted: number;
+    /** Files the sorter was not sure about, waiting on the Review page. */
+    review?: number;
     /** What the sorter recognised in the unfiled pictures, most common first. */
     places?: { place: string; count: number }[];
 }
@@ -99,7 +101,11 @@ function describeTree(
     const seen = drive.places?.length
         ? ` The unfiled pictures show: ${drive.places.map((p) => `${p.place} (${String(p.count)})`).join(', ')}.`
         : '';
-    const head = `Files in total: ${String(drive.total)}. Not in any folder: ${String(drive.unsorted)}.${seen}`;
+    const waiting =
+        drive.review === undefined
+            ? ''
+            : ` Waiting in the review queue (the sorter was not sure where they go): ${String(drive.review)}.`;
+    const head = `Files in total: ${String(drive.total)}. Not in any folder: ${String(drive.unsorted)}.${waiting}${seen}`;
     if (categories.length === 0) return `${head}\n(no folders yet)`;
     const byId = new Map(categories.map((c) => [c.id, c]));
     const lines = categories.slice(0, MAX_TREE_LINES).map((c) => {
@@ -135,6 +141,8 @@ export function systemPrompt(
         'unsort_category, unsort_all, remove_category and remove_all_categories change what is already there, so the person is asked to confirm each one: just list them when the person clearly asked for them, and say that they wait for the yes.',
         'You cannot move single files, delete files or open them. Only list an action when the person asked for it or clearly described what a folder is for. Otherwise "actions" is empty.',
         'In the list of folders below, ">" only shows where a folder sits: "Nature > Alps" is the folder Alps inside Nature. A real name never contains ">".',
+        'For how many files there are, use only the numbers below (in total, not in any folder, in the review queue, per folder); never guess a number. You cannot see single files.',
+        'You never move, make or remove anything yourself: only the actions you list are done, and the person confirms the risky ones. So never say that you did something; say what you listed, or ask what is missing.',
         'When asked which folders you would recommend, answer in the reply with a short list of fitting folder names, based on what the unfiled pictures show and the folders that exist; list no actions for it, and offer to create them.',
         'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it. When asked about the drive, use the numbers below.',
         '',
@@ -346,6 +354,40 @@ async function proposeMatching(
         categoryId,
         fileIds: hits.map((f) => f.id),
     });
+}
+
+/**
+ * What the assistant says in the end. The model writes its sentence before anything is searched, so for a picture search
+ * it can only guess ("I found 66 pictures and moved them"). The sentence is therefore the server's own, built from what
+ * the search actually found and from the fact that nothing has moved yet.
+ */
+const YES =
+    /^\s*(yes|yep|yeah|yup|sure|ok|okay|do it|go ahead|confirm|please do|ja|klar|mach es|mach|passt)[\s.!]*$/i;
+const NO =
+    /^\s*(no|nope|nah|cancel|stop|keep it|keep them|keep it as it is|nein|lass es|lass)[\s.!]*$/i;
+
+/** @returns Whether a message is nothing but a yes or a no, which answers the cards that wait for one. */
+export function yesOrNo(text: string): 'confirm' | 'decline' | null {
+    if (YES.test(text)) return 'confirm';
+    if (NO.test(text)) return 'decline';
+    return null;
+}
+
+/** The model sometimes says it did something without listing any action; nothing happened then, so it is not repeated. */
+const CLAIM =
+    /\b(I|I've|I have)\b[^.?!]*\b(moved|created|filed|removed|deleted|renamed|unsorted|made|added|found \d+)\b|\b(have been|has been|was|were) (moved|created|filed|removed|deleted|renamed)\b/i;
+
+export function finalReply(modelReply: string, results: ChatAction[]): string {
+    if (results.length === 0 && CLAIM.test(modelReply))
+        return 'I have not changed anything yet. Tell me what to do, for example "put the pictures of snowy mountains into Nature", and I will show you what I found to confirm.';
+    const matching = results.filter((r) => r.type === 'add_matching');
+    if (matching.length === 0) return modelReply.trim() === '' ? 'Done.' : modelReply.trim();
+    const pending = matching.filter((r) => r.status === 'pending');
+    if (pending.length === 0) return 'I could not find pictures for that. The card below says why.';
+    const counts = pending.map(
+        (r) => `${plural(r.fileIds?.length ?? 0, 'picture', 'pictures')} for ${r.label}`,
+    );
+    return `I found ${counts.join(' and ')}. Look at them below and confirm to file them; nothing has moved yet.`;
 }
 
 /** Carries out a confirmed action, on the asking person's own data only. */
@@ -716,6 +758,40 @@ export const chatService = {
         signal: AbortSignal,
         emit: (event: ChatEvent) => void,
     ): Promise<void> {
+        // A bare yes or no answers the cards that wait for one, without asking the model what it means.
+        const decision = yesOrNo(text);
+        if (decision) {
+            const recent = await chatRepository.recent(userId, 12);
+            const last = [...recent].reverse().find((m) => m.role === 'assistant');
+            const waiting = (last?.actions ?? [])
+                .map((a, index) => ({ a, index }))
+                .filter(({ a }) => a.status === 'pending');
+            await chatRepository.add(userId, 'user', text);
+            const results: ChatAction[] = [];
+            if (last)
+                for (const { index } of waiting) {
+                    const result = await chatService.resolveAction(
+                        userId,
+                        last.id,
+                        index,
+                        decision,
+                    );
+                    results.push(result);
+                    emit({ type: 'action', action: result });
+                }
+            const reply =
+                waiting.length === 0
+                    ? 'Nothing is waiting for a yes right now.'
+                    : decision === 'confirm'
+                      ? 'Done.'
+                      : 'Left as it is.';
+            emit({ type: 'delta', text: reply });
+            emit({
+                type: 'done',
+                message: await chatRepository.add(userId, 'assistant', reply, results),
+            });
+            return;
+        }
         const outline = parseOutline(text);
         const needsModel = !outline || outline.question !== '';
         if (needsModel && (!config.llm.url || !(await llmHealthy())))
@@ -766,6 +842,7 @@ export const chatService = {
                 counts: new Map(tree.map((c) => [c.id, c.fileCount])),
                 total,
                 unsorted: total - (await fileRepository.filedCount(userId)),
+                review: await fileRepository.reviewCount(userId),
                 places: await fileRepository.topPlaces(userId, 12),
             };
             const history = await chatRepository.recent(userId, HISTORY);
@@ -805,7 +882,7 @@ export const chatService = {
             const message = await chatRepository.add(
                 userId,
                 'assistant',
-                turn.reply.trim() === '' ? 'Done.' : turn.reply.trim(),
+                finalReply(turn.reply, results),
                 results,
             );
             emit({ type: 'done', message });

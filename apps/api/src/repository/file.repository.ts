@@ -131,16 +131,20 @@ export const fileRepository = {
         userId: string,
         query: string,
         limit: number,
+        category?: number,
         db: Queryable = getPool(),
     ): Promise<FileView[]> {
+        // With a folder: only files in it or in any folder below it (the same subtree rule as the file list).
         const { rows } = await db.query(
             `SELECT ${COLUMNS}, ${CATEGORY_PATH}, ts_rank(f.search, q.query) AS rank
              FROM files f
              CROSS JOIN websearch_to_tsquery('simple', $2) AS q(query)
              LEFT JOIN categories c ON c.id = f.category_id
              WHERE f.user_id = $1 AND f.search @@ q.query
+               AND ($4::bigint IS NULL
+                    OR c.path <@ (SELECT path FROM categories WHERE id = $4 AND user_id = $1))
              ORDER BY rank DESC, f.created_at DESC LIMIT $3`,
-            [userId, query, limit],
+            [userId, query, limit, category ?? null],
         );
         return rows.map(toView);
     },
@@ -355,6 +359,15 @@ export const fileRepository = {
         const { rows } = await db.query(
             `SELECT (SELECT count(*) FROM files WHERE blob_sha256 = $1) + (SELECT count(*) FROM users WHERE avatar_sha256 = $1) AS n`,
             [sha256],
+        );
+        return Number((rows[0] as DatabaseRow).n);
+    },
+
+    /** @returns How many files wait in the review queue. */
+    async reviewCount(userId: string, db: Queryable = getPool()): Promise<number> {
+        const { rows } = await db.query(
+            `SELECT count(*)::int AS n FROM files WHERE user_id = $1 AND status = 'review'`,
+            [userId],
         );
         return Number((rows[0] as DatabaseRow).n);
     },
