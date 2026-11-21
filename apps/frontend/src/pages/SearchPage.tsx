@@ -38,7 +38,7 @@ export function SearchPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
-                    <p className="kicker">Catalogue search</p>
+                    <p className="kicker">Search</p>
                     <h1>Search</h1>
                     <p>
                         {q ? (

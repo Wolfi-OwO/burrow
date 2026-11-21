@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
-const CARVED = 'color-mix(in srgb, var(--surface-2) 40%, #0e0e10)';
+// Tunnel and room fill come from the theme (--carved): a lit cream room by day, a deep brown cut by night.
+const CARVED = 'var(--carved)';
 const LIP = 'color-mix(in srgb, var(--text) 13%, var(--surface-2))';
 
 /** Files travel along the tunnels into their rooms; the chip paths mirror the tunnel paths below. */
@@ -188,7 +189,7 @@ function GateArtPhone(): ReactNode {
                         fontFamily="var(--font-display)"
                         fontWeight="600"
                         fontSize="13"
-                        fill="#f4f4f5"
+                        fill="var(--text)"
                     >
                         {room.label}
                     </text>
@@ -367,7 +368,7 @@ function GateArtDesktop(): ReactNode {
                         fontFamily="var(--font-display)"
                         fontWeight="600"
                         fontSize="18"
-                        fill="#f4f4f5"
+                        fill="var(--text)"
                     >
                         {room.label}
                     </text>

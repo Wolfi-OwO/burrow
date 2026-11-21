@@ -160,7 +160,7 @@ export function ReviewPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
-                    <p className="kicker">The review desk</p>
+                    <p className="kicker">Needs a look</p>
                     <h1>Review</h1>
                     <p>Files the sorter was not sure about. It never files these on its own.</p>
                 </div>

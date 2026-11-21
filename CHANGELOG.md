@@ -8,6 +8,20 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-21
+
+### Changed
+
+- A softer look across the whole app, in light and dark. The catalogue style (hairline rules, 4px corners, paper grain,
+  halftone and sepia pictures, file numbers, mono capital labels) is replaced by a warm oat and clay palette by day and a
+  deep charcoal by night, rounded corners, pill buttons, tabs and search, and soft shadows in place of hard lines.
+- Pictures show in full colour, every file card is the same size, and the bulk-select tick sits in the picture's corner.
+- The sign-in illustration takes its room and tunnel colours from the theme, so its labels stay readable by day.
+- On phones the tab bar is a bottom sheet with a soft top edge and a pill under the open page.
+- Page eyebrows read plainly ("Your drive", "Needs a look", "Your account") instead of in catalogue language.
+- Pressed buttons give a little (scale 0.96), pictures get a faint black or white edge, headings balance their lines, and
+  modals blur what is behind them and keep scrolling inside themselves.
+
 ## [1.1.1] - 2026-11-11
 
 ### Fixed

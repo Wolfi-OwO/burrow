@@ -104,7 +104,7 @@ export function Shell(): ReactNode {
                         onDoubleClick={rail.reset}
                         title="Drag to resize, double-click to reset"
                     />
-                    <p className="rail-title">Index</p>
+                    <p className="rail-title">Categories</p>
                     <button
                         className="btn ghost sm tree-toggle"
                         aria-expanded={treeOpen}
