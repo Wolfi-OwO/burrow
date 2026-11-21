@@ -1,5 +1,9 @@
 name: Security
 
+# The same four checks in every repo: secrets, dependencies, static analysis and
+# the container images themselves. Keep this file identical across the apps and
+# change only the CodeQL languages and the image list.
+
 on:
   push:
     branches: [main]
@@ -7,7 +11,7 @@ on:
     branches: [main]
   schedule:
     # Weekly scan to catch newly-disclosed CVEs / newly-committed secrets.
-    - cron: "17 4 * * 1"
+    - cron: '17 4 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -36,8 +40,8 @@ jobs:
 
       # --no-git is load-bearing: `gitleaks detect` (no flag) only scans
       # committed git history and would pass a file that was never
-      # committed untouched — the exact gap Task 4 found. Scanning the
-      # working tree instead catches secrets before they're ever committed.
+      # committed untouched. Scanning the working tree instead catches
+      # secrets before they're ever committed.
       - name: Run gitleaks (working tree, not git history)
         run: gitleaks detect --no-git --source . --redact --verbose
 
@@ -76,7 +80,57 @@ jobs:
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: "1"
+          exit-code: '1'
+
+  # The base image and the OS packages in it are not in the lockfile, so the
+  # filesystem scan never sees them. Each image is built exactly as the release
+  # builds it and scanned; a fixable HIGH or CRITICAL fails the build.
+  container-scan:
+    name: Container scan (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            context: .
+            file: apps/api/Dockerfile
+          - name: vision
+            context: apps/vision
+            file: apps/vision/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -f "${{ matrix.file }}" -t scan/${{ matrix.name }}:ci "${{ matrix.context }}"
+
+      - name: Run Trivy (image, SARIF)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan/${{ matrix.name }}:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image-${{ matrix.name }}
+
+      - name: Run Trivy (image, gate)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan/${{ matrix.name }}:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
 
   codeql:
     name: CodeQL analysis
@@ -97,4 +151,4 @@ jobs:
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'

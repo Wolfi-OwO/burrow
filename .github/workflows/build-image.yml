@@ -24,13 +24,13 @@ on:
       file:
         description: Dockerfile path; empty means <context>/Dockerfile
         type: string
-        default: ""
+        default: ''
       cache-scope:
         type: string
         required: true
       build-args:
         type: string
-        default: ""
+        default: ''
 
 permissions:
   contents: read

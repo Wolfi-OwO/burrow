@@ -10,15 +10,15 @@ on:
       keep:
         description: Space separated tags that must stay (the deployed ones)
         type: string
-        default: ""
+        default: ''
   workflow_dispatch:
     inputs:
       keep:
         description: Space separated tags that must stay (the deployed ones)
-        default: ""
+        default: ''
       newest:
         description: How many of the newest tagged images to keep per image
-        default: "3"
+        default: '3'
       dry_run:
         description: Only list what would be deleted
         type: boolean
