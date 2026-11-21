@@ -8,6 +8,10 @@ COPY scripts/export_models.py scripts/export_models.py
 RUN python scripts/export_models.py --out /export/models
 
 FROM python:3.11-slim AS runtime
+# OS packages and the packaging tools that ship in the base image are upgraded so the image scan only reports what the app itself adds.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && rm -rf /usr/local/lib/python3.11/ensurepip/_bundled
 # Links the package to the repository, so it inherits the repository's access rules on ghcr.io.
 LABEL org.opencontainers.image.source="https://github.com/Wolfi-OwO/burrow"
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODELS_DIR=/app/models
