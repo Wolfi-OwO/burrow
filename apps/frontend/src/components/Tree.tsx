@@ -111,10 +111,11 @@ export function Tree({ selected, onSelect }: Props): ReactNode {
         !picked.has(node.id) &&
         nodes.some((o) => picked.has(o.id) && node.path.startsWith(`${o.path}.`));
 
+    // Every list that is built from where files sit. 'types' (the kind counts) and 'sorting' (what is still
+    // unplaced) were missing here, so after a single drag they showed the old folder until the 15 s stale time ran out.
     const refresh = (): void => {
-        void client.invalidateQueries({ queryKey: ['tree'] });
-        void client.invalidateQueries({ queryKey: ['files'] });
-        void client.invalidateQueries({ queryKey: ['review'] });
+        for (const key of ['tree', 'files', 'review', 'types', 'sorting'])
+            void client.invalidateQueries({ queryKey: [key] });
     };
     const fail = (error: Error): void => toast.say(error.message);
 

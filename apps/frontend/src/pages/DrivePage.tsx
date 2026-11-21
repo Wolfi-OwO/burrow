@@ -528,9 +528,8 @@ function Details({
     const [sharing, setSharing] = useState(false);
     useEffect(() => setName(file.name), [file.name]);
     const done = (): void => {
-        void client.invalidateQueries({ queryKey: ['files'] });
-        void client.invalidateQueries({ queryKey: ['tree'] });
-        void client.invalidateQueries({ queryKey: ['review'] });
+        for (const key of ['files', 'tree', 'review', 'types', 'sorting'])
+            void client.invalidateQueries({ queryKey: [key] });
     };
     const patch = useMutation({
         mutationFn: (body: { name?: string; categoryId?: number | null }) =>
