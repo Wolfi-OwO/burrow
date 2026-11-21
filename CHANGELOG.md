@@ -8,6 +8,22 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+
+### Changed
+
+- The soft look was too uniform, with everything rounded and floating. Radii now come in three sizes (7px for controls, 10px
+  for pictures and rows, 14px for panels and dialogs) and only counts, chips and avatars are round.
+- The top navigation is part of the bar instead of a pill of buttons: plain links, the open page marked by an accent rule on
+  the bar's own edge. Phones keep the bottom bar with the same rule on its top edge.
+- Surfaces are separated by a hairline and tone instead of shadow, so dark pages stop reading as floating slabs. Shadows
+  remain on menus and dialogs only. Pictures sit flat and zoom inside their frame on hover.
+- The category index is a column of its own with one hairline, a bar on the open row, one fine guide line per level, and
+  aligned tabular counts.
+- Headings and the wordmark use Fraunces with its wonky letterforms and a sharper optical size, metadata is smaller and
+  muted, and counts, sizes and percentages use tabular figures.
+- The upload area is one quiet dashed line instead of a block, so the files stay the focus.
+
 ## [1.2.2] - 2026-11-21
 
 ### Fixed
