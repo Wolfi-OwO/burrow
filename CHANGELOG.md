@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-21
+
+### Fixed
+
+- The illustration on the sign-in page no longer runs out of bounds on smaller windows. It is chosen by the shape of its
+  panel instead of the width of the window, so the portrait scene is used only where the panel is roughly phone-shaped and
+  the wide scene, which always shows whole, everywhere else. Before, tablets and short windows cropped the rooms off the
+  bottom edge and let the headline run under the sign-in form.
+
 ## [1.2.0] - 2026-11-21
 
 ### Changed

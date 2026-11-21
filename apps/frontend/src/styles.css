@@ -1840,6 +1840,7 @@ a.btn {
 .gate-art {
     position: relative;
     overflow: hidden;
+    container-type: size;
     background: var(--surface-2);
     box-shadow: inset -1px 0 0 var(--line);
 }
@@ -1852,6 +1853,7 @@ a.btn {
 .gate-art .claim {
     position: absolute;
     left: clamp(24px, 5vw, 64px);
+    right: clamp(24px, 5vw, 64px);
     top: clamp(24px, 6vh, 64px);
     max-width: 420px;
 }
@@ -2030,6 +2032,11 @@ a.btn {
         height: 520px;
         min-height: 0;
     }
+}
+/* The scene is chosen by the shape of the panel, not the width of the window: a panel of roughly phone proportions gets the
+   portrait scene (headline in the sky, the burrow below it); anything wider or very tall gets the wide scene, which is
+   always shown whole. Cropping a scene to fit made rooms fall off the edge on tablets and short windows. */
+@container (min-aspect-ratio: 3/5) and (max-aspect-ratio: 17/20) {
     .gate-art svg.cross-desktop {
         display: none;
     }
@@ -2049,6 +2056,13 @@ a.btn {
     .gate-art .claim p {
         max-width: 24ch;
         font-size: 0.9rem;
+    }
+}
+/* Where the wide scene is squeezed (short or narrow panels) the sun and its glow would sit under the headline; they
+   stay clear of it by the headline taking the room it needs first. */
+@container (max-height: 640px) {
+    .gate-art .claim p {
+        display: none;
     }
 }
 @media (prefers-reduced-motion: reduce) {
