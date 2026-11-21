@@ -8,6 +8,17 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-21
+
+### Fixed
+
+- Pictures on the review page, and in any long list, no longer turn into broken images. The thumbnail cache dropped its
+  oldest entry once it held 400 and revoked that picture's object URL even when the picture was still on screen; with
+  hundreds of rows mounted, the top ones broke as soon as the cache filled. An entry is now only released when nothing
+  shows it.
+- Thumbnails load six at a time with one retry, instead of hundreds at once, and a failed load is asked for again the next
+  time instead of staying blank.
+
 ## [1.2.1] - 2026-11-21
 
 ### Fixed
