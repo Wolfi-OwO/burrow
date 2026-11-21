@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-21
+
+### Security
+
+- Container images no longer ship the npm bundled in the Node base image or an outdated pip, setuptools and wheel, and OS packages are upgraded at build time. A Trivy scan of both images now runs on every change and fails on fixable high or critical findings.
+
 ## [1.4.0] - 2026-11-21
 
 ### Added
