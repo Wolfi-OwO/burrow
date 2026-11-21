@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-21
+
+### Added
+
+- Caching for the web app. Files under `assets/` carry a content hash in their name, so they are sent with
+  `Cache-Control: public, max-age=31536000, immutable` and a returning visitor downloads them once. `index.html` and every
+  other static file are sent with `no-cache`: the browser keeps them and revalidates with the ETag, so a deploy shows at
+  once and an unchanged file costs a 304 with no body. Before, the server sent no cache policy at all and browsers guessed.
+
 ## [1.3.2] - 2026-11-21
 
 ### Fixed
