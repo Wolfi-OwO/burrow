@@ -11,6 +11,7 @@ import { pinoHttp } from 'pino-http';
 import { config, validateConfig } from './config/index.ts';
 import { getPool } from './database/connection.ts';
 import { logger } from './lib/logger.ts';
+import { REVALIDATE, staticCache } from './lib/static-cache.ts';
 import { currentTraceId, newTraceId, TRACE_HEADER, traceMiddleware } from './lib/trace.ts';
 import { httpRequestDuration } from './lib/metrics.ts';
 import { errorHandler, notFound } from './middlewares/error-handler.ts';
@@ -109,7 +110,7 @@ app.use('/api', fileRouter);
 const frontendDist = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const API_PREFIXES = ['/api', '/health', '/livez', '/readyz', '/metrics'];
 if (existsSync(frontendDist)) {
-    app.use(express.static(frontendDist, { index: false }));
+    app.use(express.static(frontendDist, staticCache(frontendDist)));
     app.get(/.*/, (req, res, next) => {
         // A path with a file extension is an asset, not a client route: a missing one must be a 404, not an HTML
         // page that a stale cache would then try to run as a script.
@@ -120,7 +121,7 @@ if (existsSync(frontendDist)) {
             next();
             return;
         }
-        res.sendFile(join(frontendDist, 'index.html'));
+        res.set('Cache-Control', REVALIDATE).sendFile(join(frontendDist, 'index.html'));
     });
 }
 

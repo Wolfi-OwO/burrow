@@ -44,6 +44,13 @@ describe('static frontend', () => {
             assert.equal((await get('/oauth/callback')).status, 200);
             assert.equal((await get('/assets/app.js')).status, 200);
             assert.equal((await get('/assets/missing.js')).status, 404);
+            // Hashed files are kept for a year; the shell and anything else keeps asking, so a deploy shows at once.
+            assert.equal(
+                (await get('/assets/app.js')).headers.get('cache-control'),
+                'public, max-age=31536000, immutable',
+            );
+            assert.equal((await get('/review')).headers.get('cache-control'), 'no-cache');
+            assert.equal((await get('/index.html')).headers.get('cache-control'), 'no-cache');
             assert.equal(
                 (await get('/health')).headers.get('content-type')?.startsWith('application/json'),
                 true,
