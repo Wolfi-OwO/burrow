@@ -8,6 +8,15 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-21
+
+### Changed
+
+- The upload progress bar grows by scaling instead of changing its width, so it moves on the compositor and does not re-lay
+  out the tray on every tick.
+- The assistant's typing dots pulse in opacity and size instead of hopping up and down.
+- A hovered picture zooms in 300 ms instead of 420 ms, so it answers the pointer sooner.
+
 ## [1.3.0] - 2026-11-21
 
 ### Changed
