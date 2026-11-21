@@ -103,7 +103,7 @@ export function UploadTray(): ReactNode {
                             >
                                 <i
                                     style={{
-                                        width: `${String(Math.round((u.progress ?? 0) * 100))}%`,
+                                        transform: `scaleX(${String(Math.round((u.progress ?? 0) * 100) / 100)})`,
                                     }}
                                 />
                             </div>
