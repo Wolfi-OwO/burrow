@@ -8,6 +8,16 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-21
+
+### Fixed
+
+- After moving files, the kind counts and the list of unplaced files refresh at once instead of showing the old folder until their cache expired.
+
+### Security
+
+- The lint toolchain now uses a patched `minimatch`.
+
 ## [1.4.1] - 2026-11-21
 
 ### Security
