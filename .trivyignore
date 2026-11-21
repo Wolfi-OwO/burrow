@@ -1,0 +1,4 @@
+# pip vendors a copy of pkg_resources from setuptools 70.3.0 (pip/_vendor/vendor.txt). The CVE is in
+# setuptools.package_index, which pip never imports, and the real setuptools in the image is 84.x.
+# Remove this line once pip's vendored copy moves past setuptools 78.1.1.
+CVE-2025-47273

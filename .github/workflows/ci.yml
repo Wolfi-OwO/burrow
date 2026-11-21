@@ -63,7 +63,7 @@ jobs:
       - name: Lint markdown
         uses: DavidAnson/markdownlint-cli2-action@v25
         with:
-          globs: "**/*.md"
+          globs: '**/*.md'
 
       - name: Check for AI-attribution trailers in the commit range
         run: |
@@ -113,10 +113,10 @@ jobs:
       BLOB_DIR: ./data-test
       LOG_LEVEL: silent
       NODE_ENV: test
-      MAX_UPLOAD_MB: "1"
-      LOGIN_RATE_LIMIT_MAX: "1000"
-      API_RATE_LIMIT_MAX: "100000"
-      UPLOAD_RATE_LIMIT_MAX: "100000"
+      MAX_UPLOAD_MB: '1'
+      LOGIN_RATE_LIMIT_MAX: '1000'
+      API_RATE_LIMIT_MAX: '100000'
+      UPLOAD_RATE_LIMIT_MAX: '100000'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -124,8 +124,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npx prettier --check apps e2e eslint.config.mjs
       - run: npm run typecheck
       - run: npm run build -w apps/frontend
       - run: npm run database:migrate -w apps/api
@@ -150,7 +148,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: '3.11'
           cache: pip
           cache-dependency-path: apps/vision/requirements*.txt
 

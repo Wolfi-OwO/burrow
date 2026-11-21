@@ -13,6 +13,9 @@ RUN npm ci --ignore-scripts --omit=dev --workspace apps/api --include-workspace-
     && npm rebuild argon2 sharp
 
 FROM node:24-slim AS runtime
+# The base image's own npm carries unpatched dependencies and the container never runs it, so it is removed; OS packages are upgraded for the same reason.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /repo/node_modules node_modules
