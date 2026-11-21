@@ -225,7 +225,7 @@ export function DrivePage(): ReactNode {
         >
             <header className="page-head">
                 <div>
-                    <p className="kicker">The collection</p>
+                    <p className="kicker">Your drive</p>
                     <h1>{crumbs.at(-1) ?? 'Drive'}</h1>
                     <div className="crumbs" aria-label="Location">
                         {crumbs.slice(0, -1).map((name, i) => (

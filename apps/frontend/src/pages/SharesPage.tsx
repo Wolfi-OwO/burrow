@@ -30,7 +30,7 @@ export function SharesPage(): ReactNode {
         <>
             <header className="page-head">
                 <div>
-                    <p className="kicker">Lent out by link</p>
+                    <p className="kicker">Shared by link</p>
                     <h1>Shared</h1>
                     <p>Links you made, and what other people shared with you.</p>
                 </div>
