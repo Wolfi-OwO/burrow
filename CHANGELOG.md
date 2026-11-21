@@ -8,6 +8,20 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-21
+
+### Fixed
+
+- Card headings ("About you", "Sign-in methods", "The sorter") and the sign-in heading no longer clot: the wonky display cut
+  is kept for the page title, and smaller headings use the text optical size with normal spacing.
+- The small section labels ("Shared by me", "Shared with me") are set in the text face with tracking, not in the serif.
+- On short sign-in panels the text under the headline stays visible and clear of the sun: the headline block is capped at
+  just over half the panel instead of the paragraph being hidden.
+
+### Changed
+
+- Icons use a 1.65px stroke instead of 2px, so they match the weight of the text beside them.
+
 ## [1.3.1] - 2026-11-21
 
 ### Changed

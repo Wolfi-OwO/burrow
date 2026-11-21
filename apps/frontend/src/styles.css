@@ -1852,7 +1852,8 @@ a.btn {
     left: clamp(24px, 5vw, 64px);
     right: clamp(24px, 5vw, 64px);
     top: clamp(24px, 6vh, 64px);
-    max-width: 420px;
+    /* Never wider than just over half the panel, so the text stays clear of the sun in the wide scene. */
+    max-width: min(420px, 55%);
 }
 .gate-art .claim h2 {
     font-size: clamp(1.4rem, 2.6vw, 2rem);
@@ -2053,13 +2054,6 @@ a.btn {
     .gate-art .claim p {
         max-width: 24ch;
         font-size: 0.9rem;
-    }
-}
-/* Where the wide scene is squeezed (short or narrow panels) the sun and its glow would sit under the headline; they
-   stay clear of it by the headline taking the room it needs first. */
-@container (max-height: 640px) {
-    .gate-art .claim p {
-        display: none;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -3684,8 +3678,9 @@ html {
 .kinds .n {
     font-variant-numeric: tabular-nums lining-nums;
 }
-h1,
-h2 {
+/* The wonky, high-contrast cut is for the page title only; at card-heading size it clots, so h2 gets the text optical size. */
+h1 {
+    font-size: 2.6rem;
     font-weight: 600;
     letter-spacing: -0.008em;
     font-variation-settings:
@@ -3693,8 +3688,24 @@ h2 {
         'SOFT' 0,
         'WONK' 1;
 }
-h1 {
-    font-size: 2.6rem;
+h2 {
+    font-weight: 600;
+    letter-spacing: 0;
+    font-variation-settings:
+        'opsz' 36,
+        'SOFT' 0,
+        'WONK' 0;
+}
+/* Small caps-style labels are set in the text face, not the display face. */
+.section-h,
+.share-h {
+    font-family: var(--font-body);
+    font-variation-settings: normal;
+    letter-spacing: 0.07em;
+}
+/* Lucide's default stroke is 2px; beside 14.5px text it reads heavy and generic. */
+svg.lucide {
+    stroke-width: 1.65;
 }
 .brand-name {
     font-family: var(--font-display);
@@ -4127,4 +4138,12 @@ select.input {
 input[type='checkbox'],
 input[type='radio'] {
     accent-color: var(--accent);
+}
+/* The sign-in heading is small for the display cut: a lower optical size keeps its letters apart. */
+.gate-card2 h1 {
+    letter-spacing: 0;
+    font-variation-settings:
+        'opsz' 48,
+        'SOFT' 0,
+        'WONK' 0;
 }
