@@ -456,4 +456,61 @@ describe('learning from what the person filed', () => {
         await fileRepository.setCategory(user, file.id as string, a);
         assert.equal(await exampleCount(), 1);
     });
+
+    it('stops suggesting a folder the person turned down for a picture, for pictures like it', async () => {
+        const { token } = await registerOwner();
+        const party = await category(token, 'Matura feier');
+        // Not sure enough to file it, sure enough to suggest it: the wrong guess the person saw in Review.
+        behaviour.scores = { 'Matura feier': 0.4 };
+        const first = (await upload(token, 'one.png', await png(300))).json.file.id as string;
+        await api('POST', '/api/sorting/run', { token });
+        const asked = await fileOf(token, first);
+        assert.equal(asked.status, 'review');
+        assert.equal(asked.suggestedCategoryId, party);
+
+        // "Not this folder": leave it unsorted.
+        const left = await api('POST', `/api/review/${first}`, {
+            token,
+            body: { action: 'leave' },
+        });
+        assert.equal(left.status, 200);
+        const rejected = await getPool().query('SELECT category_id FROM sorting_rejections');
+        assert.deepEqual(
+            rejected.rows.map((r) => Number(r.category_id)),
+            [party],
+        );
+
+        const next = (await upload(token, 'two.png', await png(301))).json.file.id as string;
+        await api('POST', '/api/sorting/run', { token });
+        const after = await fileOf(token, next);
+        assert.equal(after.status, 'unsorted', 'no longer offered the folder that was turned down');
+        assert.equal(after.suggestedCategoryId, null);
+    });
+
+    it('remembers the folder that was turned down when a suggestion is moved elsewhere, and forgets it when the picture is filed there', async () => {
+        const { token } = await registerOwner();
+        const party = await category(token, 'Matura feier');
+        const furry = await category(token, 'Furry');
+        behaviour.scores = { 'Matura feier': 0.4 };
+        const id = (await upload(token, 'one.png', await png(310))).json.file.id as string;
+        await api('POST', '/api/sorting/run', { token });
+        await api('POST', `/api/review/${id}`, {
+            token,
+            body: { action: 'move', categoryId: furry },
+        });
+        const rejected = async (): Promise<number[]> =>
+            (await getPool().query('SELECT category_id FROM sorting_rejections')).rows.map((r) =>
+                Number(r.category_id),
+            );
+        assert.deepEqual(await rejected(), [party]);
+        const filed = await getPool().query('SELECT category_id FROM sorting_examples');
+        assert.deepEqual(
+            filed.rows.map((r) => Number(r.category_id)),
+            [furry],
+        );
+
+        // Changing its mind: filing it under the folder it first turned down takes the refusal back.
+        await api('PATCH', `/api/files/${id}`, { token, body: { categoryId: party } });
+        assert.deepEqual(await rejected(), []);
+    });
 });

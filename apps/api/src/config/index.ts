@@ -176,6 +176,8 @@ export const config = {
         learnMinSimilarity: Number(process.env.LEARN_MIN_SIMILARITY) || 0.75,
         learnFullWeight: Number(process.env.LEARN_FULL_WEIGHT) || 2,
         learnMaxTrust: Number(process.env.LEARN_MAX_TRUST) || 0.85,
+        /** The most a folder's score is cut by pictures like this one that were turned down for it. */
+        learnMaxPenalty: Number(process.env.LEARN_MAX_PENALTY) || 0.9,
         /** How many nearest examples are looked at for one picture. */
         learnNeighbours: Number(process.env.LEARN_NEIGHBOURS) || 12,
         /** FR-040: bounds of the scheduler's runs per day; the backlog moves it between them. */

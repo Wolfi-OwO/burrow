@@ -27,6 +27,12 @@ and an example's weight rising from 0 at a similarity floor (0.75) to 1 for the 
 `trust` is 0 and nothing changes. With about three close ones the examples count for most (never all: `maxTrust` is
 0.85), so the picture still speaks, and one distant example cannot overrule a clear zero-shot answer.
 
+**A turned-down suggestion is remembered too** (`sorting_rejections`). In Review, leaving a picture unsorted or moving it
+to a different folder than the suggested one says "not this folder" for pictures like it; a folder's score is then cut
+by up to 90 % (`LEARN_MAX_PENALTY`) when close pictures were turned down for it, with the same similarity weighting as
+the examples. Filing a picture under a folder it once turned down takes the refusal back. Without this, a wrong
+suggestion repeated for every similar picture until enough of them had been moved by hand.
+
 **The examples are kept apart from `files.category_id`**, because "Unsort everything" and "Re-sort this folder" clear
 where files sit and must not make the sorter forget what it was taught. Deleting a folder or a file deletes its
 examples.

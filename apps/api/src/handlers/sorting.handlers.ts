@@ -39,14 +39,20 @@ export const reviewResolve = asyncHandler(async (req, res) => {
     const file = await fileRepository.findById(user, req.params.id as string);
     if (file?.status !== 'review') throw new NotFoundError('That file is not waiting for review.');
 
+    // Turning the suggestion down, by moving the picture elsewhere or leaving it, teaches the sorter that this folder
+    // is wrong for pictures like it; accepting it teaches the opposite (the move records the example).
+    const turnedDown = file.suggestedCategoryId;
     if (action === 'accept') {
         if (file.suggestedCategoryId === null)
             throw new NotFoundError('There is no suggestion to accept.');
         await fileService.move(user, file.id, file.suggestedCategoryId);
     } else if (action === 'move') {
         await fileService.move(user, file.id, categoryId as number);
+        if (turnedDown !== null && turnedDown !== categoryId)
+            await fileRepository.rejectCategory(user, file.id, turnedDown);
     } else {
         await fileRepository.leaveUnsorted(user, file.id);
+        if (turnedDown !== null) await fileRepository.rejectCategory(user, file.id, turnedDown);
     }
     res.json(await fileService.get(user, file.id));
 });
