@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-11-22
+
+### Changed
+
+- The page title now says what burrow is, so a search result or a browser tab shows more than one word.
+
 ## [1.4.3] - 2026-11-22
 
 ### Fixed
