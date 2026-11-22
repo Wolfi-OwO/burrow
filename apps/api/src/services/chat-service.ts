@@ -19,6 +19,7 @@ import { categoryRepository } from '../repository/category.repository.ts';
 import type { ChatAction, ChatActionType, ChatMessage } from '../repository/chat.repository.ts';
 import { chatRepository } from '../repository/chat.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
+import { answerCount, parseCountQuestion } from '../lib/count-question.ts';
 import { parseOutline } from '../lib/outline.ts';
 import { categoryService, plainName } from './category-service.ts';
 import { cleanFileName, fileService } from './file-service.ts';
@@ -789,6 +790,28 @@ export const chatService = {
             emit({
                 type: 'done',
                 message: await chatRepository.add(userId, 'assistant', reply, results),
+            });
+            return;
+        }
+        // "How many pictures are in review?" is answered from the database, with or without the model running.
+        const counting = parseCountQuestion(
+            text,
+            (await categoryRepository.listAll(userId)).map((c) => c.name),
+        );
+        if (counting) {
+            const tree = await categoryRepository.listTree(userId);
+            const total = (await fileRepository.typeCounts(userId)).all ?? 0;
+            const reply = answerCount(counting, {
+                total,
+                unsorted: total - (await fileRepository.filedCount(userId)),
+                review: await fileRepository.reviewCount(userId),
+                folders: new Map(tree.map((c) => [c.name.toLowerCase(), c.fileCount])),
+            });
+            await chatRepository.add(userId, 'user', text);
+            emit({ type: 'delta', text: reply });
+            emit({
+                type: 'done',
+                message: await chatRepository.add(userId, 'assistant', reply, []),
             });
             return;
         }

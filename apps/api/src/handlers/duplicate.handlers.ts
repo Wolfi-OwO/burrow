@@ -23,7 +23,11 @@ export const resolve = asyncHandler(async (req, res) => {
 
 export const clean = asyncHandler(async (req, res) => {
     const { mode } = req.body as { mode: DuplicateMode };
-    res.json({ removed: await duplicateService.clean(uid(req), mode) });
+    res.json(await duplicateService.startClean(uid(req), mode));
+});
+
+export const cleanStatus = asyncHandler(async (req, res) => {
+    res.json(await duplicateService.cleanStatus(uid(req)));
 });
 
 export const ratingPreview = asyncHandler(async (req, res) => {

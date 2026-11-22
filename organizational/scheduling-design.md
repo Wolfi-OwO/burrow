@@ -20,12 +20,12 @@ runs_per_day(backlog) = round(10 + 20 * min(backlog / 500, 1))
 interval              = 24 h / runs_per_day
 ```
 
-| Backlog | Runs a day | Time between runs |
-| - | - | - |
-| 1 | 10 | 144 min |
-| 250 | 20 | 72 min |
-| 500 or more | 30 | 48 min |
-| 0 | none | nothing to do |
+| Backlog     | Runs a day | Time between runs |
+| ----------- | ---------- | ----------------- |
+| 1           | 10         | 144 min           |
+| 250         | 20         | 72 min            |
+| 500 or more | 30         | 48 min            |
+| 0           | none       | nothing to do     |
 
 An empty backlog never triggers a run. The bounds and the 500 are environment variables
 (`SCHEDULER_MIN_RUNS_PER_DAY`, `SCHEDULER_MAX_RUNS_PER_DAY`, `SCHEDULER_BACKLOG_FOR_MAX`), not constants in the code.

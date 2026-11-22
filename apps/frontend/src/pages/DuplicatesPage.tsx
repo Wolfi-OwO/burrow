@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 
 import { ProtectedImage, Spinner, useToast } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
+import { useDuplicateClean } from '../lib/duplicate-clean.tsx';
+import { useServerEvents } from '../lib/events.tsx';
 import { formatBytes } from '../lib/format.ts';
 import type { DuplicateGroup } from '../lib/types.ts';
 
@@ -25,9 +27,19 @@ export function DuplicatesPage(): ReactNode {
                 'GET',
                 `/api/duplicates?mode=${mode}`,
             ),
-        // The comparison goes on by itself in the background: new pairs show up while the page stays open.
+        // The events below keep the list live; this only covers a dropped connection.
         refetchInterval: (query) =>
-            mode === 'similar' && (query.state.data?.progress?.pending ?? 0) > 0 ? 15_000 : false,
+            mode === 'similar' && (query.state.data?.progress?.pending ?? 0) > 0 ? 30_000 : false,
+    });
+    const run = useDuplicateClean();
+    // The comparison moved on, or files arrived or went: the list is refreshed as it happens, not when asked.
+    useServerEvents((event) => {
+        if (
+            ['duplicates.checked', 'sorting.done', 'upload.done', 'import.done'].includes(
+                event.type,
+            )
+        )
+            void client.invalidateQueries({ queryKey: ['duplicates'] });
     });
     const progress = groups.data?.progress;
     const refresh = (): void => {
@@ -48,15 +60,6 @@ export function DuplicatesPage(): ReactNode {
         },
         onError: (e: Error) => toast.say(e.message),
     });
-    const clean = useMutation({
-        mutationFn: () => api<{ removed: number }>('POST', '/api/duplicates/clean', { mode }),
-        onSuccess: (r) => {
-            setConfirmAll(false);
-            refresh();
-            toast.say(`Removed ${String(r.removed)} duplicate${r.removed === 1 ? '' : 's'}.`);
-        },
-        onError: (e: Error) => toast.say(e.message),
-    });
     const list = groups.data?.groups ?? [];
     const extra = list.reduce((n, g) => n + g.files.length - 1, 0);
 
@@ -71,16 +74,18 @@ export function DuplicatesPage(): ReactNode {
                         filed, and the biggest one, is kept by default.
                     </p>
                 </div>
-                {extra > 0 ? (
+                {extra > 0 && !run.running ? (
                     confirmAll ? (
                         <div className="row">
                             <span className="small">Delete {extra} files for good?</span>
                             <button
                                 className="btn danger sm"
-                                onClick={() => clean.mutate()}
-                                disabled={clean.isPending}
+                                onClick={() => {
+                                    setConfirmAll(false);
+                                    run.start(mode);
+                                }}
                             >
-                                {clean.isPending ? <Spinner /> : <Trash2 size={14} />}
+                                <Trash2 size={14} />
                                 Yes, remove them
                             </button>
                             <button className="btn ghost sm" onClick={() => setConfirmAll(false)}>

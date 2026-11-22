@@ -288,6 +288,9 @@ export const schedulerService = {
         schedulerService.resumeInterrupted().catch((error: unknown) => {
             logger.error({ err: error }, 'could not resume the sort run');
         });
+        duplicateService.resumeInterrupted().catch((error: unknown) => {
+            logger.error({ err: error }, 'could not resume removing duplicates');
+        });
         let ticks = 0;
         const timer = setInterval(() => {
             ticks += 1;

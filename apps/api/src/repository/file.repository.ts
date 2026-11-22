@@ -58,6 +58,31 @@ export interface FileListFilter {
     offset: number;
 }
 
+/**
+ * A file the person filed (or took out of a folder) is an example for the sorter. Moving a file to Unsorted forgets it:
+ * the person no longer says it belongs anywhere. A later move replaces the earlier decision.
+ */
+async function recordExamples(
+    db: Queryable,
+    userId: string,
+    ids: string[],
+    categoryId: number | null,
+): Promise<void> {
+    if (categoryId === null) {
+        await db.query(
+            'DELETE FROM sorting_examples WHERE user_id = $1 AND file_id = ANY($2::uuid[])',
+            [userId, ids],
+        );
+        return;
+    }
+    await db.query(
+        `INSERT INTO sorting_examples (file_id, user_id, category_id)
+         SELECT id, user_id, $3 FROM files WHERE id = ANY($1::uuid[]) AND user_id = $2
+         ON CONFLICT (file_id) DO UPDATE SET category_id = EXCLUDED.category_id, created_at = now()`,
+        [ids, userId, categoryId],
+    );
+}
+
 export const fileRepository = {
     /** Creates a file row for an already stored blob. */
     async create(
@@ -246,12 +271,16 @@ export const fileRepository = {
         }));
     },
 
-    /** Files many pictures under one category in one statement (or back to unsorted with null). */
+    /**
+     * Files many pictures under one category in one statement (or back to unsorted with null). `teach: false` is for moves
+     * the system makes on its own, which say nothing about what the person wants.
+     */
     async setCategoryMany(
         userId: string,
         ids: string[],
         categoryId: number | null,
         db: Queryable = getPool(),
+        options: { teach?: boolean } = {},
     ): Promise<number> {
         const { rowCount } = await db.query(
             `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE 'sorted' END,
@@ -259,15 +288,17 @@ export const fileRepository = {
              WHERE id = ANY($1::uuid[]) AND user_id = $2`,
             [ids, userId, categoryId],
         );
+        if (options.teach !== false) await recordExamples(db, userId, ids, categoryId);
         return rowCount ?? 0;
     },
 
-    /** Files filed by hand or by accepting a suggestion. */
+    /** Files filed by hand or by accepting a suggestion. `teach: false` as for setCategoryMany. */
     async setCategory(
         userId: string,
         id: string,
         categoryId: number | null,
         db: Queryable = getPool(),
+        options: { teach?: boolean } = {},
     ): Promise<boolean> {
         const { rowCount } = await db.query(
             `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE 'sorted' END,
@@ -275,7 +306,33 @@ export const fileRepository = {
              WHERE id = $1 AND user_id = $2`,
             [id, userId, categoryId],
         );
+        if ((rowCount ?? 0) > 0 && options.teach !== false)
+            await recordExamples(db, userId, [id], categoryId);
         return (rowCount ?? 0) > 0;
+    },
+
+    /**
+     * The pictures the person filed themselves that look most like this one, nearest first. Only pictures with an
+     * embedding can be compared.
+     */
+    async nearestExamples(
+        userId: string,
+        embedding: number[],
+        limit: number,
+        db: Queryable = getPool(),
+    ): Promise<{ categoryId: number; similarity: number }[]> {
+        const { rows } = await db.query(
+            `SELECT e.category_id, 1 - (f.embedding <=> $2::vector) AS similarity
+             FROM sorting_examples e JOIN files f ON f.id = e.file_id
+             WHERE e.user_id = $1 AND f.embedding IS NOT NULL
+             ORDER BY f.embedding <=> $2::vector
+             LIMIT $3`,
+            [userId, `[${embedding.join(',')}]`, limit],
+        );
+        return rows.map((r) => ({
+            categoryId: Number(r.category_id),
+            similarity: Number(r.similarity),
+        }));
     },
 
     /**

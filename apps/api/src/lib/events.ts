@@ -10,7 +10,9 @@ export interface UserEvent {
         | 'import.done'
         | 'import.failed'
         | 'sorting.done'
-        | 'sorting.progress';
+        | 'sorting.progress'
+        | 'duplicates.progress'
+        | 'duplicates.checked';
     data: Record<string, unknown>;
 }
 

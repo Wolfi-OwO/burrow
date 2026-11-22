@@ -23,7 +23,7 @@ already treats as Art 9-adjacent. The blob store is the canonical copy —
 losing it is losing the data, not losing a cache. The internet-facing
 component is `apps/api`, which must hold a B2 credential to do its job, so
 that credential is the one an attacker reaches first. Everything below
-follows from: *assume the app key leaks, and make that survivable.*
+follows from: _assume the app key leaks, and make that survivable._
 
 ## 1. Bucket-scoped application keys, never the account master key
 
@@ -34,7 +34,7 @@ operator's own machine, for exactly one job: minting the scoped
 application keys below.
 
 Why this is not pedantry: B2's master key cannot be scoped. Its `keyID`
-*is* the account ID, it carries account-level capability including
+_is_ the account ID, it carries account-level capability including
 `deleteKeys`, `writeKeys` and `deleteBucket`, and it can act on every
 bucket in the account — including metrion's. A master key in
 `/opt/burrow/.env` turns any burrow API compromise into "attacker deletes
@@ -44,11 +44,11 @@ Application keys, by contrast, are restricted at creation time to one
 bucket, an explicit capability list, and optionally a filename prefix.
 Three keys, three jobs:
 
-| Key | Bucket | Capabilities | Stored in |
-| --- | --- | --- | --- |
-| `burrow-app` | `burrow-blobs` | `listFiles`, `readFiles`, `writeFiles`, `shareFiles`, `deleteFiles` | `/opt/burrow/.env` |
-| `burrow-backup` | `burrow-backups` | `listFiles`, `readFiles`, `writeFiles`, `deleteFiles` | `/etc/burrow-backup/backup.env` |
-| metrion's offsite key | metrion's own bucket | metrion's business | not burrow's concern |
+| Key                   | Bucket               | Capabilities                                                        | Stored in                       |
+| --------------------- | -------------------- | ------------------------------------------------------------------- | ------------------------------- |
+| `burrow-app`          | `burrow-blobs`       | `listFiles`, `readFiles`, `writeFiles`, `shareFiles`, `deleteFiles` | `/opt/burrow/.env`              |
+| `burrow-backup`       | `burrow-backups`     | `listFiles`, `readFiles`, `writeFiles`, `deleteFiles`               | `/etc/burrow-backup/backup.env` |
+| metrion's offsite key | metrion's own bucket | metrion's business                                                  | not burrow's concern            |
 
 Additional scoping on `burrow-app`, both free:
 
@@ -63,7 +63,7 @@ Additional scoping on `burrow-app`, both free:
 `deleteFiles` on `burrow-app` is unavoidable: #30 requires that deleting
 the last reference to a blob removes the object. It is also the single
 most dangerous capability here, for two independent reasons — a leaked
-key can wipe the canonical store, and burrow's *own* refcount logic is
+key can wipe the canonical store, and burrow's _own_ refcount logic is
 new code that has never run. See "lifecycle as the real delete guard"
 under point 5.
 
@@ -77,11 +77,11 @@ two jobs either.**
 The requirement as stated — "one key compromise must not expose both" —
 is satisfied by bucket-scoping alone, since a key scoped to
 `burrow-blobs` returns `401 unauthorized` against metrion's bucket. The
-part worth stating explicitly is the *third* separation, inside burrow:
+part worth stating explicitly is the _third_ separation, inside burrow:
 
 **`burrow-app` must have no access whatsoever to `burrow-backups`.** If
 one key covered both, an RCE in the internet-facing API would let an
-attacker delete the blobs *and* the backups of the database describing
+attacker delete the blobs _and_ the backups of the database describing
 them, in one pass. That is the ransomware path, and it is the reason the
 backup bucket is a separate bucket rather than a prefix inside the blob
 bucket — a prefix-scoped key is only as good as the prefix check, a
@@ -97,7 +97,7 @@ revocation can be done without guessing which key is which.
 
 **Decision: follow the existing convention exactly — mode 600, owner
 `deploy`, transferred by `scp` of a file created under `umask 077`, never
-typed into a shell command directly.** The one adaptation is the *path*,
+typed into a shell command directly.** The one adaptation is the _path_,
 and it is not cosmetic.
 
 burrow deploys as a Docker Compose stack, not as a systemd-native
@@ -106,8 +106,8 @@ service. That changes which live precedent applies:
 - **`burrow-app`'s key goes in `/opt/burrow/.env`, mode 600, owner
   `deploy`, directory mode 700** — matching `/opt/nutrilens/.env` and
   `/opt/metrion/.env`, both verified on the box today at `600
-  deploy:deploy`, and consumed by Compose (`env_file:` / `--env-file`),
-  which is read by the *invoking user*. This must be `deploy`-owned, not
+deploy:deploy`, and consumed by Compose (`env_file:` / `--env-file`),
+  which is read by the _invoking user_. This must be `deploy`-owned, not
   root-owned: a `root:root` file here would simply fail to load under a
   `deploy`-invoked `docker compose up`.
 - **`burrow-backup`'s key goes in `/etc/burrow-backup/backup.env`, mode
@@ -144,7 +144,7 @@ and against an unprivileged process, not a containment boundary against a
 compromised `deploy` account. This is not an argument for adding a
 secrets manager: a secrets manager on the same box, reachable by the same
 `deploy` account, would not change that calculus either, and would add a
-daemon to own, patch and debug. It *is* the argument for why points 1 and
+daemon to own, patch and debug. It _is_ the argument for why points 1 and
 2 carry the real weight — when permissions cannot contain a compromised
 key, narrow scope and a small blast radius are what remain. Mode 600 is
 the right amount of effort; anything more elaborate on this box is
@@ -218,7 +218,7 @@ backup in #56 — which is the direct equivalent of what metrion's GPG step
 achieves, using a tool already installed on the box.**
 
 Why metrion's pattern does not transfer to blobs. metrion GPG-encrypts
-with a keypair whose private half is deliberately *not* on the VPS, so a
+with a keypair whose private half is deliberately _not_ on the VPS, so a
 VPS compromise cannot decrypt past backups. That works because metrion's
 plaintext is written once and never read back by the running service.
 burrow's blobs are read back on every download, by the same online
@@ -252,7 +252,7 @@ What is actually enabled instead:
   already chosen and already installed.
   **Caveat, and it is the one that bites:** the restic repo password must
   exist somewhere other than the VPS. Store it in the operator's password
-  manager *and* in `/etc/burrow-backup/backup.env`. If it lives only on
+  manager _and_ in `/etc/burrow-backup/backup.env`. If it lives only on
   the box, losing the box loses the ability to decrypt the backup, and the
   backup is a brick at the exact moment it is needed. metrion got this
   right by keeping the private GPG half off-box; match that.
@@ -276,7 +276,7 @@ verified on the box on 2026-09-23 rather than read out of a document.
    every night while the one property it exists for has never been true —
    a false green. Already documented in metrion's runbook; re-confirmed
    here because burrow's design must not assume this credential path is
-   proven in production. It is not. Only the *pattern* (mode-600 env file,
+   proven in production. It is not. Only the _pattern_ (mode-600 env file,
    `scp` under `umask 077`) is established.
 2. **metrion does not need the `b2` CLI at all.** `restic` 0.16.4 is
    already installed on this box, and per #56 its `b2` backend works
@@ -295,7 +295,7 @@ verified on the box on 2026-09-23 rather than read out of a document.
    as fixed.
 5. **Backblaze's own acceptable-use terms have not been checked.** The
    compliance checklist analysed Contabo's terms for the NSFW category,
-   but the B2 adoption moved the *canonical* copy to a different provider
+   but the B2 adoption moved the _canonical_ copy to a different provider
    whose terms were never reviewed. An AUP takedown at B2 is not only a
    legal event — it is loss of the store of record. A DPA (processor
    agreement) with Backblaze is separately needed before real user files

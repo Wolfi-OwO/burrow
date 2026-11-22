@@ -54,14 +54,14 @@ with the process pinned to 4 cores (`taskset -c 0-3`) as an approximation of the
 bound on what to expect there until the benchmark is rerun on the real host.
 Input: a 12 MP (4000x3000) JPEG, 30 runs after one warm-up, ONNX Runtime CPU, fp32.
 
-| Step | p50 | p95 |
-| - | - | - |
-| Decode the 12 MP JPEG | 72 ms | 74 ms |
-| OpenCLIP ViT-B/32 image embedding | 82 ms | 85 ms |
-| Text embeddings for 8 new labels (cached afterwards) | 138 ms | 214 ms |
-| Zero-shot scoring with cached labels | under 1 ms | under 1 ms |
-| NSFW classifier | 94 ms | 128 ms |
-| **One file, whole pipeline** | **334 ms** | **374 ms** |
+| Step                                                 | p50        | p95        |
+| ---------------------------------------------------- | ---------- | ---------- |
+| Decode the 12 MP JPEG                                | 72 ms      | 74 ms      |
+| OpenCLIP ViT-B/32 image embedding                    | 82 ms      | 85 ms      |
+| Text embeddings for 8 new labels (cached afterwards) | 138 ms     | 214 ms     |
+| Zero-shot scoring with cached labels                 | under 1 ms | under 1 ms |
+| NSFW classifier                                      | 94 ms      | 128 ms     |
+| **One file, whole pipeline**                         | **334 ms** | **374 ms** |
 
 That is about 3 files per second per core group, so a 500-file backlog clears in
 roughly three minutes of inference — the scheduler's batch size (`SCHEDULER_BATCH_SIZE`,

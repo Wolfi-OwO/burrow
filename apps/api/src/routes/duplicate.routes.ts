@@ -20,6 +20,7 @@ duplicateRouter.post(
     duplicates.resolve,
 );
 duplicateRouter.post('/duplicates/clean', validateBody(duplicateCleanSchema), duplicates.clean);
+duplicateRouter.get('/duplicates/clean', duplicates.cleanStatus);
 
 duplicateRouter.get('/sorting/ratings', duplicates.ratingPreview);
 duplicateRouter.post('/sorting/ratings', duplicates.ratingFix);
