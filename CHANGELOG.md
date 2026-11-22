@@ -8,6 +8,12 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-11-22
+
+### Fixed
+
+- Search engines no longer see every page as a copy of the home page: the legal pages carry their own canonical address, and the sign-in step, share links and the private drive say `noindex` themselves.
+
 ## [1.4.2] - 2026-11-21
 
 ### Fixed
