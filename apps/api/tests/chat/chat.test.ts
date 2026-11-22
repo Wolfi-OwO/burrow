@@ -469,6 +469,28 @@ describe('the assistant changing and removing what is there', () => {
         assert.equal((await answer(first.token, message.id, 5, 'confirm')).status, 404);
     });
 
+    it('answers "how many are in review?" itself, from the database, without asking the model', async () => {
+        const { token } = await registerOwner();
+        await filed(token);
+        const before = seenPrompt;
+        await getPool().query("UPDATE files SET status = 'review', category_id = NULL");
+        const events = await talk(token, 'How many pictures are in review?');
+        const said = events
+            .filter((e) => e.event === 'delta')
+            .map((e) => e.data.text)
+            .join('');
+        assert.match(said, /1 file is waiting in review/);
+        assert.equal(seenPrompt, before, 'the model was not asked');
+        const german = await talk(token, 'Wie viele Dateien sind im Review?');
+        assert.match(
+            german
+                .filter((e) => e.event === 'delta')
+                .map((e) => e.data.text)
+                .join(''),
+            /Im Review wartet 1 Datei|Im Review warten 1 Datei/,
+        );
+    });
+
     it('tells the model how many files each folder holds', async () => {
         const { token } = await registerOwner();
         await filed(token);
@@ -774,7 +796,7 @@ describe('the assistant answering a plain yes or no, and not claiming what it di
         await upload(token, 'r.png', await png(32));
         await getPool().query("UPDATE files SET status = 'review'");
         next = turn('ok', []);
-        await talk(token, 'how many files are in review?');
+        await talk(token, 'what should I tidy up next in my drive?');
         assert.match(seenPrompt, /review queue[^\n]*: 1\./);
     });
 });

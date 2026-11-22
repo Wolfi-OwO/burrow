@@ -68,12 +68,14 @@ Upload pictures, documents, spreadsheets, archives or whole folders; burrow sort
 - Anything it is unsure about goes to a **review queue**; it never guesses silently, and a file nothing fits stays in Unsorted.
 - "Sort all now" runs in the background with a progress bar and no time limit.
 - Photos get a **place guess** (GPS tag plus a landmark and scene guess), searchable.
+- It **learns from your corrections**: every picture you file or move by hand is remembered as an example, and a new picture that looks like those goes where you put them, against what the folder name alone suggests ([ADR-0007](organizational/adr/0007-learning-from-corrections.md)).
 
 ### Duplicates
 
 ![Duplicates page — identical files and the same picture in other sizes, with one-click clean-up](docs/screenshots/duplicates.png)
 
 - Finds identical files and the same picture in other sizes; the copy that is already filed, and the biggest one, is kept by default.
+- "Remove all duplicates" runs in the background with a progress bar that survives closing the browser and a server restart; the page updates live as the comparison moves on.
 
 ### Sharing
 

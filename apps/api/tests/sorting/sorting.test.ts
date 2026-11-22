@@ -380,3 +380,80 @@ describe('sorting', () => {
         assert.equal(await schedulerRepository.activeRun(), null);
     });
 });
+
+describe('learning from what the person filed', () => {
+    const exampleCount = async (): Promise<number> =>
+        Number((await getPool().query('SELECT count(*) AS n FROM sorting_examples')).rows[0]?.n);
+
+    it('files a new picture where the person put similar ones, against what the labels say', async () => {
+        const { token } = await registerOwner();
+        const party = await category(token, 'Matura feier');
+        const furry = await category(token, 'Furry');
+        // The picture model prefers the party folder for every picture, as it did for the person's real ones.
+        behaviour.scores = { 'Matura feier': 0.8, Furry: 0.05 };
+        const ids: string[] = [];
+        for (let i = 0; i < 3; i++)
+            ids.push(
+                (await upload(token, `w${String(i)}.png`, await png(200 + i))).json.file
+                    .id as string,
+            );
+        await api('POST', '/api/sorting/run', { token });
+        for (const id of ids) assert.equal((await fileOf(token, id)).categoryId, party);
+
+        // The person moves them to Furry; that is remembered.
+        const moved = await api('POST', '/api/files/move', {
+            token,
+            body: { ids, categoryId: furry },
+        });
+        assert.equal(moved.json.moved, 3);
+        assert.equal(await exampleCount(), 3);
+
+        const next = (await upload(token, 'next.png', await png(210))).json.file.id as string;
+        await api('POST', '/api/sorting/run', { token });
+        const after = await fileOf(token, next);
+        assert.equal(after.status, 'sorted');
+        assert.equal(after.categoryId, furry);
+    });
+
+    it('forgets an example when the person moves the file back to Unsorted, and replaces it on a later move', async () => {
+        const { token } = await registerOwner();
+        const a = await category(token, 'A');
+        const b = await category(token, 'B');
+        const { file } = (await upload(token, 'x.png', await png(220))).json;
+        await api('PATCH', `/api/files/${file.id as string}`, { token, body: { categoryId: a } });
+        assert.equal(await exampleCount(), 1);
+        await api('PATCH', `/api/files/${file.id as string}`, { token, body: { categoryId: b } });
+        const rows = await getPool().query('SELECT category_id FROM sorting_examples');
+        assert.equal(rows.rows.length, 1);
+        assert.equal(Number(rows.rows[0]?.category_id), b);
+        await api('PATCH', `/api/files/${file.id as string}`, {
+            token,
+            body: { categoryId: null },
+        });
+        assert.equal(await exampleCount(), 0);
+    });
+
+    it('keeps what it was taught when everything is unsorted again, and loses it with the folder', async () => {
+        const { token } = await registerOwner();
+        const a = await category(token, 'A');
+        const { file } = (await upload(token, 'x.png', await png(230))).json;
+        await api('PATCH', `/api/files/${file.id as string}`, { token, body: { categoryId: a } });
+        await api('POST', '/api/sorting/unsort-all', { token });
+        assert.equal(await exampleCount(), 1, 'clearing where files sit does not clear the lesson');
+        await api('DELETE', `/api/categories/${String(a)}`, { token });
+        assert.equal(await exampleCount(), 0, 'a deleted folder has nothing left to teach');
+    });
+
+    it('does not count a move the system makes on its own', async () => {
+        const { token } = await registerOwner();
+        const a = await category(token, 'A');
+        const { file } = (await upload(token, 'x.png', await png(240))).json;
+        const { fileRepository } = await import('../../src/repository/file.repository.ts');
+        const user = (await getPool().query('SELECT user_id FROM files WHERE id = $1', [file.id]))
+            .rows[0]?.user_id as string;
+        await fileRepository.setCategory(user, file.id as string, a, undefined, { teach: false });
+        assert.equal(await exampleCount(), 0);
+        await fileRepository.setCategory(user, file.id as string, a);
+        assert.equal(await exampleCount(), 1);
+    });
+});

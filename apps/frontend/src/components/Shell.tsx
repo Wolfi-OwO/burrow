@@ -6,8 +6,10 @@ import type { ReactNode } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
 
 import { api } from '../lib/api.ts';
+import { DuplicateCleanProvider } from '../lib/duplicate-clean.tsx';
 import { SortRunProvider } from '../lib/sort-run.tsx';
 import type { FileItem } from '../lib/types.ts';
+import { DuplicateBar } from './DuplicateBar.tsx';
 import { Masthead } from './Masthead.tsx';
 import { SortBar } from './SortBar.tsx';
 import { Tree } from './Tree.tsx';
@@ -80,56 +82,59 @@ export function Shell(): ReactNode {
 
     return (
         <SortRunProvider>
-            <div
-                className="shell"
-                style={{ '--rail-w': `${String(rail.width)}px` } as CSSProperties}
-            >
-                <Masthead
-                    waiting={waiting}
-                    folder={typeof selected === 'number' ? selected : undefined}
-                />
-                <aside className="rail">
-                    <div
-                        className="rail-resizer"
-                        role="separator"
-                        aria-orientation="vertical"
-                        aria-label="Resize the index"
-                        aria-valuemin={RAIL_MIN}
-                        aria-valuemax={RAIL_MAX}
-                        aria-valuenow={rail.width}
-                        tabIndex={0}
-                        onPointerDown={rail.onPointerDown}
-                        onPointerMove={rail.onPointerMove}
-                        onKeyDown={rail.onKeyDown}
-                        onDoubleClick={rail.reset}
-                        title="Drag to resize, double-click to reset"
+            <DuplicateCleanProvider>
+                <div
+                    className="shell"
+                    style={{ '--rail-w': `${String(rail.width)}px` } as CSSProperties}
+                >
+                    <Masthead
+                        waiting={waiting}
+                        folder={typeof selected === 'number' ? selected : undefined}
                     />
-                    <p className="rail-title">Categories</p>
-                    <button
-                        className="btn ghost sm tree-toggle"
-                        aria-expanded={treeOpen}
-                        aria-controls="category-tree"
-                        onClick={() => setTreeOpen((v) => !v)}
-                    >
-                        <FolderTree size={15} />
-                        Categories
-                    </button>
-                    <div id="category-tree" className={`tree-wrap ${treeOpen ? 'open' : ''}`}>
-                        <Tree
-                            selected={selected}
-                            onSelect={(value) => {
-                                setTreeOpen(false);
-                                navigate(value === null ? '/' : `/?c=${String(value)}`);
-                            }}
+                    <aside className="rail">
+                        <div
+                            className="rail-resizer"
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label="Resize the index"
+                            aria-valuemin={RAIL_MIN}
+                            aria-valuemax={RAIL_MAX}
+                            aria-valuenow={rail.width}
+                            tabIndex={0}
+                            onPointerDown={rail.onPointerDown}
+                            onPointerMove={rail.onPointerMove}
+                            onKeyDown={rail.onKeyDown}
+                            onDoubleClick={rail.reset}
+                            title="Drag to resize, double-click to reset"
                         />
-                    </div>
-                </aside>
-                <main className="main">
-                    <SortBar />
-                    <Outlet />
-                    <UploadTray />
-                </main>
-            </div>
+                        <p className="rail-title">Categories</p>
+                        <button
+                            className="btn ghost sm tree-toggle"
+                            aria-expanded={treeOpen}
+                            aria-controls="category-tree"
+                            onClick={() => setTreeOpen((v) => !v)}
+                        >
+                            <FolderTree size={15} />
+                            Categories
+                        </button>
+                        <div id="category-tree" className={`tree-wrap ${treeOpen ? 'open' : ''}`}>
+                            <Tree
+                                selected={selected}
+                                onSelect={(value) => {
+                                    setTreeOpen(false);
+                                    navigate(value === null ? '/' : `/?c=${String(value)}`);
+                                }}
+                            />
+                        </div>
+                    </aside>
+                    <main className="main">
+                        <SortBar />
+                        <DuplicateBar />
+                        <Outlet />
+                        <UploadTray />
+                    </main>
+                </div>
+            </DuplicateCleanProvider>
         </SortRunProvider>
     );
 }

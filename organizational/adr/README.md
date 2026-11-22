@@ -9,3 +9,4 @@ choice. Numbered in decision order, template in `0000-template.md`.
 - [0004 — vision model choice](0004-vision-model.md)
 - [0005 — deployment shape](0005-deployment-shape.md)
 - [0006 — local store of record, encrypted offsite backup](0006-local-store-encrypted-offsite-backup.md)
+- [0007 — the sorter learns from what the person files by hand](0007-learning-from-corrections.md)

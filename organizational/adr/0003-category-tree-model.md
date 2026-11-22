@@ -22,12 +22,12 @@ of work depend on getting right:
 Two models were compared, on exactly the four operations that matter
 here — not on general merits:
 
-| Operation | ltree | Adjacency list (`parent_id` self-reference) |
-| --- | --- | --- |
-| Move a subtree atomically (#41) | One `UPDATE` rewriting the `path` prefix on every descendant row, in one statement, in one transaction. | Either a recursive CTE walk to relabel every descendant row, or an unindexed recursive read at every query time — moving is not a single-row update either way, because there is no materialized path to rewrite in bulk. |
-| Recursive descent to the deepest matching leaf (#49) | `path ~ 'parent.*'` or a GiST-indexed prefix range scan finds every descendant of a node in one query; descent is a sequence of narrowing queries over the same indexed column. | A recursive CTE (`WITH RECURSIVE`) per descent step, or *N* round trips walking one level at a time. Correct, but every level is a separate query unless the whole subtree is pulled up front. |
+| Operation                                             | ltree                                                                                                                                                                                                        | Adjacency list (`parent_id` self-reference)                                                                                                                                                                                                                            |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Move a subtree atomically (#41)                       | One `UPDATE` rewriting the `path` prefix on every descendant row, in one statement, in one transaction.                                                                                                      | Either a recursive CTE walk to relabel every descendant row, or an unindexed recursive read at every query time — moving is not a single-row update either way, because there is no materialized path to rewrite in bulk.                                              |
+| Recursive descent to the deepest matching leaf (#49)  | `path ~ 'parent.*'` or a GiST-indexed prefix range scan finds every descendant of a node in one query; descent is a sequence of narrowing queries over the same indexed column.                              | A recursive CTE (`WITH RECURSIVE`) per descent step, or _N_ round trips walking one level at a time. Correct, but every level is a separate query unless the whole subtree is pulled up front.                                                                         |
 | "All descendants of X" / "direct children of X" (#29) | `path <@ 'x'` (descendants) and `path ~ 'x.*{1}'` (direct children) are both indexed range/prefix operations, backed by a GiST index — #29's own acceptance criteria requires verifying this with `EXPLAIN`. | "All descendants" needs a recursive CTE (no native index support beyond indexing `parent_id` itself, which only speeds up one level at a time). "Direct children" is a single indexed equality lookup on `parent_id` — the one operation adjacency list wins outright. |
-| Depth-unbounded CRUD (#40) | Insert/rename at any depth is a single-row write; the `path` value must be computed (append a label to the parent's path) but that computation is cheap and local. | Insert/rename at any depth is also a single-row write — adjacency list has no depth penalty for CRUD itself. |
+| Depth-unbounded CRUD (#40)                            | Insert/rename at any depth is a single-row write; the `path` value must be computed (append a label to the parent's path) but that computation is cheap and local.                                           | Insert/rename at any depth is also a single-row write — adjacency list has no depth penalty for CRUD itself.                                                                                                                                                           |
 
 ## Decision
 
@@ -77,11 +77,11 @@ with `EXPLAIN`, and this ADR states it as a hard requirement of the
 ## Consequences
 
 - #41 (atomic subtree move) becomes a single `UPDATE ... SET path =
-  new_parent_path || subpath(path, nlevel(old_parent_path))` inside one
+new_parent_path || subpath(path, nlevel(old_parent_path))` inside one
   transaction — no recursive walk, no risk of a partial move leaving the
   tree half-relabeled.
 - #49 (recursive descent to the deepest matching leaf) is a sequence of
-  indexed `path <@` queries narrowing one level at a time, not *N*
+  indexed `path <@` queries narrowing one level at a time, not _N_
   separate recursive-CTE round trips.
 - #29's "direct children" query is one indexed `~ 'x.*{1}'` lookup
   instead of the flat `parent_id = x` equality an adjacency list would

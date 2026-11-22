@@ -9,6 +9,23 @@ import { api, closeServer, png, registerOwner, resetDatabase, upload } from '../
 const vector = (head: number, tail = 0): string =>
     `[${Array.from({ length: 512 }, (_, i) => (i === 0 ? head : i === 1 ? tail : 0)).join(',')}]`;
 
+interface CleanStatusJson {
+    running: boolean;
+    total: number;
+    done: number;
+    removed: number;
+}
+/** Waits for the background cleanup to end and returns its last status, as a reopened page would read it. */
+async function finished(token: string): Promise<CleanStatusJson> {
+    for (let i = 0; i < 100; i++) {
+        const status = (await api('GET', '/api/duplicates/clean', { token }))
+            .json as CleanStatusJson;
+        if (!status.running) return status;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error('the cleanup did not finish');
+}
+
 describe('duplicates and ratings', () => {
     beforeEach(resetDatabase);
     after(closeServer);
@@ -29,8 +46,15 @@ describe('duplicates and ratings', () => {
         assert.equal(found.json.groups[0].files.length, 2);
         assert.equal(found.json.groups[0].keepId, second, 'the filed copy is the one to keep');
 
-        const done = await api('POST', '/api/duplicates/clean', { token, body: { mode: 'exact' } });
-        assert.equal(done.json.removed, 1);
+        const started = await api('POST', '/api/duplicates/clean', {
+            token,
+            body: { mode: 'exact' },
+        });
+        assert.equal(started.json.started, true);
+        assert.equal(started.json.total, 1);
+        const done = await finished(token);
+        assert.equal(done.removed, 1);
+        assert.equal(done.done, 1);
         const left = await api('GET', '/api/files?limit=50', { token });
         assert.equal(left.json.files.length, 2);
         assert.equal((await api('GET', `/api/files/${first}`, { token })).status, 404);
@@ -228,5 +252,65 @@ describe('duplicates and ratings', () => {
         const file = (await api('GET', `/api/files/${id}`, { token })).json;
         assert.equal(file.categoryId, null);
         assert.equal(file.status, 'unsorted');
+    });
+
+    it('keeps the finished run to show when the page is opened again, and says when there is nothing to remove', async () => {
+        const { token } = await registerOwner();
+        const same = await png(50);
+        await upload(token, 'a.png', same);
+        await upload(token, 'b.png', same);
+        await api('POST', '/api/duplicates/clean', { token, body: { mode: 'exact' } });
+        const last = await finished(token);
+        assert.deepEqual([last.total, last.done, last.removed, last.running], [1, 1, 1, false]);
+
+        const again = await api('POST', '/api/duplicates/clean', {
+            token,
+            body: { mode: 'exact' },
+        });
+        assert.equal(again.json.started, false);
+        assert.equal(again.json.reason, 'No duplicates to remove.');
+    });
+
+    it('carries on with a run that was interrupted, without counting what was already removed', async () => {
+        const { token } = await registerOwner();
+        const same = await png(60);
+        const ids: string[] = [];
+        for (const name of ['a.png', 'b.png', 'c.png'])
+            ids.push((await upload(token, name, same)).json.file.id as string);
+        const user = (await getPool().query('SELECT user_id FROM files WHERE id = $1', [ids[0]]))
+            .rows[0]?.user_id as string;
+        // The server stopped after one of the three copies was removed (the run was to remove 2 in total).
+        await getPool().query('DELETE FROM files WHERE id = $1', [ids[2]]);
+        await getPool().query(
+            `INSERT INTO duplicate_clean_runs (user_id, mode, total, done, removed, active)
+             VALUES ($1, 'exact', 2, 1, 1, true)`,
+            [user],
+        );
+        const { duplicateService } = await import('../../src/services/duplicate-service.ts');
+        assert.equal(await duplicateService.resumeInterrupted(), 1);
+        const last = await finished(token);
+        assert.deepEqual([last.total, last.done, last.removed], [2, 2, 2]);
+        assert.equal((await api('GET', '/api/files?limit=50', { token })).json.files.length, 1);
+    });
+
+    it('does not start a second run while one is going', async () => {
+        const { token } = await registerOwner();
+        const same = await png(70);
+        await upload(token, 'a.png', same);
+        await upload(token, 'b.png', same);
+        const user = (await getPool().query('SELECT user_id FROM files LIMIT 1')).rows[0]
+            ?.user_id as string;
+        await getPool().query(
+            `INSERT INTO duplicate_clean_runs (user_id, mode, total, done, removed, active)
+             VALUES ($1, 'exact', 5, 2, 2, true)`,
+            [user],
+        );
+        const second = await api('POST', '/api/duplicates/clean', {
+            token,
+            body: { mode: 'exact' },
+        });
+        assert.equal(second.json.started, false);
+        assert.equal(second.json.reason, 'Already removing.');
+        assert.equal(second.json.done, 2);
     });
 });

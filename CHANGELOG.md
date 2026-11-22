@@ -8,6 +8,18 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-22
+
+### Added
+
+- The sorter learns from what you file by hand. Every picture you move, file or take from review becomes an example, and a new picture that looks like pictures you already filed goes where you put them, even when the folder's name means nothing to the picture model. See ADR-0007.
+- Asking the assistant "how many pictures are in review?" (or unsorted, in a folder, or in total, in English or German) is answered from your drive's numbers instead of by the language model.
+- "Remove all duplicates" runs in the background with a progress bar on every page. Close the browser and open it again: the bar picks up where it is. A restart of the server carries the run on.
+
+### Changed
+
+- The duplicates page updates by itself as the comparison moves on and as files go, without reloading.
+
 ## [1.4.4] - 2026-11-22
 
 ### Changed

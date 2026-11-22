@@ -37,15 +37,15 @@ dropped rather than built speculatively.
   middleware shared across every route (not duplicated per-route). [#35]
 - **FR-005** A user can log out, revoking the active session/token
   rather than only letting it expire. [#35]
-- **FR-006** *(provisional, see above)* A user can log in via GitHub
+- **FR-006** _(provisional, see above)_ A user can log in via GitHub
   OAuth; a first-time login creates an account, a repeat login with a
   verified-matching email links to the existing one. [#36]
-- **FR-007** *(provisional)* A user can log in via Microsoft OAuth,
+- **FR-007** _(provisional)_ A user can log in via Microsoft OAuth,
   sharing the same account-creation/linking logic as FR-006 rather than a
   parallel implementation. [#37]
-- **FR-008** *(provisional)* A user can log in via Google OAuth, sharing
+- **FR-008** _(provisional)_ A user can log in via Google OAuth, sharing
   the same account-creation/linking logic as FR-006 and FR-007. [#38]
-- **FR-009** *(provisional)* A user can view and remove a linked login
+- **FR-009** _(provisional)_ A user can view and remove a linked login
   provider from their profile, provided at least one login method
   remains; linking a second provider is rejected if its email isn't
   verified. [#39]

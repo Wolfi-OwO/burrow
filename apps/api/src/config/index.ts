@@ -168,6 +168,16 @@ export const config = {
         autoFileThreshold: Number(process.env.AUTO_FILE_THRESHOLD) || 0.6,
         /** FR-037: files scored at or above this count as NSFW for the preview gate. */
         nsfwThreshold: Number(process.env.NSFW_THRESHOLD) || 0.5,
+        /**
+         * Learning from the person's own filing (lib/learned-sorting.ts). Picture-to-picture similarity below the floor
+         * is no evidence; this much total weight (about three close examples) is full strength; and the examples never
+         * take over completely, so the picture itself still counts. Not tuned on real libraries: adjust here.
+         */
+        learnMinSimilarity: Number(process.env.LEARN_MIN_SIMILARITY) || 0.75,
+        learnFullWeight: Number(process.env.LEARN_FULL_WEIGHT) || 2,
+        learnMaxTrust: Number(process.env.LEARN_MAX_TRUST) || 0.85,
+        /** How many nearest examples are looked at for one picture. */
+        learnNeighbours: Number(process.env.LEARN_NEIGHBOURS) || 12,
         /** FR-040: bounds of the scheduler's runs per day; the backlog moves it between them. */
         minRunsPerDay: Number(process.env.SCHEDULER_MIN_RUNS_PER_DAY) || 10,
         maxRunsPerDay: Number(process.env.SCHEDULER_MAX_RUNS_PER_DAY) || 30,

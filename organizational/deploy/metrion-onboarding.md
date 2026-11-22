@@ -9,12 +9,12 @@ prefix** (`netviz-`, `nutrilens-`, `portfolio-`). burrow's compose project is na
 
 Measured against the collector, not assumed:
 
-| Wanted | Source | Status |
-| - | - | - |
-| CPU per container | `collect.sh` | Covered once the route below exists |
-| RAM per container | `collect.sh` | Covered; matters most for `burrow-vision`, whose `mem_limit` is 1280 MB |
-| Request count | none | **Not collected.** The collector reads no per-hostname request numbers. `GET /metrics` on the API exposes `http_request_duration_seconds`, so a Prometheus-format scrape is possible, but nothing scrapes it today |
-| Storage used | none | **Not collected.** Since ADR-0006 the local directory `/opt/burrow/data` is the store of record, so its size is exactly what burrow holds; nothing reads it today |
+| Wanted            | Source       | Status                                                                                                                                                                                                             |
+| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CPU per container | `collect.sh` | Covered once the route below exists                                                                                                                                                                                |
+| RAM per container | `collect.sh` | Covered; matters most for `burrow-vision`, whose `mem_limit` is 1280 MB                                                                                                                                            |
+| Request count     | none         | **Not collected.** The collector reads no per-hostname request numbers. `GET /metrics` on the API exposes `http_request_duration_seconds`, so a Prometheus-format scrape is possible, but nothing scrapes it today |
+| Storage used      | none         | **Not collected.** Since ADR-0006 the local directory `/opt/burrow/data` is the store of record, so its size is exactly what burrow holds; nothing reads it today                                                  |
 
 Request counts and the size of `/opt/burrow/data` therefore need new collectors in metrion; they are not something a config line turns on.
 

@@ -4,7 +4,92 @@ import { getPool } from '../database/connection.ts';
 /** Arbitrary constant: the advisory-lock key that lets one process at a time run the duplicate comparison. */
 const DUPLICATE_LOCK_KEY = 874_100_002;
 
+export interface CleanRun {
+    mode: 'exact' | 'similar';
+    total: number;
+    done: number;
+    removed: number;
+    active: boolean;
+    startedAt: Date;
+    finishedAt: Date | null;
+}
+
+const toRun = (row: Record<string, unknown>): CleanRun => ({
+    mode: row.mode as 'exact' | 'similar',
+    total: Number(row.total),
+    done: Number(row.done),
+    removed: Number(row.removed),
+    active: row.active === true,
+    startedAt: row.started_at as Date,
+    finishedAt: (row.finished_at as Date | null) ?? null,
+});
+
 export const duplicateRepository = {
+    /** Writes down that "Remove all duplicates" is going to remove `total` files, replacing the account's last run. */
+    async beginClean(
+        userId: string,
+        mode: 'exact' | 'similar',
+        total: number,
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query(
+            `INSERT INTO duplicate_clean_runs (user_id, mode, total) VALUES ($1, $2, $3)
+             ON CONFLICT (user_id) DO UPDATE SET mode = $2, total = $3, done = 0, removed = 0,
+                 active = true, started_at = now(), finished_at = NULL`,
+            [userId, mode, total],
+        );
+    },
+
+    async progressClean(
+        userId: string,
+        done: number,
+        removed: number,
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query(
+            'UPDATE duplicate_clean_runs SET done = $2, removed = $3 WHERE user_id = $1',
+            [userId, done, removed],
+        );
+    },
+
+    async endClean(userId: string, db: Queryable = getPool()): Promise<void> {
+        await db.query(
+            'UPDATE duplicate_clean_runs SET active = false, finished_at = now() WHERE user_id = $1',
+            [userId],
+        );
+    },
+
+    /** @returns The account's latest run (going or finished), or null when it never ran one. */
+    async cleanRun(userId: string, db: Queryable = getPool()): Promise<CleanRun | null> {
+        const { rows } = await db.query('SELECT * FROM duplicate_clean_runs WHERE user_id = $1', [
+            userId,
+        ]);
+        return rows[0] ? toRun(rows[0]) : null;
+    },
+
+    /** @returns The runs that were going when the server last stopped. */
+    async activeCleans(
+        db: Queryable = getPool(),
+    ): Promise<{ userId: string; mode: 'exact' | 'similar'; total: number }[]> {
+        const { rows } = await db.query(
+            'SELECT user_id, mode, total FROM duplicate_clean_runs WHERE active',
+        );
+        return rows.map((r) => ({
+            userId: r.user_id as string,
+            mode: r.mode as 'exact' | 'similar',
+            total: Number(r.total),
+        }));
+    },
+
+    /** @returns The accounts that own these files, so each can be told its comparison moved on. */
+    async ownersOf(ids: string[], db: Queryable = getPool()): Promise<string[]> {
+        const { rows } = await db.query(
+            'SELECT DISTINCT user_id FROM files WHERE id = ANY($1::uuid[])',
+            [ids],
+        );
+        return rows.map((r) => r.user_id as string);
+    },
+
     /** Takes the comparison lock for this transaction. @returns True when this process may compare now. */
     async tryLock(db: Queryable): Promise<boolean> {
         const { rows } = await db.query('SELECT pg_try_advisory_xact_lock($1) AS locked', [

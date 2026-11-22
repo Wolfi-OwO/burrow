@@ -4,6 +4,7 @@ import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
 import { PLACE_MIN_SCORE, PLACES } from '../lib/places.ts';
+import { blend, learnedShare, type Learned } from '../lib/learned-sorting.ts';
 import { ratingOf } from '../lib/rating.ts';
 import { visionClient } from '../lib/vision-client.ts';
 import type { Category } from '../models/category.model.ts';
@@ -90,6 +91,9 @@ export interface Decision {
  * @param nsfw - The NSFW classifier's probability. A level whose children are all ratings (SFW / NSFW) is decided by
  *   it, not by the zero-shot labels; a score in the grey zone between the two goes to review instead of being guessed.
  * @param reviewFloor - A best guess below this is not worth a review item: the file simply stays unsorted.
+ * @param hints - What the person taught through the chat, per folder.
+ * @param learned - The pictures the person filed themselves that look like this one. With them, a folder's score is
+ *   its zero-shot score weighted against how many of them sit in it; without them nothing changes.
  */
 export async function descend(
     children: (parentId: number | null) => Promise<Category[]>,
@@ -98,6 +102,7 @@ export async function descend(
     nsfw: number | null = null,
     reviewFloor = 0.3,
     hints: Map<number, string[]> = new Map(),
+    learned: Learned | null = null,
 ): Promise<Decision> {
     let current: Category | null = null;
     let confidence: number | null = null;
@@ -129,17 +134,23 @@ export async function descend(
             ...candidates.flatMap((c) => labelsFor(c.name, hints.get(c.id))),
             ...competitorsFor(candidates),
         ]);
+        const vote = learned ? learnedShare(learned, candidates) : null;
         const best = candidates
-            .map((c) => ({
-                category: c,
-                score: Math.min(
+            .map((c) => {
+                const zeroShot = Math.min(
                     1,
                     labelsFor(c.name, hints.get(c.id)).reduce(
                         (sum, label) => sum + (scores.find((s) => s.label === label)?.score ?? 0),
                         0,
                     ),
-                ),
-            }))
+                );
+                return {
+                    category: c,
+                    score: vote
+                        ? blend(zeroShot, vote.share.get(c.id) ?? 0, vote.strength)
+                        : zeroShot,
+                };
+            })
             .sort((a, b) => b.score - a.score)[0];
         if (!best) break;
 
@@ -243,6 +254,19 @@ export const classificationService = {
                 nsfw !== null && nsfw >= 0.5
                     ? { place: null, score: null }
                     : await guessPlace(path);
+            // What the person filed by hand and that looks like this picture: their corrections, remembered.
+            const examples = await fileRepository.nearestExamples(
+                file.userId,
+                embedding,
+                config.sorting.learnNeighbours,
+            );
+            const learned: Learned | null =
+                examples.length > 0
+                    ? {
+                          neighbours: examples,
+                          parentOf: new Map(categories.map((c) => [c.id, c.parentId])),
+                      }
+                    : null;
             const decision = placeDecision(
                 await descend(
                     (parentId) => categoryRepository.listChildren(file.userId, parentId),
@@ -251,6 +275,7 @@ export const classificationService = {
                     nsfw,
                     config.sorting.reviewFloor,
                     await chatRepository.hintsByCategory(file.userId),
+                    learned,
                 ),
                 place,
                 placeScore,
