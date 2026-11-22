@@ -4,7 +4,7 @@ import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
 import { PLACE_MIN_SCORE, PLACES } from '../lib/places.ts';
-import { blend, learnedShare, type Learned } from '../lib/learned-sorting.ts';
+import { blend, learnedShare, rejectionFactors, type Learned } from '../lib/learned-sorting.ts';
 import { ratingOf } from '../lib/rating.ts';
 import { visionClient } from '../lib/vision-client.ts';
 import type { Category } from '../models/category.model.ts';
@@ -135,6 +135,7 @@ export async function descend(
             ...competitorsFor(candidates),
         ]);
         const vote = learned ? learnedShare(learned, candidates) : null;
+        const refused = learned ? rejectionFactors(learned, candidates) : null;
         const best = candidates
             .map((c) => {
                 const zeroShot = Math.min(
@@ -144,12 +145,10 @@ export async function descend(
                         0,
                     ),
                 );
-                return {
-                    category: c,
-                    score: vote
-                        ? blend(zeroShot, vote.share.get(c.id) ?? 0, vote.strength)
-                        : zeroShot,
-                };
+                const learnedScore = vote
+                    ? blend(zeroShot, vote.share.get(c.id) ?? 0, vote.strength)
+                    : zeroShot;
+                return { category: c, score: learnedScore * (refused?.get(c.id) ?? 1) };
             })
             .sort((a, b) => b.score - a.score)[0];
         if (!best) break;
@@ -260,10 +259,16 @@ export const classificationService = {
                 embedding,
                 config.sorting.learnNeighbours,
             );
+            const rejected = await fileRepository.nearestRejections(
+                file.userId,
+                embedding,
+                config.sorting.learnNeighbours,
+            );
             const learned: Learned | null =
-                examples.length > 0
+                examples.length > 0 || rejected.length > 0
                     ? {
                           neighbours: examples,
+                          rejected,
                           parentOf: new Map(categories.map((c) => [c.id, c.parentId])),
                       }
                     : null;

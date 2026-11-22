@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { blend, learnedShare, weightOf, type Learned } from '../../src/lib/learned-sorting.ts';
+import {
+    blend,
+    learnedShare,
+    rejectionFactors,
+    weightOf,
+    type Learned,
+} from '../../src/lib/learned-sorting.ts';
 import type { Category } from '../../src/models/category.model.ts';
 import { descend } from '../../src/services/classification-service.ts';
 
@@ -115,6 +121,56 @@ describe('descend with learned examples', () => {
             0.3,
             new Map(),
             examples([1, 0.96], [1, 0.94], [1, 0.92]),
+        );
+        assert.equal(d.category?.name, 'Furry');
+    });
+});
+
+describe('turning a folder down', () => {
+    const turnedDown = (...pairs: [number, number][]): Learned => ({
+        neighbours: [],
+        rejected: pairs.map(([categoryId, similarity]) => ({ categoryId, similarity })),
+        parentOf,
+    });
+
+    it('leaves a folder alone when nothing close was turned down for it', () => {
+        assert.equal(rejectionFactors(turnedDown([2, 0.6]), [TREE[0]!, TREE[1]!]).size, 0);
+        assert.equal(rejectionFactors(turnedDown(), [TREE[0]!, TREE[1]!]).size, 0);
+    });
+
+    it('cuts a folder by most of its score after a few close refusals, never to nothing', () => {
+        const few = rejectionFactors(turnedDown([2, 0.95], [2, 0.95], [2, 0.95]), [TREE[1]!]);
+        assert.ok((few.get(2) ?? 1) < 0.2);
+        assert.ok((few.get(2) ?? 0) > 0);
+        const one = rejectionFactors(turnedDown([2, 0.95]), [TREE[1]!]);
+        assert.ok((one.get(2) ?? 0) > (few.get(2) ?? 1));
+    });
+
+    it('stops suggesting a folder for pictures like the ones it was turned down for', async () => {
+        const learned = turnedDown([2, 0.95], [2, 0.93], [2, 0.92]);
+        const d = await descend(
+            children,
+            scorer({ 'Matura feier': 0.7 }),
+            0.6,
+            null,
+            0.3,
+            new Map(),
+            learned,
+        );
+        assert.notEqual(d.category?.name, 'Matura feier');
+        assert.equal(d.status, 'unsorted');
+    });
+
+    it('does not touch the other folders', async () => {
+        const learned = turnedDown([2, 0.95], [2, 0.93], [2, 0.92]);
+        const d = await descend(
+            children,
+            scorer({ 'Matura feier': 0.7, Furry: 0.8 }),
+            0.6,
+            null,
+            0.3,
+            new Map(),
+            learned,
         );
         assert.equal(d.category?.name, 'Furry');
     });

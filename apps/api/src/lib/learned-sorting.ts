@@ -19,6 +19,8 @@ export interface Neighbour {
 
 export interface Learned {
     neighbours: Neighbour[];
+    /** Pictures like this one that were turned down for a folder (a review suggestion that was refused). */
+    rejected?: Neighbour[];
     /** Every folder's parent, so an example filed deep in a branch counts for the branch being decided. */
     parentOf: Map<number, number | null>;
 }
@@ -77,4 +79,28 @@ export function blend(
 ): number {
     const trust = maxTrust * strength;
     return (1 - trust) * zeroShot + trust * share;
+}
+
+/**
+ * How much each candidate's score is cut because pictures like this one were turned down for it. Like the examples,
+ * nothing close by means no change; about three close refusals cut it by `maxPenalty`, never to nothing.
+ *
+ * @returns The factor to multiply a candidate's score by (1 = untouched).
+ */
+export function rejectionFactors(
+    learned: Learned,
+    candidates: Category[],
+    fullWeight = config.sorting.learnFullWeight,
+    maxPenalty = config.sorting.learnMaxPenalty,
+): Map<number, number> {
+    const ids = new Set(candidates.map((c) => c.id));
+    const weights = new Map<number, number>();
+    for (const n of learned.rejected ?? []) {
+        const w = weightOf(n.similarity);
+        const owner = w > 0 ? holder(n.categoryId, ids, learned.parentOf) : null;
+        if (owner !== null) weights.set(owner, (weights.get(owner) ?? 0) + w);
+    }
+    return new Map(
+        [...weights].map(([id, w]) => [id, 1 - maxPenalty * Math.min(1, w / fullWeight)]),
+    );
 }
