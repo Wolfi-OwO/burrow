@@ -11,9 +11,6 @@ first release is cut.
 ### Added
 
 - The sorter panel says why files stay in Unsorted after a look: pictures where no folder scored high enough, pictures whose rating has no folder, files that are not pictures and have no folder for their type, or no folders made yet (migration 0017).
-
-### Added
-
 - A public demo at /demo: a small simulation of the sorter with made-up scores, where a visitor can sort a few pictures, move one out of Review and watch similar ones follow. It is in the sitemap and linked from the sign-in page.
 
 ### Changed
