@@ -62,6 +62,15 @@ export interface FileListFilter {
  * A file the person filed (or took out of a folder) is an example for the sorter. Moving a file to Unsorted forgets it:
  * the person no longer says it belongs anywhere. A later move replaces the earlier decision.
  */
+/**
+ * True for a file the sorter last looked at before a folder, a hint or an example changed: new information that could
+ * move it. Files looked at after the last change would get the same answer again.
+ */
+const LOOKED_BEFORE_A_CHANGE = `f.classified_at < GREATEST(
+    COALESCE((SELECT max(c.updated_at) FROM categories c WHERE c.user_id = f.user_id), '-infinity'),
+    COALESCE((SELECT max(e.created_at) FROM sorting_examples e WHERE e.user_id = f.user_id), '-infinity'),
+    COALESCE((SELECT max(h.created_at) FROM category_hints h WHERE h.user_id = f.user_id), '-infinity'))`;
+
 async function recordExamples(
     db: Queryable,
     userId: string,
@@ -194,15 +203,27 @@ export const fileRepository = {
     },
 
     /**
-     * "Sort all now" looks at everything still in Unsorted again, because folders may have been made since the last
-     * look. Review items are left alone. @returns How many files were queued.
+     * "Sort all now" looks again at what is still in Unsorted, but only the files that were looked at before the last
+     * change to the folders, hints or examples; pressing it twice does not repeat the work. Review items are left
+     * alone. @returns How many files were queued.
      */
     async requeueUnsorted(db: Queryable = getPool()): Promise<number> {
         const { rowCount } = await db.query(
-            `UPDATE files SET classified_at = NULL
-             WHERE status = 'unsorted' AND category_id IS NULL AND classified_at IS NOT NULL`,
+            `UPDATE files f SET classified_at = NULL
+             WHERE f.status = 'unsorted' AND f.category_id IS NULL AND f.classified_at IS NOT NULL
+               AND ${LOOKED_BEFORE_A_CHANGE}`,
         );
         return rowCount ?? 0;
+    },
+
+    /** @returns How many unsorted files "Sort now" would look at again because something changed since. */
+    async recheckSize(db: Queryable = getPool()): Promise<number> {
+        const { rows } = await db.query(
+            `SELECT count(*)::int AS n FROM files f
+             WHERE f.status = 'unsorted' AND f.category_id IS NULL AND f.classified_at IS NOT NULL
+               AND ${LOOKED_BEFORE_A_CHANGE}`,
+        );
+        return Number((rows[0] as DatabaseRow).n);
     },
 
     /** @returns How many files still wait for a scheduler run; it sets the run frequency (FR-040). */
