@@ -8,6 +8,11 @@ first release is cut.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Assistant page no longer scrolls on arrival, so its heading is not left under the sort progress bar while a sort or duplicate run is on.
+- Asking the assistant for a tree of the folders with the number of pictures in each now lists every folder with its count, instead of answering with the count of one folder or the total.
+
 ## [1.5.1] - 2026-11-23
 
 ### Added

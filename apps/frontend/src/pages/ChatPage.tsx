@@ -201,9 +201,25 @@ export function ChatPage(): ReactNode {
         refetchInterval: busy ? false : 20_000,
     });
 
+    // Follow new messages, but leave the page where it opens: scrolling on arrival pushed the heading up under the
+    // sticky sort bar, which hid it whenever a sort or duplicate run was on.
+    const arrived = useRef(false);
+    const loaded = state.data !== undefined;
     useEffect(() => {
-        end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-    }, [state.data?.messages.length, draft?.text, draft?.actions.length, draft?.queued, sentText]);
+        if (!loaded) return;
+        if (!arrived.current) {
+            arrived.current = true;
+            return;
+        }
+        end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [
+        loaded,
+        state.data?.messages.length,
+        draft?.text,
+        draft?.actions.length,
+        draft?.queued,
+        sentText,
+    ]);
 
     // The box grows with what is typed, up to a few lines.
     useEffect(() => {

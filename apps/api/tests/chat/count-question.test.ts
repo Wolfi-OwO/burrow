@@ -12,6 +12,11 @@ const counts: Counts = {
         ['furry', 40],
         ['wolves', 1],
     ]),
+    tree: [
+        { name: 'Furry', depth: 0, count: 40 },
+        { name: 'Wolves', depth: 1, count: 1 },
+        { name: 'Matura feier', depth: 0, count: 0 },
+    ],
 };
 const ask = (text: string): string | null => {
     const q = parseCountQuestion(text, FOLDERS);
@@ -54,6 +59,24 @@ describe('count questions are answered from the numbers, not by the model', () =
             answerCount(q, { ...counts, review: 0 }),
             'Nothing is waiting in review right now.',
         );
+    });
+
+    it('answers a request for the folder tree with every folder and its count', () => {
+        const reply = ask(
+            'Make me a nice tree of my current categories + how many pictures are there in each category',
+        );
+        assert.match(reply ?? '', /Furry: 40\n {4}└ Wolves: 1\nMatura feier: 0/);
+        assert.match(reply ?? '', /In no folder: 15, in review: 7\. 120 files in total/);
+        assert.match(ask('Wie viele Bilder sind in jedem Ordner?') ?? '', /Deine Ordner/);
+        assert.match(ask('show me my folders') ?? '', /Furry: 40/);
+    });
+
+    it('does not take a request to build folders for a request to list them', () => {
+        assert.equal(
+            parseCountQuestion('Create a tree of folders for each holiday', FOLDERS),
+            null,
+        );
+        assert.equal(parseCountQuestion('Travel > Italy > Rome', FOLDERS), null);
     });
 
     it('leaves everything else to the model', () => {
