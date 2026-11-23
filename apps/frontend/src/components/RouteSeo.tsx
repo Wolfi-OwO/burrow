@@ -5,7 +5,7 @@ const ORIGIN = 'https://burrow.woofi-developments.at';
 // What an anonymous visitor can open (the same list as public/sitemap.xml). Everything else is the private drive,
 // a share link or a sign-in step and says noindex itself: a robots.txt Disallow alone never removes a URL from
 // the index, because the crawler cannot see a noindex on a page it may not fetch.
-const PUBLIC = new Set(['/', '/impressum', '/privacy', '/terms']);
+const PUBLIC = new Set(['/', '/demo', '/impressum', '/privacy', '/terms']);
 
 /**
  * index.html is served for every path, so without this each route inherits the canonical of "/" and Google files

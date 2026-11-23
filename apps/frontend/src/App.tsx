@@ -6,6 +6,7 @@ import { RouteSeo } from './components/RouteSeo.tsx';
 import { Shell } from './components/Shell.tsx';
 import { Spinner } from './components/ui.tsx';
 import { useAuth } from './lib/auth.tsx';
+import { DemoPage } from './pages/DemoPage.tsx';
 import { DrivePage } from './pages/DrivePage.tsx';
 import { DuplicatesPage } from './pages/DuplicatesPage.tsx';
 import { GatePage } from './pages/GatePage.tsx';
@@ -27,6 +28,7 @@ export function App(): ReactNode {
                 <Route path="/impressum" element={<LegalPage doc="impressum" />} />
                 <Route path="/privacy" element={<LegalPage doc="privacy" />} />
                 <Route path="/terms" element={<LegalPage doc="terms" />} />
+                <Route path="/demo" element={<DemoPage />} />
                 <Route path="*" element={<Session />} />
             </Routes>
             <Footer />
