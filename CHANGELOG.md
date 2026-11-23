@@ -12,6 +12,10 @@ first release is cut.
 
 - The sorter panel says why files stay in Unsorted after a look: pictures where no folder scored high enough, pictures whose rating has no folder, files that are not pictures and have no folder for their type, or no folders made yet (migration 0017).
 
+### Fixed
+
+- A top-level folder that only holds other folders (a "Private" with everything inside) no longer stops the sorter: its name says nothing about a picture, so no file ever scored high enough and every picture stayed unsorted. The sorter now looks through such folders for a deeper one that fits.
+
 ## [1.6.0] - 2026-11-23
 
 ### Added

@@ -173,6 +173,22 @@ export async function descend(
         if (!best) break;
 
         if (best.score < threshold) {
+            // A top-level folder that only holds other folders ("Private" with everything inside) says nothing about
+            // a picture, so none of the labels ever scores and every file stays unsorted. Look through such folders
+            // for a deeper one that fits before giving up on the file.
+            if (current === null) {
+                const through = await lookThrough(
+                    candidates,
+                    children,
+                    score,
+                    threshold,
+                    nsfw,
+                    reviewFloor,
+                    hints,
+                    learned,
+                );
+                if (through) return through;
+            }
             // Close enough to be worth a look: review. Far off, nothing the user made fits: it stays in Unsorted.
             if (current === null && best.score >= reviewFloor)
                 return { status: 'review', category: best.category, confidence: best.score };
@@ -186,6 +202,42 @@ export async function descend(
     return current
         ? { status: 'sorted', category: current, confidence }
         : { status: 'unsorted', category: null, confidence: null, reason };
+}
+
+/**
+ * Tries each folder that has folders inside as if the picture were already in it, and keeps the best deeper match:
+ * a filed result over a review one, then the higher confidence. Only a folder level that decided something counts,
+ * so a picture that fits nowhere inside still comes back as null.
+ */
+async function lookThrough(
+    candidates: Category[],
+    children: (parentId: number | null) => Promise<Category[]>,
+    score: (labels: string[]) => Promise<{ label: string; score: number }[]>,
+    threshold: number,
+    nsfw: number | null,
+    reviewFloor: number,
+    hints: Map<number, string[]>,
+    learned: Learned | null,
+): Promise<Decision | null> {
+    let best: Decision | null = null;
+    for (const container of candidates) {
+        if ((await children(container.id)).length === 0) continue;
+        // The container's own children become the top level of a descent of their own.
+        const inner = await descend(
+            (parentId) => children(parentId === null ? container.id : parentId),
+            score,
+            threshold,
+            nsfw,
+            reviewFloor,
+            hints,
+            learned,
+        );
+        if (inner.status === 'unsorted') continue;
+        const rank = (d: Decision): number =>
+            (d.status === 'sorted' ? 1 : 0) + (d.confidence ?? 0) / 10;
+        if (best === null || rank(inner) > rank(best)) best = inner;
+    }
+    return best;
 }
 
 /** The most likely landmark or kind of scene, or no guess when nothing on the list clearly wins. */

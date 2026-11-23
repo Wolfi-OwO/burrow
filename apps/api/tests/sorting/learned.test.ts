@@ -184,7 +184,7 @@ describe('why a file stays unsorted', () => {
     });
 
     it('says "no-folders" when the person has made none', async () => {
-        const d = await descend(async () => [], scorer({}), 0.6);
+        const d = await descend(() => Promise.resolve([]), scorer({}), 0.6);
         assert.equal(d.status, 'unsorted');
         assert.equal(d.reason, 'no-folders');
     });

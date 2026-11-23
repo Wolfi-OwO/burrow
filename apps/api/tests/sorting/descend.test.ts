@@ -144,3 +144,40 @@ describe('a folder is scored under every phrasing, summed', () => {
         assert.equal(d.status, 'sorted');
     });
 });
+
+describe('a top-level folder that only holds other folders', () => {
+    // "Private" is a place to keep things, not something a picture can look like.
+    const PRIVATE = [
+        cat(10, 'Private', null),
+        cat(11, 'Matura', null),
+        cat(12, 'Animals', 10),
+        cat(13, 'Wolves', 12),
+        cat(14, 'Cats', 12),
+        cat(15, 'Documents', 10),
+    ];
+    const kids = (parentId: number | null): Promise<Category[]> =>
+        Promise.resolve(PRIVATE.filter((c) => c.parentId === parentId));
+
+    it('is looked through, so a picture reaches the folder inside that fits', async () => {
+        const d = await descend(kids, scorer({ Private: 0.02, Animals: 0.9, Wolves: 0.8 }), 0.6);
+        assert.equal(d.status, 'sorted');
+        assert.equal(d.category?.name, 'Wolves');
+    });
+
+    it('stops at the folder where the picture stops fitting', async () => {
+        const d = await descend(kids, scorer({ Animals: 0.85, Wolves: 0.2, Cats: 0.1 }), 0.6);
+        assert.equal(d.status, 'sorted');
+        assert.equal(d.category?.name, 'Animals');
+    });
+
+    it('still prefers a top-level folder that fits on its own', async () => {
+        const d = await descend(kids, scorer({ Matura: 0.9, Animals: 0.95 }), 0.6);
+        assert.equal(d.category?.name, 'Matura');
+    });
+
+    it('leaves a picture unsorted when nothing inside fits either', async () => {
+        const d = await descend(kids, scorer({ Private: 0.01, Animals: 0.05 }), 0.6);
+        assert.equal(d.status, 'unsorted');
+        assert.equal(d.reason, 'weak');
+    });
+});
