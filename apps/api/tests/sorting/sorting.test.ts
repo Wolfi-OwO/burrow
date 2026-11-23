@@ -112,6 +112,29 @@ describe('sorting', () => {
         assert.equal(embedCalls, callsAfterFirst);
     });
 
+    it('looks at the unsorted files again only after a folder changed, and counts them as waiting', async () => {
+        const { token } = await registerOwner();
+        await category(token, 'Furry');
+        behaviour.scores = { Furry: 0.05 };
+        for (let i = 0; i < 3; i++) await upload(token, `u${String(i)}.png`, await png(500 + i));
+        await api('POST', '/api/sorting/run', { token });
+        const waiting = async (): Promise<{ backlog: number; recheck: number }> => {
+            const { json } = await api('GET', '/api/sorting/status', { token });
+            return { backlog: json.backlog as number, recheck: json.recheck as number };
+        };
+        // Nothing fit, so all three stay unsorted, and nothing is waiting: pressing "Sort now" again would repeat itself.
+        assert.deepEqual(await waiting(), { backlog: 0, recheck: 0 });
+        const calls = embedCalls;
+        const again = await api('POST', '/api/sorting/run?async=1', { token });
+        assert.equal(again.json.started, false);
+        assert.equal(embedCalls, calls);
+
+        // A new folder could fit them, so they wait for another look and are counted.
+        await new Promise((r) => setTimeout(r, 20));
+        await category(token, 'Wolves');
+        assert.deepEqual(await waiting(), { backlog: 0, recheck: 3 });
+    });
+
     it('sends the internal service token to the vision service', async () => {
         const { token } = await registerOwner();
         await category(token, 'Furry');

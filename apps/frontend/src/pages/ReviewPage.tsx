@@ -196,7 +196,11 @@ export function ReviewPage(): ReactNode {
                     <dl className="kv" style={{ gridTemplateColumns: '170px 1fr' }}>
                         <dt>Waiting to be sorted</dt>
                         <dd>
-                            {status.data.backlog} file{status.data.backlog === 1 ? '' : 's'}
+                            {status.data.backlog + status.data.recheck} file
+                            {status.data.backlog + status.data.recheck === 1 ? '' : 's'}
+                            {status.data.recheck > 0
+                                ? ` (${String(status.data.recheck)} to look at again because your folders changed)`
+                                : ''}
                         </dd>
                         <dt>Schedule</dt>
                         <dd>

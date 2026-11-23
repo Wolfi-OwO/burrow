@@ -74,8 +74,10 @@ export const sortNow = asyncHandler(async (req, res) => {
 
 export const status = asyncHandler(async (req, res) => {
     const backlog = await fileRepository.backlogSize();
+    const recheck = await fileRepository.recheckSize();
     res.json({
         backlog,
+        recheck,
         categories: (await categoryRepository.listTree(uid(req))).length,
         runsPerDay: runsPerDay(backlog),
         intervalMinutes: Math.round(intervalMs(backlog) / 60_000),

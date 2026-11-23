@@ -44,6 +44,8 @@ export interface FileItem {
 
 export interface SortingStatus {
     backlog: number;
+    /** Unsorted files "Sort now" would look at again because folders, hints or examples changed since. */
+    recheck: number;
     categories: number;
     runsPerDay: number;
     intervalMinutes: number;

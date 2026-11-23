@@ -16,6 +16,7 @@ first release is cut.
 
 - The Assistant page no longer scrolls on arrival, so its heading is not left under the sort progress bar while a sort or duplicate run is on.
 - Asking the assistant for a tree of the folders with the number of pictures in each now lists every folder with its count, instead of answering with the count of one folder or the total.
+- Pressing Sort now twice no longer sorts the same pictures again: the files the sorter left unsorted are looked at again only after a folder, a hint or an example changed. The sorter panel's "Waiting to be sorted" counts those files too, instead of showing 0.
 
 ## [1.5.1] - 2026-11-23
 
