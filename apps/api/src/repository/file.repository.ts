@@ -75,6 +75,11 @@ async function recordExamples(
         );
         return;
     }
+    // Filing a picture under a folder takes back an earlier "not this folder" for that same folder.
+    await db.query(
+        'DELETE FROM sorting_rejections WHERE user_id = $1 AND file_id = ANY($2::uuid[]) AND category_id = $3',
+        [userId, ids, categoryId],
+    );
     await db.query(
         `INSERT INTO sorting_examples (file_id, user_id, category_id)
          SELECT id, user_id, $3 FROM files WHERE id = ANY($1::uuid[]) AND user_id = $2
@@ -309,6 +314,60 @@ export const fileRepository = {
         if ((rowCount ?? 0) > 0 && options.teach !== false)
             await recordExamples(db, userId, [id], categoryId);
         return (rowCount ?? 0) > 0;
+    },
+
+    /**
+     * Makes every picture that sits directly in a folder an example for it, leaving the examples that already exist
+     * alone. This is how a person teaches the sorter from a folder they have already curated.
+     *
+     * @returns How many pictures became new examples.
+     */
+    async teachFromFolder(userId: string, categoryId: number, limit = 2000): Promise<number> {
+        const { rowCount } = await getPool().query(
+            `INSERT INTO sorting_examples (file_id, user_id, category_id)
+             SELECT f.id, f.user_id, f.category_id FROM files f
+             WHERE f.user_id = $1 AND f.category_id = $2 AND f.embedding IS NOT NULL
+             ORDER BY f.created_at DESC LIMIT $3
+             ON CONFLICT (file_id) DO NOTHING`,
+            [userId, categoryId, limit],
+        );
+        return rowCount ?? 0;
+    },
+
+    /** The person turned this folder down for this picture (a review suggestion they left alone or moved elsewhere). */
+    async rejectCategory(
+        userId: string,
+        fileId: string,
+        categoryId: number,
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query(
+            `INSERT INTO sorting_rejections (file_id, user_id, category_id)
+             SELECT id, user_id, $3 FROM files WHERE id = $1 AND user_id = $2
+             ON CONFLICT (file_id, category_id) DO NOTHING`,
+            [fileId, userId, categoryId],
+        );
+    },
+
+    /** The pictures a folder was turned down for that look most like this one, nearest first. */
+    async nearestRejections(
+        userId: string,
+        embedding: number[],
+        limit: number,
+        db: Queryable = getPool(),
+    ): Promise<{ categoryId: number; similarity: number }[]> {
+        const { rows } = await db.query(
+            `SELECT r.category_id, 1 - (f.embedding <=> $2::vector) AS similarity
+             FROM sorting_rejections r JOIN files f ON f.id = r.file_id
+             WHERE r.user_id = $1 AND f.embedding IS NOT NULL
+             ORDER BY f.embedding <=> $2::vector
+             LIMIT $3`,
+            [userId, `[${embedding.join(',')}]`, limit],
+        );
+        return rows.map((r) => ({
+            categoryId: Number(r.category_id),
+            similarity: Number(r.similarity),
+        }));
     },
 
     /**

@@ -8,6 +8,13 @@ first release is cut.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-23
+
+### Added
+
+- Turning down a suggestion in Review (leaving the picture unsorted, or moving it to another folder) teaches the sorter that the suggested folder is wrong for pictures like it, so the same wrong guess is not offered again.
+- A "Teach the sorter from this folder" button on every folder turns the pictures already in it into examples, so a folder you have curated by hand guides the sorter at once.
+
 ## [1.5.0] - 2026-11-22
 
 ### Added

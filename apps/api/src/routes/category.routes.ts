@@ -25,5 +25,6 @@ categoryRouter.get('/', category.tree);
 categoryRouter.post('/', validateBody(categoryCreateSchema), category.create);
 categoryRouter.patch('/:id', validateBody(categoryPatchSchema), category.patch);
 categoryRouter.post('/:id/move', validateBody(categoryMoveSchema), category.move);
+categoryRouter.post('/:id/teach', category.teach);
 categoryRouter.post('/delete', validateBody(categoryDeleteManySchema), category.removeMany);
 categoryRouter.delete('/:id', validateQuery(categoryDeleteQuerySchema), category.remove);

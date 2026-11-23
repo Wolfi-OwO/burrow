@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 
 import { asyncHandler } from '../lib/errors.ts';
+import { fileRepository } from '../repository/file.repository.ts';
 import { categoryService } from '../services/category-service.ts';
 
 const uid = (req: Request): string => (req.user as { sub: string }).sub;
@@ -47,4 +48,10 @@ export const remove = asyncHandler(async (req, res) => {
 export const removeMany = asyncHandler(async (req, res) => {
     const { ids } = req.body as { ids: number[] };
     res.json(await categoryService.removeTree(uid(req), ids));
+});
+
+/** Teaches the sorter from the pictures already in this folder. */
+export const teach = asyncHandler(async (req, res) => {
+    await categoryService.assertOwned(uid(req), id(req));
+    res.json({ taught: await fileRepository.teachFromFolder(uid(req), id(req)) });
 });
