@@ -2197,8 +2197,9 @@ html[data-theme='dark'] .theme-toggle .sun {
     border-radius: 8px;
     border: 1px solid transparent;
     background: var(--surface);
+    /* 20px of text plus the padding and border makes the chip 30px tall, the same in every app. */
     font:
-        400 13px ui-monospace,
+        400 13px/20px ui-monospace,
         monospace;
     color: var(--muted);
     transition: border-color 200ms var(--ease);
