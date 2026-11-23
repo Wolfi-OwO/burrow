@@ -78,6 +78,7 @@ export const status = asyncHandler(async (req, res) => {
     res.json({
         backlog,
         recheck,
+        unsortedReasons: await fileRepository.unsortedReasons(),
         categories: (await categoryRepository.listTree(uid(req))).length,
         runsPerDay: runsPerDay(backlog),
         intervalMinutes: Math.round(intervalMs(backlog) / 60_000),

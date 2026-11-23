@@ -175,3 +175,23 @@ describe('turning a folder down', () => {
         assert.equal(d.category?.name, 'Furry');
     });
 });
+
+describe('why a file stays unsorted', () => {
+    it('says "weak" when no folder scored high enough to suggest', async () => {
+        const d = await descend(children, scorer({ 'Matura feier': 0.12, Furry: 0.1 }), 0.6);
+        assert.equal(d.status, 'unsorted');
+        assert.equal(d.reason, 'weak');
+    });
+
+    it('says "no-folders" when the person has made none', async () => {
+        const d = await descend(async () => [], scorer({}), 0.6);
+        assert.equal(d.status, 'unsorted');
+        assert.equal(d.reason, 'no-folders');
+    });
+
+    it('gives a filed picture no reason', async () => {
+        const d = await descend(children, scorer({ 'Matura feier': 0.9 }), 0.6);
+        assert.equal(d.status, 'sorted');
+        assert.equal(d.reason, undefined);
+    });
+});

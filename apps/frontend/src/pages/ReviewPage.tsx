@@ -50,6 +50,15 @@ function RatingCheck(): ReactNode {
     );
 }
 
+/** Why the sorter left a file in Unsorted, in the words the sorter panel shows. */
+const UNSORTED_WHY: Record<string, string> = {
+    weak: 'pictures where no folder scored high enough to even suggest',
+    rating: 'pictures whose rating (SFW or NSFW) has no folder',
+    'no-folders': 'files with no folders made yet',
+    'not-a-picture': 'files that are not pictures and have no folder for their type',
+    unknown: 'files looked at before reasons were recorded',
+};
+
 export function ReviewPage(): ReactNode {
     const client = useQueryClient();
     const toast = useToast();
@@ -202,6 +211,20 @@ export function ReviewPage(): ReactNode {
                                 ? ` (${String(status.data.recheck)} to look at again because your folders changed)`
                                 : ''}
                         </dd>
+                        {Object.keys(status.data.unsortedReasons).length > 0 ? (
+                            <>
+                                <dt>Looked at, left unsorted</dt>
+                                <dd>
+                                    {Object.entries(status.data.unsortedReasons)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(
+                                            ([why, n]) =>
+                                                `${n.toLocaleString()} ${UNSORTED_WHY[why] ?? why}`,
+                                        )
+                                        .join(' · ')}
+                                </dd>
+                            </>
+                        ) : null}
                         <dt>Schedule</dt>
                         <dd>
                             {status.data.runsPerDay} runs a day, one every{' '}

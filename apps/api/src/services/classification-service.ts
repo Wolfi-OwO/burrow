@@ -72,10 +72,22 @@ function competitorsFor(candidates: Category[]): string[] {
 }
 
 /** What the descent decided for one file. */
+export type UnsortedReason =
+    /** A picture whose best folder scored too low to even suggest. */
+    | 'weak'
+    /** A picture whose rating (SFW / NSFW) has no folder to go to. */
+    | 'rating'
+    /** The person has made no folders yet. */
+    | 'no-folders'
+    /** Not a picture, and no folder for its type. */
+    | 'not-a-picture';
+
 export interface Decision {
     status: 'sorted' | 'review' | 'unsorted';
     category: Category | null;
     confidence: number | null;
+    /** Why an unsorted file is unsorted. */
+    reason?: UnsortedReason;
 }
 
 /**
@@ -107,17 +119,24 @@ export async function descend(
     let current: Category | null = null;
     let confidence: number | null = null;
     let parentId: number | null = null;
+    let reason: UnsortedReason = 'weak';
 
     for (;;) {
         const candidates = await children(parentId);
-        if (candidates.length === 0) break;
+        if (candidates.length === 0) {
+            if (current === null) reason = 'no-folders';
+            break;
+        }
 
         if (nsfw !== null && candidates.every((c) => ratingOf(c.name) !== null)) {
             const wanted = nsfw >= 0.5 ? 'explicit' : 'safe';
             const match = candidates.find((c) => ratingOf(c.name) === wanted);
             const sure = wanted === 'explicit' ? nsfw : 1 - nsfw;
             // No category for this rating (only "SFW" exists, the file is explicit): stop here rather than mis-file it.
-            if (!match) break;
+            if (!match) {
+                reason = 'rating';
+                break;
+            }
             if (sure < threshold) {
                 if (current === null)
                     return { status: 'review', category: match, confidence: sure };
@@ -166,7 +185,7 @@ export async function descend(
 
     return current
         ? { status: 'sorted', category: current, confidence }
-        : { status: 'unsorted', category: null, confidence: null };
+        : { status: 'unsorted', category: null, confidence: null, reason };
 }
 
 /** The most likely landmark or kind of scene, or no guess when nothing on the list clearly wins. */
@@ -227,7 +246,12 @@ export const classificationService = {
         if (byType || !mime.startsWith('image/')) {
             const decision: Decision = byType
                 ? { status: 'sorted', category: byType, confidence: 1 }
-                : { status: 'unsorted', category: null, confidence: null };
+                : {
+                      status: 'unsorted',
+                      category: null,
+                      confidence: null,
+                      reason: 'not-a-picture',
+                  };
             // Nothing to look at otherwise: mark it seen so it is not retried forever.
             await fileRepository.setClassification(file.id, {
                 status: decision.status,
@@ -236,6 +260,7 @@ export const classificationService = {
                 confidence: decision.confidence,
                 nsfwScore: null,
                 embedding: null,
+                unsortedReason: decision.reason ?? null,
             });
             return decision;
         }
@@ -307,6 +332,7 @@ export const classificationService = {
                 embedding,
                 place,
                 placeScore,
+                unsortedReason: final.status === 'unsorted' ? (final.reason ?? 'weak') : null,
             });
             return final;
         } catch (error) {

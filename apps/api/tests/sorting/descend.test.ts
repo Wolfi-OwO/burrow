@@ -87,7 +87,12 @@ describe('descent (FR-038, FR-039)', () => {
 
     it('leaves the file unsorted when the user has no categories at all', async () => {
         const d = await descend(() => Promise.resolve([]), scorer({}), 0.6);
-        assert.deepEqual(d, { status: 'unsorted', category: null, confidence: null });
+        assert.deepEqual(d, {
+            status: 'unsorted',
+            category: null,
+            confidence: null,
+            reason: 'no-folders',
+        });
     });
 
     it('offers "something else" as a competitor at every level', async () => {

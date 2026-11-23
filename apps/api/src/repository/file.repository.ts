@@ -216,6 +216,16 @@ export const fileRepository = {
         return rowCount ?? 0;
     },
 
+    /** @returns How many files the sorter looked at and left unsorted, by the reason it recorded. */
+    async unsortedReasons(db: Queryable = getPool()): Promise<Record<string, number>> {
+        const { rows } = await db.query(
+            `SELECT coalesce(unsorted_reason, 'unknown') AS reason, count(*)::int AS n FROM files
+             WHERE status = 'unsorted' AND category_id IS NULL AND classified_at IS NOT NULL
+             GROUP BY 1`,
+        );
+        return Object.fromEntries(rows.map((r) => [String(r.reason), Number(r.n)]));
+    },
+
     /** @returns How many unsorted files "Sort now" would look at again because something changed since. */
     async recheckSize(db: Queryable = getPool()): Promise<number> {
         const { rows } = await db.query(
@@ -246,12 +256,14 @@ export const fileRepository = {
             embedding: number[] | null;
             place?: string | null;
             placeScore?: number | null;
+            unsortedReason?: string | null;
         },
         db: Queryable = getPool(),
     ): Promise<void> {
         await db.query(
             `UPDATE files SET status = $2, category_id = $3, suggested_category_id = $4, confidence = $5,
-                    nsfw_score = $6, embedding = $7::vector, place = $8, place_score = $9, classified_at = now()
+                    nsfw_score = $6, embedding = $7::vector, place = $8, place_score = $9, classified_at = now(),
+                    unsorted_reason = $10
              WHERE id = $1`,
             [
                 id,
@@ -263,6 +275,7 @@ export const fileRepository = {
                 result.embedding ? `[${result.embedding.join(',')}]` : null,
                 result.place ?? null,
                 result.placeScore ?? null,
+                result.unsortedReason ?? null,
             ],
         );
         // A new look at the picture can change what it is nearest to: compare it again.
@@ -310,7 +323,7 @@ export const fileRepository = {
     ): Promise<number> {
         const { rowCount } = await db.query(
             `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE 'sorted' END,
-                    suggested_category_id = NULL, classified_at = COALESCE(classified_at, now())
+                    suggested_category_id = NULL, classified_at = COALESCE(classified_at, now()), unsorted_reason = NULL
              WHERE id = ANY($1::uuid[]) AND user_id = $2`,
             [ids, userId, categoryId],
         );
@@ -328,7 +341,7 @@ export const fileRepository = {
     ): Promise<boolean> {
         const { rowCount } = await db.query(
             `UPDATE files SET category_id = $3, status = CASE WHEN $3::bigint IS NULL THEN 'unsorted' ELSE 'sorted' END,
-                    suggested_category_id = NULL, classified_at = COALESCE(classified_at, now())
+                    suggested_category_id = NULL, classified_at = COALESCE(classified_at, now()), unsorted_reason = NULL
              WHERE id = $1 AND user_id = $2`,
             [id, userId, categoryId],
         );
