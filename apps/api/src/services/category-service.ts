@@ -27,6 +27,11 @@ export function plainName(name: string): string {
 }
 
 export const categoryService = {
+    /** Throws a 404 unless the folder is the user's. */
+    async assertOwned(userId: string, id: number): Promise<void> {
+        if (!(await categoryRepository.findById(userId, id))) throw new NotFoundError();
+    },
+
     /** @returns The user's whole tree in path order. */
     tree(userId: string): Promise<CategoryNode[]> {
         return categoryRepository.listTree(userId);

@@ -316,6 +316,24 @@ export const fileRepository = {
         return (rowCount ?? 0) > 0;
     },
 
+    /**
+     * Makes every picture that sits directly in a folder an example for it, leaving the examples that already exist
+     * alone. This is how a person teaches the sorter from a folder they have already curated.
+     *
+     * @returns How many pictures became new examples.
+     */
+    async teachFromFolder(userId: string, categoryId: number, limit = 2000): Promise<number> {
+        const { rowCount } = await getPool().query(
+            `INSERT INTO sorting_examples (file_id, user_id, category_id)
+             SELECT f.id, f.user_id, f.category_id FROM files f
+             WHERE f.user_id = $1 AND f.category_id = $2 AND f.embedding IS NOT NULL
+             ORDER BY f.created_at DESC LIMIT $3
+             ON CONFLICT (file_id) DO NOTHING`,
+            [userId, categoryId, limit],
+        );
+        return rowCount ?? 0;
+    },
+
     /** The person turned this folder down for this picture (a review suggestion they left alone or moved elsewhere). */
     async rejectCategory(
         userId: string,

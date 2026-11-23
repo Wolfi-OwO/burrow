@@ -15,6 +15,7 @@ import {
     Trash2,
     UploadCloud,
     X,
+    GraduationCap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, ReactNode } from 'react';
@@ -158,6 +159,17 @@ export function DrivePage(): ReactNode {
     const { upload } = useUploads();
     const [sharingDrive, setSharingDrive] = useState(false);
     const [importing, setImporting] = useState(false);
+    const teach = useMutation({
+        mutationFn: (id: number) =>
+            api<{ taught: number }>('POST', `/api/categories/${String(id)}/teach`),
+        onSuccess: (r) =>
+            toast.say(
+                r.taught === 0
+                    ? 'Already taught: nothing new in this folder.'
+                    : `Learned from ${String(r.taught)} picture${r.taught === 1 ? '' : 's'}.`,
+            ),
+        onError: (e: Error) => toast.say(e.message),
+    });
     const sortRun = useSortRun();
     const client = useQueryClient();
     const unplaced = useQuery({
@@ -238,6 +250,17 @@ export function DrivePage(): ReactNode {
                         </span>
                     </div>
                 </div>
+                {typeof category === 'number' ? (
+                    <button
+                        className="btn ghost"
+                        disabled={teach.isPending}
+                        title="Use the pictures in this folder as examples, so the sorter files similar ones here"
+                        onClick={() => teach.mutate(category)}
+                    >
+                        {teach.isPending ? <Spinner /> : <GraduationCap size={16} />}
+                        Teach the sorter from this folder
+                    </button>
+                ) : null}
                 {category === 'unsorted' ? (
                     <button className="btn" disabled={sortRun.running} onClick={sortRun.start}>
                         {sortRun.running ? <Spinner /> : <Play size={16} />}
