@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { FormEvent, ReactNode } from 'react';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { BrandIcon } from '../components/BrandIcon.tsx';
 import { GateArt } from '../components/GateArt.tsx';
@@ -75,7 +75,8 @@ export function GatePage(): ReactNode {
                         <p className="muted" style={{ marginTop: 6 }}>
                             {mode === 'login'
                                 ? 'Sign in to your burrow.'
-                                : 'Create your account. It is free and takes a few seconds.'}
+                                : 'Create your account. It is free and takes a few seconds.'}{' '}
+                            <Link to="/demo">See how the sorter works first.</Link>
                         </p>
                     </div>
                     <form

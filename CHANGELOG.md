@@ -8,6 +8,10 @@ first release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- A public demo at /demo: a small simulation of the sorter with made-up scores, where a visitor can sort a few pictures, move one out of Review and watch similar ones follow. It is in the sitemap and linked from the sign-in page.
+
 ### Changed
 
 - The bottom bar uses the same height, 13px type and side padding as the other apps.
