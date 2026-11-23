@@ -8,6 +8,10 @@ first release is cut.
 
 ## [Unreleased]
 
+### Changed
+
+- The bottom bar uses the same height, 13px type and side padding as the other apps.
+
 ### Fixed
 
 - The Assistant page no longer scrolls on arrival, so its heading is not left under the sort progress bar while a sort or duplicate run is on.
