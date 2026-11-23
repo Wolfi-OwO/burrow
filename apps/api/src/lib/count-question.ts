@@ -7,6 +7,7 @@ export type CountTopic =
     | { kind: 'review' }
     | { kind: 'unsorted' }
     | { kind: 'total' }
+    | { kind: 'tree' }
     | { kind: 'folder'; folder: string };
 
 export interface CountQuestion {
@@ -20,6 +21,8 @@ export interface Counts {
     review: number;
     /** Files in each folder, by the folder's own name (lower case). */
     folders: Map<string, number>;
+    /** Every folder in tree order, with its depth (0 at the top) and the files directly in it. */
+    tree: { name: string; depth: number; count: number }[];
 }
 
 const ASKING = /\b(how many|how much|number of|count|wie ?viele|anzahl|wieviel)\b/i;
@@ -30,12 +33,27 @@ const UNSORTED =
 const THINGS = /\b(files?|pictures?|photos?|images?|dateien|datei|bilder|fotos?)\b/i;
 const GERMAN = /\b(wie ?viele|wieviel|anzahl|dateien|datei|bilder|fotos?|ordner|habe|sind|ist)\b/i;
 
+// "A tree of my categories and how many pictures are in each": an overview of all folders, not a count of one.
+const OVERVIEW =
+    /\b(tree|overview|each|every|per|all (?:my |the )?(?:categories|folders)|jede[nrms]?|show|list|zeig\w*|liste|[uü]bersicht|ordnerbaum|baum)\b/i;
+const FOLDERS = /\b(categor(?:y|ies)|folders?|kategorie[n]?|ordner)\b/i;
+const MINE = /\b(my|current|existing|meine[nrs]?|aktuelle[nrs]?|bestehende[nrs]?)\b/i;
+// A message that makes or changes folders is for the outline builder and the model, not for this.
+const BUILDING = /\b(create|build|add|make (?:a )?new|erstell\w*|anleg\w*|baue?)\b|>|\n/i;
+
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** @returns What is being counted, or null when the message is not a plain count question. */
 export function parseCountQuestion(text: string, folderNames: string[]): CountQuestion | null {
-    if (!ASKING.test(text)) return null;
     const german = GERMAN.test(text);
+    if (
+        OVERVIEW.test(text) &&
+        FOLDERS.test(text) &&
+        (ASKING.test(text) || MINE.test(text)) &&
+        !BUILDING.test(text)
+    )
+        return { topic: { kind: 'tree' }, german };
+    if (!ASKING.test(text)) return null;
     if (REVIEW.test(text)) return { topic: { kind: 'review' }, german };
     if (UNSORTED.test(text)) return { topic: { kind: 'unsorted' }, german };
     // The longest folder name the message mentions as a whole word, so "Wolf pictures" is not "Wolf" nor "pictures".
@@ -59,6 +77,20 @@ const files = (n: number, german: boolean): string =>
 /** The answer, in the language of the question. */
 export function answerCount(question: CountQuestion, counts: Counts): string {
     const { topic, german } = question;
+    if (topic.kind === 'tree') {
+        const lines = counts.tree.map(
+            (c) =>
+                `${'    '.repeat(c.depth)}${c.depth > 0 ? '└ ' : ''}${c.name}: ${String(c.count)}`,
+        );
+        const rest = german
+            ? `Ohne Ordner: ${String(counts.unsorted)}, im Review: ${String(counts.review)}. Insgesamt ${files(counts.total, true)}.`
+            : `In no folder: ${String(counts.unsorted)}, in review: ${String(counts.review)}. ${files(counts.total, false)} in total.`;
+        if (lines.length === 0)
+            return german
+                ? `Du hast noch keine Ordner. ${rest}`
+                : `You have no folders yet. ${rest}`;
+        return `${german ? 'Deine Ordner mit der Zahl der Dateien direkt darin:' : 'Your folders, with the number of files directly in each:'}\n${lines.join('\n')}\n\n${rest}`;
+    }
     if (topic.kind === 'review') {
         if (counts.review === 0)
             return german

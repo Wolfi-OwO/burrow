@@ -806,6 +806,7 @@ export const chatService = {
                 unsorted: total - (await fileRepository.filedCount(userId)),
                 review: await fileRepository.reviewCount(userId),
                 folders: new Map(tree.map((c) => [c.name.toLowerCase(), c.fileCount])),
+                tree: tree.map((c) => ({ name: c.name, depth: c.depth, count: c.fileCount })),
             });
             await chatRepository.add(userId, 'user', text);
             emit({ type: 'delta', text: reply });
