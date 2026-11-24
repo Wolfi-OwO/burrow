@@ -10,6 +10,10 @@ first release is cut.
 
 ### Added
 
+- `GET /api/info` answers name, version, revision, build date and repository URL, the same shape every app of the stack answers (`/api/version` stays and returns the same). The build date is now stamped into the image, where it was empty before.
+
+### Added
+
 - The sorter panel says why files stay in Unsorted after a look: pictures where no folder scored high enough, pictures whose rating has no folder, files that are not pictures and have no folder for their type, or no folders made yet (migration 0017).
 
 ### Fixed

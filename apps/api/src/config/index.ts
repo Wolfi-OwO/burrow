@@ -212,6 +212,7 @@ export const config = {
     },
 
     buildInfo: {
+        name: 'burrow',
         version: process.env.APP_VERSION ?? 'dev',
         revision: process.env.APP_REVISION ?? '',
         buildDate: process.env.APP_BUILD_DATE ?? '',
