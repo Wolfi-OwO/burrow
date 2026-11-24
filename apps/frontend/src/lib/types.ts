@@ -46,6 +46,8 @@ export interface SortingStatus {
     backlog: number;
     /** Unsorted files "Sort now" would look at again because folders, hints or examples changed since. */
     recheck: number;
+    /** Files looked at and left unsorted, by why: weak, rating, no-folders, not-a-picture. */
+    unsortedReasons: Record<string, number>;
     categories: number;
     runsPerDay: number;
     intervalMinutes: number;

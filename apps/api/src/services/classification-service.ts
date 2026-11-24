@@ -72,10 +72,22 @@ function competitorsFor(candidates: Category[]): string[] {
 }
 
 /** What the descent decided for one file. */
+export type UnsortedReason =
+    /** A picture whose best folder scored too low to even suggest. */
+    | 'weak'
+    /** A picture whose rating (SFW / NSFW) has no folder to go to. */
+    | 'rating'
+    /** The person has made no folders yet. */
+    | 'no-folders'
+    /** Not a picture, and no folder for its type. */
+    | 'not-a-picture';
+
 export interface Decision {
     status: 'sorted' | 'review' | 'unsorted';
     category: Category | null;
     confidence: number | null;
+    /** Why an unsorted file is unsorted. */
+    reason?: UnsortedReason;
 }
 
 /**
@@ -107,17 +119,24 @@ export async function descend(
     let current: Category | null = null;
     let confidence: number | null = null;
     let parentId: number | null = null;
+    let reason: UnsortedReason = 'weak';
 
     for (;;) {
         const candidates = await children(parentId);
-        if (candidates.length === 0) break;
+        if (candidates.length === 0) {
+            if (current === null) reason = 'no-folders';
+            break;
+        }
 
         if (nsfw !== null && candidates.every((c) => ratingOf(c.name) !== null)) {
             const wanted = nsfw >= 0.5 ? 'explicit' : 'safe';
             const match = candidates.find((c) => ratingOf(c.name) === wanted);
             const sure = wanted === 'explicit' ? nsfw : 1 - nsfw;
             // No category for this rating (only "SFW" exists, the file is explicit): stop here rather than mis-file it.
-            if (!match) break;
+            if (!match) {
+                reason = 'rating';
+                break;
+            }
             if (sure < threshold) {
                 if (current === null)
                     return { status: 'review', category: match, confidence: sure };
@@ -154,6 +173,22 @@ export async function descend(
         if (!best) break;
 
         if (best.score < threshold) {
+            // A top-level folder that only holds other folders ("Private" with everything inside) says nothing about
+            // a picture, so none of the labels ever scores and every file stays unsorted. Look through such folders
+            // for a deeper one that fits before giving up on the file.
+            if (current === null) {
+                const through = await lookThrough(
+                    candidates,
+                    children,
+                    score,
+                    threshold,
+                    nsfw,
+                    reviewFloor,
+                    hints,
+                    learned,
+                );
+                if (through) return through;
+            }
             // Close enough to be worth a look: review. Far off, nothing the user made fits: it stays in Unsorted.
             if (current === null && best.score >= reviewFloor)
                 return { status: 'review', category: best.category, confidence: best.score };
@@ -166,7 +201,43 @@ export async function descend(
 
     return current
         ? { status: 'sorted', category: current, confidence }
-        : { status: 'unsorted', category: null, confidence: null };
+        : { status: 'unsorted', category: null, confidence: null, reason };
+}
+
+/**
+ * Tries each folder that has folders inside as if the picture were already in it, and keeps the best deeper match:
+ * a filed result over a review one, then the higher confidence. Only a folder level that decided something counts,
+ * so a picture that fits nowhere inside still comes back as null.
+ */
+async function lookThrough(
+    candidates: Category[],
+    children: (parentId: number | null) => Promise<Category[]>,
+    score: (labels: string[]) => Promise<{ label: string; score: number }[]>,
+    threshold: number,
+    nsfw: number | null,
+    reviewFloor: number,
+    hints: Map<number, string[]>,
+    learned: Learned | null,
+): Promise<Decision | null> {
+    let best: Decision | null = null;
+    for (const container of candidates) {
+        if ((await children(container.id)).length === 0) continue;
+        // The container's own children become the top level of a descent of their own.
+        const inner = await descend(
+            (parentId) => children(parentId === null ? container.id : parentId),
+            score,
+            threshold,
+            nsfw,
+            reviewFloor,
+            hints,
+            learned,
+        );
+        if (inner.status === 'unsorted') continue;
+        const rank = (d: Decision): number =>
+            (d.status === 'sorted' ? 1 : 0) + (d.confidence ?? 0) / 10;
+        if (best === null || rank(inner) > rank(best)) best = inner;
+    }
+    return best;
 }
 
 /** The most likely landmark or kind of scene, or no guess when nothing on the list clearly wins. */
@@ -227,7 +298,12 @@ export const classificationService = {
         if (byType || !mime.startsWith('image/')) {
             const decision: Decision = byType
                 ? { status: 'sorted', category: byType, confidence: 1 }
-                : { status: 'unsorted', category: null, confidence: null };
+                : {
+                      status: 'unsorted',
+                      category: null,
+                      confidence: null,
+                      reason: 'not-a-picture',
+                  };
             // Nothing to look at otherwise: mark it seen so it is not retried forever.
             await fileRepository.setClassification(file.id, {
                 status: decision.status,
@@ -236,6 +312,7 @@ export const classificationService = {
                 confidence: decision.confidence,
                 nsfwScore: null,
                 embedding: null,
+                unsortedReason: decision.reason ?? null,
             });
             return decision;
         }
@@ -307,6 +384,7 @@ export const classificationService = {
                 embedding,
                 place,
                 placeScore,
+                unsortedReason: final.status === 'unsorted' ? (final.reason ?? 'weak') : null,
             });
             return final;
         } catch (error) {
