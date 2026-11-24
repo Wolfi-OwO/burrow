@@ -2177,11 +2177,23 @@ html[data-theme='dark'] .theme-toggle .sun {
     height: 6px;
     border-radius: 999px;
     background: var(--live);
-    animation: live-pulse 2s ease-in-out infinite;
+    animation: live-pulse 2.4s ease-in-out infinite;
 }
+/* The same slow pulse as the live dot in every app's bottom bar. */
 @keyframes live-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
     50% {
-        opacity: 0.35;
+        opacity: 0.45;
+        transform: scale(0.82);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-dot {
+        animation: none;
     }
 }
 .build-chip-link {
