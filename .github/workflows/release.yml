@@ -44,6 +44,7 @@ jobs:
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
       sha: ${{ steps.plan.outputs.sha }}
+      built: ${{ steps.plan.outputs.built }}
       web_tag: ${{ steps.plan.outputs.web_tag }}
       build_web: ${{ steps.plan.outputs.build_web }}
       vision_tag: ${{ steps.plan.outputs.vision_tag }}
@@ -101,6 +102,7 @@ jobs:
           {
             echo "tag=$TAG"
             echo "sha=$(git rev-parse HEAD)"
+            echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "web_tag=$WEB_TAG"
             echo "build_web=$BUILD_WEB"
             echo "vision_tag=$VISION_TAG"
@@ -137,6 +139,7 @@ jobs:
       build-args: |
         APP_VERSION=${{ needs.plan.outputs.tag }}
         APP_REVISION=${{ needs.plan.outputs.sha }}
+        APP_BUILD_DATE=${{ needs.plan.outputs.built }}
 
   vision:
     name: AI detector image
