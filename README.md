@@ -35,6 +35,16 @@ Upload pictures, documents, spreadsheets, archives or whole folders; burrow sort
 
 <div align="center"><sub>A 20-second tour of the drive, the in-browser viewer, review, duplicates and shared links, recorded from the prototype with sample data.<br/>Also available as <a href="docs/demo/burrow-demo.mp4">full-resolution video</a> (60 fps).</sub></div>
 
+### Try the sorter
+
+![The sorter demo before a run: seven pictures waiting, five folders, every count at zero](docs/screenshots/sorter-before.png)
+
+![After Sort now: confident matches filed with their scores, the doubtful one waiting in Review](docs/screenshots/sorter-after.png)
+
+![Burrow's sorter demo: sort the pictures, add two more, watch where they go](docs/demo/sorter-demo.gif)
+
+<div align="center"><sub>The public demo at <code>/demo</code> on a running install, recorded from the live site. The scores are made up so the decision can be watched; the real sorter works the same way.<br/>Also available as <a href="docs/demo/sorter-demo.mp4">full-resolution video</a>.</sub></div>
+
 ## Features
 
 ### Drive
