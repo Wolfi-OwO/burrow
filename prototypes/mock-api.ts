@@ -185,6 +185,8 @@ const json = (body: unknown, status = 200): Response =>
 
 const status: SortingStatus = {
     backlog: 4,
+    recheck: 0,
+    unsortedReasons: {},
     categories: 5,
     runsPerDay: 4,
     intervalMinutes: 360,
