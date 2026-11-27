@@ -4,13 +4,14 @@ import type { Role } from '../lib/jwt.ts';
 import type { User } from '../models/user.model.ts';
 
 const COLUMNS =
-    'id, username, password_hash, display_name, bio, avatar_sha256, role, nsfw_opt_in, created_at';
+    'id, username, password_hash, password_scheme, display_name, bio, avatar_sha256, role, nsfw_opt_in, created_at';
 
 function toUser(row: DatabaseRow): User {
     return {
         id: row.id as string,
         username: row.username as string,
         passwordHash: row.password_hash as string | null,
+        passwordScheme: row.password_scheme as 'legacy' | 'v1',
         displayName: row.display_name as string,
         bio: row.bio as string,
         avatarSha256: row.avatar_sha256 as string | null,
@@ -56,12 +57,24 @@ export const userRepository = {
      * @returns The created user.
      */
     async create(
-        input: { username: string; passwordHash: string | null; displayName: string; role: Role },
+        input: {
+            username: string;
+            passwordHash: string | null;
+            passwordScheme?: 'legacy' | 'v1';
+            displayName: string;
+            role: Role;
+        },
         db: Queryable = getPool(),
     ): Promise<User> {
         const { rows } = await db.query(
-            `INSERT INTO users (username, password_hash, display_name, role) VALUES ($1, $2, $3, $4) RETURNING ${COLUMNS}`,
-            [input.username, input.passwordHash, input.displayName, input.role],
+            `INSERT INTO users (username, password_hash, password_scheme, display_name, role) VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
+            [
+                input.username,
+                input.passwordHash,
+                input.passwordScheme ?? 'legacy',
+                input.displayName,
+                input.role,
+            ],
         );
         return toUser(rows[0] as DatabaseRow);
     },
@@ -97,7 +110,24 @@ export const userRepository = {
     },
 
     /** Sets or replaces the password hash (an OIDC-only account adding a password). */
-    async setPasswordHash(id: string, hash: string, db: Queryable = getPool()): Promise<void> {
-        await db.query('UPDATE users SET password_hash = $2 WHERE id = $1', [id, hash]);
+    async setPasswordHash(
+        id: string,
+        hash: string,
+        scheme: 'legacy' | 'v1',
+        db: Queryable = getPool(),
+    ): Promise<void> {
+        await db.query('UPDATE users SET password_hash = $2, password_scheme = $3 WHERE id = $1', [
+            id,
+            hash,
+            scheme,
+        ]);
+    },
+
+    /** @returns Whether any account still has a password stored the old way. */
+    async anyLegacyPassword(db: Queryable = getPool()): Promise<boolean> {
+        const { rows } = await db.query(
+            "SELECT EXISTS (SELECT 1 FROM users WHERE password_hash IS NOT NULL AND password_scheme = 'legacy') AS yes",
+        );
+        return rows[0]?.yes === true;
     },
 };

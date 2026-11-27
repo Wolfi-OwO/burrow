@@ -35,6 +35,18 @@ export class UnauthorizedError extends AppError {
         super(401, message);
     }
 }
+/**
+ * A sign-in that was refused. `legacyLogin` says whether any account still has a password stored the old way, so a
+ * page that sent only the derived proof may retry once with the typed password. It is the same for every refusal,
+ * whether the username exists or not, so it reveals nothing about an account.
+ */
+export class LoginRejectedError extends UnauthorizedError {
+    readonly legacyLogin: boolean;
+    public constructor(message: string, legacyLogin: boolean) {
+        super(message);
+        this.legacyLogin = legacyLogin;
+    }
+}
 export class ForbiddenError extends AppError {
     public constructor(message = 'Forbidden') {
         super(403, message);

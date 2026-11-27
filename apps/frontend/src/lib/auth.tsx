@@ -2,7 +2,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { api, refreshSession, request, setAccessToken, setSessionLostHandler } from './api.ts';
+import {
+    api,
+    ApiError,
+    refreshSession,
+    request,
+    setAccessToken,
+    setSessionLostHandler,
+} from './api.ts';
+import { derivePasswordProof } from './password-proof.ts';
+import { signInWithPasskey } from './passkeys.ts';
 import type { Account } from './types.ts';
 
 interface AuthState {
@@ -10,6 +19,7 @@ interface AuthState {
     user: Account | null | undefined;
     login: (username: string, password: string) => Promise<void>;
     register: (username: string, password: string, displayName: string) => Promise<void>;
+    loginWithPasskey: () => Promise<void>;
     logout: () => Promise<void>;
     setUser: (user: Account) => void;
     reload: () => Promise<void>;
@@ -52,13 +62,32 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
             reload,
             setUser,
             login: async (username, password) => {
-                enter(await api('POST', '/api/auth/login', { username, password }));
+                const proof = await derivePasswordProof(username, password);
+                try {
+                    enter(await api('POST', '/api/auth/login', { username, password: proof }));
+                } catch (error) {
+                    // An account whose password is still stored the old way cannot be checked with the proof. The
+                    // server says so on every refusal while such accounts exist; the typed password goes once more
+                    // so it can be re-stored as a proof, and after that this retry never happens for the account.
+                    if (!(error instanceof ApiError && error.status === 401 && error.legacyLogin))
+                        throw error;
+                    enter(
+                        await api('POST', '/api/auth/login', {
+                            username,
+                            password: proof,
+                            legacyPassword: password,
+                        }),
+                    );
+                }
+            },
+            loginWithPasskey: async () => {
+                enter(await signInWithPasskey());
             },
             register: async (username, password, displayName) => {
                 enter(
                     await api('POST', '/api/auth/register', {
                         username,
-                        password,
+                        password: await derivePasswordProof(username, password),
                         displayName,
                     }),
                 );

@@ -49,16 +49,20 @@ export class ApiError extends Error {
     readonly issues: { path: string; message: string }[];
     /** The id of the request that failed, for support. */
     readonly traceId: string | undefined;
+    /** Set on a refused sign-in: whether any account still has its password stored the old way. */
+    readonly legacyLogin: boolean;
     constructor(
         status: number,
         message: string,
         issues: { path: string; message: string }[] = [],
         traceId?: string,
+        legacyLogin = false,
     ) {
         super(describeFailure(status, message, traceId));
         this.status = status;
         this.issues = issues;
         this.traceId = traceId;
+        this.legacyLogin = legacyLogin;
     }
 }
 
@@ -112,19 +116,22 @@ async function fail(response: Response): Promise<never> {
     let message = `Request failed (${String(response.status)})`;
     let issues: { path: string; message: string }[] = [];
     let traceId = response.headers.get(TRACE_HEADER) ?? undefined;
+    let legacyLogin = false;
     try {
         const body = (await response.json()) as {
             message?: string;
             issues?: typeof issues;
             traceId?: string;
+            legacyLogin?: boolean;
         };
+        legacyLogin = body.legacyLogin === true;
         message = body.message ?? message;
         issues = body.issues ?? [];
         traceId ??= body.traceId;
     } catch {
         // not JSON (a proxy's own error page): the id the page made is still in the server's log if it got that far
     }
-    throw new ApiError(response.status, message, issues, traceId);
+    throw new ApiError(response.status, message, issues, traceId, legacyLogin);
 }
 
 /** JSON in, JSON out; non-2xx becomes an ApiError carrying the server's own message. */

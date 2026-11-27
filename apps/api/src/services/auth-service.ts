@@ -2,7 +2,7 @@ import argon2 from 'argon2';
 
 import { config } from '../config/index.ts';
 import { getPool } from '../database/connection.ts';
-import { ConflictError, UnauthorizedError } from '../lib/errors.ts';
+import { ConflictError, LoginRejectedError, UnauthorizedError } from '../lib/errors.ts';
 import { signAccessToken } from '../lib/jwt.ts';
 import type { User } from '../models/user.model.ts';
 import { sessionRepository } from '../repository/session.repository.ts';
@@ -21,6 +21,11 @@ const ARGON2_OPTIONS = {
 
 /** Verified against when the username does not exist, so a miss costs as much as a wrong password. */
 const DUMMY_HASH = await argon2.hash('burrow-dummy-password', ARGON2_OPTIONS);
+
+/** What the browser puts in front of the password proof it derives (see apps/frontend/src/lib/password-proof.ts). */
+const PROOF_PREFIX = 'pw1$';
+const schemeOf = (password: string): 'legacy' | 'v1' =>
+    password.startsWith(PROOF_PREFIX) ? 'v1' : 'legacy';
 
 /** The pair a successful login hands out. */
 export interface SessionTokens {
@@ -68,6 +73,7 @@ export const authService = {
         const user = await userRepository.create({
             username,
             passwordHash: await hashPassword(password),
+            passwordScheme: schemeOf(password),
             displayName,
             role: 'user',
         });
@@ -81,12 +87,23 @@ export const authService = {
     async login(
         username: string,
         password: string,
+        legacyPassword: string | undefined,
         userAgent: string | null,
     ): Promise<SessionTokens> {
         const user = await userRepository.findByUsername(username);
-        const ok = await argon2.verify(user?.passwordHash ?? DUMMY_HASH, password);
+        let ok = await argon2.verify(user?.passwordHash ?? DUMMY_HASH, password);
+        // An account that still has its password stored as typed is checked with the typed password the page sends
+        // on its one retry, and moves to the proof scheme on this very sign-in, so the retry never happens again.
+        if (!ok && legacyPassword && user?.passwordHash && user.passwordScheme === 'legacy') {
+            ok = await argon2.verify(user.passwordHash, legacyPassword);
+            if (ok && schemeOf(password) === 'v1')
+                await userRepository.setPasswordHash(user.id, await hashPassword(password), 'v1');
+        }
         if (!user || !user.passwordHash || !ok)
-            throw new UnauthorizedError('Invalid username or password.');
+            throw new LoginRejectedError(
+                'Invalid username or password.',
+                await userRepository.anyLegacyPassword(),
+            );
         return startSession(user, userAgent);
     },
 
@@ -124,14 +141,31 @@ export const authService = {
      *
      * @throws {UnauthorizedError} When the current password is wrong.
      */
-    async changePassword(userId: string, current: string | null, next: string): Promise<void> {
+    async changePassword(
+        userId: string,
+        current: string | null,
+        currentLegacy: string | undefined,
+        next: string,
+    ): Promise<void> {
         const user = await userRepository.findById(userId);
         if (!user) throw new UnauthorizedError();
-        if (user.passwordHash && !(current && (await argon2.verify(user.passwordHash, current)))) {
-            throw new UnauthorizedError('The current password is wrong.');
+        if (user.passwordHash) {
+            const proofOk = !!current && (await argon2.verify(user.passwordHash, current));
+            const legacyOk =
+                !proofOk &&
+                user.passwordScheme === 'legacy' &&
+                !!currentLegacy &&
+                (await argon2.verify(user.passwordHash, currentLegacy));
+            if (!proofOk && !legacyOk)
+                throw new UnauthorizedError('The current password is wrong.');
         }
         await getPool().transaction(async (tx) => {
-            await userRepository.setPasswordHash(userId, await hashPassword(next), tx);
+            await userRepository.setPasswordHash(
+                userId,
+                await hashPassword(next),
+                schemeOf(next),
+                tx,
+            );
             // A password change ends every other session; the caller logs in again on the next refresh failure.
             await sessionRepository.revokeAll(userId, tx);
         });

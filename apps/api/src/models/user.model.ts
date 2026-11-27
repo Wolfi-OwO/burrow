@@ -5,6 +5,8 @@ export interface User {
     id: string;
     username: string;
     passwordHash: string | null;
+    /** 'v1' when the hash is of the browser-derived proof, 'legacy' when it is of the password as typed. */
+    passwordScheme: 'legacy' | 'v1';
     displayName: string;
     bio: string;
     avatarSha256: string | null;

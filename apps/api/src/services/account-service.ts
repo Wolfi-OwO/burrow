@@ -173,7 +173,7 @@ export const accountService = {
      */
     async deleteAccount(
         userId: string,
-        input: { username: string; password?: string },
+        input: { username: string; password?: string; legacyPassword?: string },
     ): Promise<void> {
         const user = await userRepository.findById(userId);
         if (!user) throw new NotFoundError();
@@ -181,10 +181,15 @@ export const accountService = {
             throw new BadRequestError('Type your username exactly to confirm.');
         }
         if (user.passwordHash) {
-            const ok =
+            const proofOk =
                 input.password !== undefined &&
                 (await argon2.verify(user.passwordHash, input.password));
-            if (!ok) throw new ForbiddenError('The password is not correct.');
+            const typedOk =
+                !proofOk &&
+                user.passwordScheme === 'legacy' &&
+                input.legacyPassword !== undefined &&
+                (await argon2.verify(user.passwordHash, input.legacyPassword));
+            if (!proofOk && !typedOk) throw new ForbiddenError('The password is not correct.');
         }
 
         const hashes = await getPool().transaction(async (tx) => {

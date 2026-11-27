@@ -6,7 +6,10 @@ import { useSearchParams } from 'react-router';
 
 import { DrivePicker } from '../components/DrivePicker.tsx';
 import { Dialog, ProtectedImage, useToast } from '../components/ui.tsx';
-import { api, fetchBlob, uploadForm } from '../lib/api.ts';
+import { api, ApiError, fetchBlob, uploadForm } from '../lib/api.ts';
+import { derivePasswordProof } from '../lib/password-proof.ts';
+import { addPasskey, listPasskeys, passkeysSupported, removePasskey } from '../lib/passkeys.ts';
+import type { PasskeyInfo } from '../lib/passkeys.ts';
 import { formatBytes } from '../lib/format.ts';
 import { useAuth } from '../lib/auth.tsx';
 import { forgetImage } from '../lib/blob.ts';
@@ -41,6 +44,28 @@ export function ProfilePage(): ReactNode {
         queryFn: () => api<{ providers: string[] }>('GET', '/api/auth/providers'),
     });
     const fail = (e: Error): void => toast.say(e.message);
+    const [passkeyName, setPasskeyName] = useState('');
+    const passkeys = useQuery({ queryKey: ['passkeys'], queryFn: listPasskeys });
+    const addKey = useMutation({
+        mutationFn: () => addPasskey(passkeyName || 'This device'),
+        onSuccess: () => {
+            setPasskeyName('');
+            void client.invalidateQueries({ queryKey: ['passkeys'] });
+            toast.say('Passkey added.');
+        },
+        // Closing the browser's own prompt is not a failure.
+        onError: (e) => {
+            if (!(e instanceof DOMException && e.name === 'NotAllowedError')) fail(e);
+        },
+    });
+    const dropKey = useMutation({
+        mutationFn: (id: string) => removePasskey(id),
+        onSuccess: () => {
+            void client.invalidateQueries({ queryKey: ['passkeys'] });
+            toast.say('Passkey removed.');
+        },
+        onError: fail,
+    });
 
     // Art 9 DSGVO: the NSFW pass looks at people's pictures for nudity, so it runs only when the owner asks for it.
     const nsfw = useMutation({
@@ -74,11 +99,25 @@ export function ProfilePage(): ReactNode {
     const [confirmName, setConfirmName] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const removeAccount = useMutation({
-        mutationFn: () =>
-            api<void>('DELETE', '/api/me', {
-                username: confirmName,
-                ...(user?.hasPassword ? { password: confirmPassword } : {}),
-            }),
+        mutationFn: async () => {
+            if (!user?.hasPassword)
+                return api<void>('DELETE', '/api/me', { username: confirmName });
+            const proof = await derivePasswordProof(user.username, confirmPassword);
+            try {
+                return await api<void>('DELETE', '/api/me', {
+                    username: confirmName,
+                    password: proof,
+                });
+            } catch (error) {
+                // An account whose password is still stored as typed: send it once so it is checked that way.
+                if (!(error instanceof ApiError && error.status === 403)) throw error;
+                return api<void>('DELETE', '/api/me', {
+                    username: confirmName,
+                    password: proof,
+                    legacyPassword: confirmPassword,
+                });
+            }
+        },
         // The account is gone, so this only clears the local session; the server call it makes may answer 401.
         onSuccess: async () => {
             await logout();
@@ -116,11 +155,23 @@ export function ProfilePage(): ReactNode {
         onError: fail,
     });
     const password = useMutation({
-        mutationFn: () =>
-            api('POST', '/api/auth/password', {
-                ...(user?.hasPassword ? { currentPassword: current } : {}),
-                newPassword: next,
-            }),
+        mutationFn: async () => {
+            const name = user?.username ?? '';
+            const newPassword = await derivePasswordProof(name, next);
+            if (!user?.hasPassword) return api('POST', '/api/auth/password', { newPassword });
+            const currentPassword = await derivePasswordProof(name, current);
+            try {
+                return await api('POST', '/api/auth/password', { currentPassword, newPassword });
+            } catch (error) {
+                // An account whose password is still stored as typed: send it once so it is checked that way.
+                if (!(error instanceof ApiError && error.status === 401)) throw error;
+                return api('POST', '/api/auth/password', {
+                    currentPassword,
+                    currentLegacyPassword: current,
+                    newPassword,
+                });
+            }
+        },
         onSuccess: () => {
             toast.say('Password changed. Please sign in again.');
             void logout();
@@ -281,6 +332,64 @@ export function ProfilePage(): ReactNode {
                         </div>
                     ))}
                 </section>
+
+                {passkeysSupported() ? (
+                    <section className="panel" aria-labelledby="pk">
+                        <h2 id="pk">Passkeys</h2>
+                        <p className="muted small">
+                            A passkey signs you in with your fingerprint, face, screen lock or a
+                            security key. No password is typed or sent.
+                        </p>
+                        <ul style={{ display: 'grid', gap: 8, padding: 0, listStyle: 'none' }}>
+                            {(passkeys.data ?? []).map((k: PasskeyInfo) => (
+                                <li
+                                    key={k.id}
+                                    className="row"
+                                    style={{ justifyContent: 'space-between' }}
+                                >
+                                    <span>
+                                        <strong>{k.name}</strong>{' '}
+                                        <span className="muted small">
+                                            added {new Date(k.createdAt).toLocaleDateString()}
+                                            {k.lastUsedAt
+                                                ? `, used ${new Date(k.lastUsedAt).toLocaleDateString()}`
+                                                : ', not used yet'}
+                                        </span>
+                                    </span>
+                                    <button
+                                        className="btn ghost sm"
+                                        type="button"
+                                        disabled={dropKey.isPending}
+                                        onClick={() => dropKey.mutate(k.id)}
+                                    >
+                                        Remove
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                addKey.mutate();
+                            }}
+                            className="row"
+                            style={{ gap: 10, flexWrap: 'wrap' }}
+                        >
+                            <input
+                                id="pk-name"
+                                aria-label="Name of the passkey"
+                                className="input"
+                                placeholder="Name, for example Laptop"
+                                maxLength={60}
+                                value={passkeyName}
+                                onChange={(e) => setPasskeyName(e.target.value)}
+                            />
+                            <button className="btn" type="submit" disabled={addKey.isPending}>
+                                Add a passkey
+                            </button>
+                        </form>
+                    </section>
+                ) : null}
 
                 <section className="panel" aria-labelledby="pw">
                     <h2 id="pw">{user?.hasPassword ? 'Change password' : 'Set a password'}</h2>

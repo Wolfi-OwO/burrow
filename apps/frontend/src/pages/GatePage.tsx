@@ -10,6 +10,7 @@ import { Mark } from '../components/Masthead.tsx';
 import { Spinner } from '../components/ui.tsx';
 import { api, ApiError } from '../lib/api.ts';
 import { useAuth } from '../lib/auth.tsx';
+import { passkeysSupported } from '../lib/passkeys.ts';
 
 const LABELS: Record<string, string> = {
     github: 'GitHub',
@@ -21,7 +22,7 @@ const PROVIDERS = ['github', 'microsoft', 'google'];
 
 /** Sign in, or create an account: registration is open to everyone. */
 export function GatePage(): ReactNode {
-    const { login, register } = useAuth();
+    const { login, register, loginWithPasskey } = useAuth();
     const [params] = useSearchParams();
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [username, setUsername] = useState('');
@@ -35,8 +36,13 @@ export function GatePage(): ReactNode {
 
     const submit = async (event: FormEvent): Promise<void> => {
         event.preventDefault();
-        setBusy(true);
         setError(null);
+        // The server only ever sees a derived proof of the password, so the length rule is checked here.
+        if (mode === 'register' && password.length < 12) {
+            setError('Use at least 12 characters.');
+            return;
+        }
+        setBusy(true);
         try {
             if (mode === 'login') await login(username, password);
             else await register(username, password, username);
@@ -46,6 +52,21 @@ export function GatePage(): ReactNode {
                     ? (e.issues[0]?.message ?? e.message)
                     : 'Could not reach the server.',
             );
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const passkey = async (): Promise<void> => {
+        setBusy(true);
+        setError(null);
+        try {
+            await loginWithPasskey();
+        } catch (e) {
+            // Closing the browser's own prompt is not an error worth showing.
+            const cancelled = e instanceof DOMException && e.name === 'NotAllowedError';
+            if (!cancelled)
+                setError(e instanceof ApiError ? e.message : 'That passkey could not be used.');
         } finally {
             setBusy(false);
         }
@@ -126,6 +147,17 @@ export function GatePage(): ReactNode {
                             {busy ? <Spinner /> : null}
                             {mode === 'login' ? 'Sign in' : 'Create account'}
                         </button>
+                        {mode === 'login' && passkeysSupported() ? (
+                            <button
+                                className="btn ghost"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void passkey()}
+                                style={{ justifyContent: 'center' }}
+                            >
+                                Sign in with a passkey
+                            </button>
+                        ) : null}
                     </form>
                     {providers.data ? (
                         <>
