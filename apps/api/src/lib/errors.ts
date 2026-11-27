@@ -44,6 +44,8 @@ export class LoginRejectedError extends UnauthorizedError {
     readonly legacyLogin: boolean;
     public constructor(message: string, legacyLogin: boolean) {
         super(message);
+        // Clients know a refused sign-in by this name; the subclass is an internal detail.
+        this.name = 'UnauthorizedError';
         this.legacyLogin = legacyLogin;
     }
 }
