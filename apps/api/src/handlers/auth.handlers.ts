@@ -30,8 +30,12 @@ export const register = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-    const { username, password } = req.body as { username: string; password: string };
-    respond(res, await authService.login(username, password, agent(req)));
+    const { username, password, legacyPassword } = req.body as {
+        username: string;
+        password: string;
+        legacyPassword?: string;
+    };
+    respond(res, await authService.login(username, password, legacyPassword, agent(req)));
 });
 
 export const refresh = asyncHandler(async (req, res) => {
@@ -52,13 +56,15 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body as {
+    const { currentPassword, currentLegacyPassword, newPassword } = req.body as {
         currentPassword?: string;
+        currentLegacyPassword?: string;
         newPassword: string;
     };
     await authService.changePassword(
         (req.user as { sub: string }).sub,
         currentPassword ?? null,
+        currentLegacyPassword,
         newPassword,
     );
     clearRefreshCookie(res);

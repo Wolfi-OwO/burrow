@@ -16,5 +16,10 @@ export const avatarFromFileSchema = z.object({ fileId: z.uuid() }).strict();
 
 /** Deleting an account is irreversible, so the request repeats the username; a password account also proves it. */
 export const deleteAccountSchema = z
-    .object({ username: z.string().min(1).max(100), password: z.string().max(200).optional() })
+    .object({
+        username: z.string().min(1).max(100),
+        password: z.string().max(200).optional(),
+        /** The password as typed, for an account whose password is still stored the old way. */
+        legacyPassword: z.string().max(200).optional(),
+    })
     .strict();

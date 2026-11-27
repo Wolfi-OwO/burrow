@@ -17,8 +17,30 @@ export const registerSchema = z
     })
     .strict();
 export const loginSchema = z
-    .object({ username: z.string().trim().min(1).max(64), password: z.string().min(1).max(128) })
+    .object({
+        username: z.string().trim().min(1).max(64),
+        password: z.string().min(1).max(128),
+        /** Only on the one retry after a refusal that said legacyLogin: the password as typed. */
+        legacyPassword: z.string().min(1).max(128).optional(),
+    })
     .strict();
 export const changePasswordSchema = z
-    .object({ currentPassword: z.string().max(128).optional(), newPassword: password })
+    .object({
+        currentPassword: z.string().max(128).optional(),
+        currentLegacyPassword: z.string().max(128).optional(),
+        newPassword: password,
+    })
+    .strict();
+
+/** The answers come from the browser's WebAuthn API; the library checks their content, this only bounds them. */
+const webauthnResponse = z.record(z.string(), z.unknown());
+export const passkeyRegisterSchema = z
+    .object({
+        ceremonyId: z.uuid(),
+        name: z.string().trim().max(60).default('Passkey'),
+        response: webauthnResponse,
+    })
+    .strict();
+export const passkeyLoginSchema = z
+    .object({ ceremonyId: z.uuid(), response: webauthnResponse })
     .strict();

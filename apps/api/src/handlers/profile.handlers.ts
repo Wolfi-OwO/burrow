@@ -119,7 +119,7 @@ export const exportData = asyncHandler(async (req, res) => {
 
 /** Art 17 DSGVO: deletes the signed-in account with everything it owns. */
 export const deleteMe = asyncHandler(async (req, res) => {
-    const input = req.body as { username: string; password?: string };
+    const input = req.body as { username: string; password?: string; legacyPassword?: string };
     await accountService.deleteAccount(uid(req), input);
     clearRefreshCookie(res);
     res.status(204).end();

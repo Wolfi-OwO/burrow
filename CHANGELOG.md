@@ -12,6 +12,8 @@ first release is cut.
 
 - `GET /api/info` answers name, version, revision, build date and repository URL, the same shape every app of the stack answers (`/api/version` stays and returns the same). The build date is now stamped into the image, where it was empty before.
 - The live dot in the bottom bar pulses with the same slow animation as in the other apps.
+- Passkeys (WebAuthn): an account can add passkeys on the profile page and sign in with one from the sign-in page, without a username or a password. Up to ten per account; password sign-in stays.
+- The page no longer sends the password. It sends a PBKDF2 proof derived from it, and the server stores an Argon2id hash of that proof. An account created before moves to the new scheme on its next password sign-in (the page sends the typed password once for it, then never again). Rolling back to an older release after that would not accept the account's password; sign in with a passkey or an OIDC provider, or reset it.
 
 ## [1.6.1] - 2026-11-24
 
