@@ -550,11 +550,15 @@ export const fileRepository = {
         return rows.map(toView);
     },
 
-    /** Files that share a blob (byte-identical content) with at least one other of the user's files. */
+    /**
+     * Files with the same content as at least one other of the user's files: the same blob, or a blob that says the
+     * same (a text with other line endings, a document saved again). Names play no part.
+     */
     async exactDuplicateIds(userId: string, db: Queryable = getPool()): Promise<string[][]> {
         const { rows } = await db.query(
-            `SELECT array_agg(id ORDER BY created_at, id) AS ids FROM files WHERE user_id = $1
-             GROUP BY blob_sha256 HAVING count(*) > 1`,
+            `SELECT array_agg(f.id ORDER BY f.created_at, f.id) AS ids
+             FROM files f JOIN blobs b ON b.sha256 = f.blob_sha256 WHERE f.user_id = $1
+             GROUP BY COALESCE(b.content_key, f.blob_sha256) HAVING count(*) > 1`,
             [userId],
         );
         return rows.map((r) => r.ids as string[]);

@@ -1097,12 +1097,12 @@ html[data-theme='dark'] .thumb::after {
 }
 .toast {
     position: fixed;
-    left: 50%;
+    right: 24px;
     bottom: 24px;
-    translate: -50% 0;
+    max-width: min(380px, calc(100vw - 32px));
     z-index: 40;
     padding: 12px 18px;
-    border-radius: 999px;
+    border-radius: 14px;
     background: var(--text);
     color: var(--bg);
     box-shadow: var(--raise);

@@ -89,6 +89,15 @@ export function EventsProvider({ children }: { children: ReactNode }): ReactNode
                 toast.say(String(event.data.message ?? 'The link could not be imported.'));
             } else if (event.type === 'upload.failed') {
                 toast.say(`${String(event.data.name)} could not be unpacked.`);
+            } else if (event.type === 'chat.answered') {
+                void client.invalidateQueries({ queryKey: ['chat'] });
+                // On the assistant page the answer is already in front of the person.
+                if (!window.location.pathname.endsWith('/assistant'))
+                    toast.say(
+                        event.data.failed === true
+                            ? 'The assistant could not answer. Open it to try again.'
+                            : 'The assistant answered. Open Assistant to read it.',
+                    );
             } else if (event.type === 'sorting.done') {
                 const n = Number(event.data.decided);
                 toast.say(`The sorter decided ${String(n)} file${n === 1 ? '' : 's'}.`);

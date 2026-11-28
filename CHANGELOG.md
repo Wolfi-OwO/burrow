@@ -10,6 +10,9 @@ first release is cut.
 
 ### Added
 
+- Duplicate detection looks at content, not names: a text saved with other line endings, a BOM or trailing blanks, and a Word, Excel, PowerPoint, OpenDocument, EPUB or zip file saved again (only timestamps and `docProps` differ) now count as exact copies. Files stored earlier get their content key in the background.
+- The assistant keeps answering when you leave its page, and a notice in the bottom-right corner tells you when the answer is ready. A page opened mid-answer shows it as thinking.
+- The sorter never files a picture into a video, audio, media, archive or route folder (or one named after such an extension), whatever the picture model makes of the folder name.
 - `GET /api/info` answers name, version, revision, build date and repository URL, the same shape every app of the stack answers (`/api/version` stays and returns the same). The build date is now stamped into the image, where it was empty before.
 - The live dot in the bottom bar pulses with the same slow animation as in the other apps.
 - Passkeys (WebAuthn): an account can add passkeys on the profile page and sign in with one from the sign-in page, without a username or a password. Up to ten per account; password sign-in stays.

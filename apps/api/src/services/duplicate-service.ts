@@ -2,6 +2,9 @@ import { config } from '../config/index.ts';
 import { publish } from '../lib/events.ts';
 import { logger } from '../lib/logger.ts';
 import type { FileView } from '../models/file.model.ts';
+import { blobStore } from '../lib/blob-store.ts';
+import { contentKey, keyKind } from '../lib/content-key.ts';
+import { blobRepository } from '../repository/blob.repository.ts';
 import { getPool } from '../database/connection.ts';
 import { duplicateRepository } from '../repository/duplicate.repository.ts';
 import { fileRepository } from '../repository/file.repository.ts';
@@ -139,6 +142,28 @@ export const duplicateService = {
                 announceChecked(result.owners);
                 return result.count;
             });
+    },
+
+    /**
+     * One background step of the content-key backfill: files stored before the key existed get theirs, so copies under
+     * other names with other bytes are found among old files too. Pictures and other kinds with no content reading are
+     * only marked, nothing is read for them.
+     *
+     * @returns How many blobs were looked at.
+     */
+    async keyBatch(limit = 20): Promise<number> {
+        const todo = await blobRepository.withoutContentKey(limit);
+        for (const blob of todo) {
+            let key: string | null = null;
+            if (keyKind(blob.name, blob.mime) !== null) {
+                key = await blobStore
+                    .ensureLocal(blob.sha256)
+                    .then((path) => contentKey(path, blob.name, blob.mime))
+                    .catch(() => null);
+            }
+            await blobRepository.setContentKey(blob.sha256, key);
+        }
+        return todo.length;
     },
 
     /** Works through everything waiting, batch after batch (after a sort run produced many new embeddings). */

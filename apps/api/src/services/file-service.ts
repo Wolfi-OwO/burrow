@@ -10,6 +10,7 @@ import { getPool } from '../database/connection.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { NotFoundError, QuotaExceededError, ServiceUnavailableError } from '../lib/errors.ts';
 import { readExif } from '../lib/exif.ts';
+import { contentKey } from '../lib/content-key.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { extractZip } from '../lib/zip-extract.ts';
 import type { FileRecord, FileView } from '../models/file.model.ts';
@@ -141,6 +142,11 @@ export const fileService = {
             const sha256 = await sha256File(stagedPath);
             const mime = await detectMime(stagedPath, claimedMime);
             const fresh = await blobRepository.insertIfAbsent(sha256, size, mime);
+            if (fresh) {
+                // A failure here only costs the content match; the byte hash still works.
+                const key = await contentKey(stagedPath, originalName, mime).catch(() => null);
+                await blobRepository.setContentKey(sha256, key);
+            }
             await blobStore.put(sha256, stagedPath, mime);
             const file = await fileRepository.create({
                 userId,

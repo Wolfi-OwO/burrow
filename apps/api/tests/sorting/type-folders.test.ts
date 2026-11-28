@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { folderForFile } from '../../src/lib/type-folders.ts';
+import { acceptsPictures, folderForFile } from '../../src/lib/type-folders.ts';
 import type { Category } from '../../src/models/category.model.ts';
 
 const cat = (id: number, name: string, path: string): Category => ({
@@ -38,5 +38,38 @@ describe('filing by file type', () => {
             folderForFile({ name: 'x.bin', mime: 'application/octet-stream' }, tree),
             null,
         );
+    });
+});
+
+describe('folders a picture never goes into', () => {
+    const ok = (name: string): boolean => acceptsPictures(cat(1, name, '1'));
+    it('refuses video, audio, media, archive and route folders and their extension folders', () => {
+        for (const name of [
+            'Video',
+            'Movies',
+            'media',
+            'Media',
+            'Audio',
+            'Archives',
+            'Routes',
+            'MP4',
+            'mov files',
+            'zip',
+            'GPX',
+        ])
+            assert.equal(ok(name), false, name);
+    });
+    it('keeps every folder a picture can sit in', () => {
+        for (const name of [
+            'Pictures',
+            'Paris',
+            'Documents',
+            'Other',
+            'Furry',
+            'jpg',
+            'PNG files',
+            'Screenshots',
+        ])
+            assert.equal(ok(name), true, name);
     });
 });
