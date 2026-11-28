@@ -10,6 +10,7 @@ first release is cut.
 
 ### Added
 
+- An Export all button on the drive page downloads every file as one zip, filed in your folders, with the file list. The browser downloads it itself through a one-minute link, so a large drive streams to disk instead of filling the page's memory; the profile page's data download uses the same link.
 - The assistant's answers are drawn, not run together: folder trees as a connected tree with counts, step chains (`A -> B -> C`) as linked boxes, and bulleted lists as nested lists. "Which categories do I have?" (and the German "welche Ordner habe ich") is answered from the database as a tree. Replies may be up to 900 characters.
 - Duplicate detection looks at content, not names: a text saved with other line endings, a BOM or trailing blanks, and a Word, Excel, PowerPoint, OpenDocument, EPUB or zip file saved again (only timestamps and `docProps` differ) now count as exact copies. Files stored earlier get their content key in the background.
 - The assistant keeps answering when you leave its page, and a notice in the bottom-right corner tells you when the answer is ready. A page opened mid-answer shows it as thinking.

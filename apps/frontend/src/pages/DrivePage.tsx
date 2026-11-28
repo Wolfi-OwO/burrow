@@ -28,7 +28,7 @@ import { UnzipDialog } from '../components/UnzipDialog.tsx';
 import { ShareDialog } from '../components/ShareDialog.tsx';
 import { Spinner, ProtectedImage, useToast } from '../components/ui.tsx';
 import { CategorySelect } from '../components/CategorySelect.tsx';
-import { api, fetchBlob } from '../lib/api.ts';
+import { api, downloadExport, fetchBlob } from '../lib/api.ts';
 import { formatBytes } from '../lib/format.ts';
 import { FILE_KINDS } from '../lib/types.ts';
 import type { CategoryNode, FileItem } from '../lib/types.ts';
@@ -37,6 +37,11 @@ export function DrivePage(): ReactNode {
     const [params, setParams] = useSearchParams();
     const navigate = useNavigate();
     const toast = useToast();
+    const exportAll = useMutation({
+        mutationFn: downloadExport,
+        onSuccess: () => toast.say('Your export is downloading.'),
+        onError: (e: Error) => toast.say(e.message),
+    });
     const raw = params.get('c');
     const category = raw === null ? undefined : raw === 'unsorted' ? 'unsorted' : Number(raw);
     const kindParam = params.get('t');
@@ -273,6 +278,17 @@ export function DrivePage(): ReactNode {
                     <Link2 size={16} />
                     Import from a link
                 </button>
+                {category === undefined ? (
+                    <button
+                        className="btn ghost"
+                        disabled={exportAll.isPending}
+                        title="Download every file as one zip, sorted into your folders, with the file list"
+                        onClick={() => exportAll.mutate()}
+                    >
+                        {exportAll.isPending ? <Spinner /> : <Download size={16} />}
+                        Export all
+                    </button>
+                ) : null}
                 {category === undefined ? (
                     <button className="btn ghost" onClick={() => setSharingDrive(true)}>
                         <Share2 size={16} />

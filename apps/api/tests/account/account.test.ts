@@ -61,6 +61,40 @@ describe('account export (Art 15 and 20 DSGVO)', () => {
 
     it('needs a signed-in account', async () => {
         assert.equal((await api('GET', '/api/me/export')).status, 401);
+        assert.equal((await api('POST', '/api/me/export/ticket')).status, 401);
+    });
+
+    it('hands out a link that downloads the zip without a bearer header, and refuses anything else as a ticket', async () => {
+        const owner = await registerOwner();
+        await upload(owner.token, 'mine.png', await png(1));
+        const ticket = await api('POST', '/api/me/export/ticket', { token: owner.token });
+        assert.equal(ticket.status, 200);
+        const url = ticket.json.url as string;
+        assert.match(url, /^\/api\/me\/export\/download\?ticket=/);
+
+        const response = await fetch(`${base}${url}`);
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('content-type'), 'application/zip');
+        const bytes = Buffer.from(await response.arrayBuffer());
+        assert.equal(bytes.readUInt32LE(0), 0x04034b50);
+        assert.ok(bytes.toString('latin1').includes('files/Unsorted/mine.png'));
+
+        assert.equal((await fetch(`${base}/api/me/export/download`)).status, 401, 'no ticket');
+        assert.equal(
+            (await fetch(`${base}/api/me/export/download?ticket=nonsense`)).status,
+            401,
+            'garbage ticket',
+        );
+        // A session token has no purpose, so it cannot be used as a download ticket.
+        assert.equal(
+            (
+                await fetch(
+                    `${base}/api/me/export/download?ticket=${encodeURIComponent(owner.token)}`,
+                )
+            ).status,
+            401,
+            'access token as ticket',
+        );
     });
 });
 

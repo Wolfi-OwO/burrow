@@ -83,3 +83,14 @@ export const uploadRateLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'TooManyRequestsError', message: 'Too many uploads.', statusCode: 429 },
 });
+
+const EXPORT_WINDOW_MS = 15 * 60 * 1000;
+
+/** Caps export downloads per IP: each one reads every stored byte of an account, so it is the heaviest call there is. */
+export const exportRateLimiter = rateLimit({
+    windowMs: EXPORT_WINDOW_MS,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'TooManyRequestsError', message: 'Too many exports.', statusCode: 429 },
+});

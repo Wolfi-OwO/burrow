@@ -1,7 +1,7 @@
 import { rm, stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import sharp from 'sharp';
 
 import { config } from '../config/index.ts';
@@ -9,7 +9,8 @@ import { config } from '../config/index.ts';
 import { toAccount, toPublicProfile } from '../lib/account-view.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { storageService } from '../services/storage-service.ts';
-import { asyncHandler, BadRequestError, NotFoundError } from '../lib/errors.ts';
+import { asyncHandler, BadRequestError, NotFoundError, UnauthorizedError } from '../lib/errors.ts';
+import { signExportTicket, verifyExportTicket } from '../lib/jwt.ts';
 import { sha256File } from '../lib/hashing.ts';
 import { clearRefreshCookie } from '../lib/refresh-cookie.ts';
 import { blobRepository } from '../repository/blob.repository.ts';
@@ -103,9 +104,9 @@ export const getAvatar = asyncHandler(async (req, res) => {
     (await blobStore.open(user.avatarSha256)).pipe(res);
 });
 
-/** Art 15 and 20 DSGVO: everything the account holds, as one zip the owner can keep. */
-export const exportData = asyncHandler(async (req, res) => {
-    const user = await userRepository.findById(uid(req));
+/** Streams the account zip to the response. */
+async function sendExport(userId: string, res: Response): Promise<void> {
+    const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError();
     const day = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'application/zip');
@@ -115,6 +116,30 @@ export const exportData = asyncHandler(async (req, res) => {
     );
     res.setHeader('Cache-Control', 'no-store');
     await accountService.exportTo(user.id, res);
+}
+
+/** Art 15 and 20 DSGVO: everything the account holds, as one zip the owner can keep. */
+export const exportData = asyncHandler(async (req, res) => {
+    await sendExport(uid(req), res);
+});
+
+/** Hands a signed-in page a one-minute link that downloads the export as a normal browser download. */
+export const exportTicket = (req: Request, res: Response): void => {
+    const ticket = signExportTicket(uid(req));
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ url: `/api/me/export/download?ticket=${encodeURIComponent(ticket)}` });
+};
+
+/** The link behind {@link exportTicket}: the ticket is the only credential, so it is checked before anything is read. */
+export const exportDownload = asyncHandler(async (req, res) => {
+    const ticket = typeof req.query['ticket'] === 'string' ? req.query['ticket'] : '';
+    let userId: string;
+    try {
+        userId = verifyExportTicket(ticket);
+    } catch {
+        throw new UnauthorizedError('This download link has expired. Start the export again.');
+    }
+    await sendExport(userId, res);
 });
 
 /** Art 17 DSGVO: deletes the signed-in account with everything it owns. */
