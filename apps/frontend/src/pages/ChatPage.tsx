@@ -214,14 +214,19 @@ export function ChatPage(): ReactNode {
     const busy = draft !== null || state.data?.working === true;
     const shown: Draft | null = draft ?? (busy ? { text: '', actions: [], queued: 0 } : null);
 
-    // Follow new messages, but leave the page where it opens: scrolling on arrival pushed the heading up under the
-    // sticky sort bar, which hid it whenever a sort or duplicate run was on.
+    // Opening the chat lands on the newest message, at once and not animated; after that new messages are followed
+    // smoothly. (Landing on the heading instead left the person scrolling down through the whole conversation.)
     const arrived = useRef(false);
     const loaded = state.data !== undefined;
     useEffect(() => {
         if (!loaded) return;
         if (!arrived.current) {
             arrived.current = true;
+            // Once more after the first paint: thumbnails and cards above can still change the height.
+            end.current?.scrollIntoView({ block: 'end', behavior: 'instant' });
+            requestAnimationFrame(() =>
+                end.current?.scrollIntoView({ block: 'end', behavior: 'instant' }),
+            );
             return;
         }
         end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
