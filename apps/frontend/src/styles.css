@@ -4316,3 +4316,97 @@ input[type='radio'] {
         transition: none;
     }
 }
+
+/* The assistant's answers: paragraphs, lists, folder trees and step chains instead of one run of text. */
+.chat-bubble.rich {
+    white-space: normal;
+    display: grid;
+    gap: 10px;
+}
+.chat-bubble.rich p {
+    margin: 0;
+}
+.rich-list {
+    margin: 0;
+    padding-left: 1.2em;
+    display: grid;
+    gap: 3px;
+}
+.rich-list .rich-list {
+    margin-top: 3px;
+}
+.rich-tree,
+.rich-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.rich-tree ul {
+    margin-left: 9px;
+    padding-left: 14px;
+    border-left: 1px solid var(--line-strong);
+}
+.rich-tree li {
+    position: relative;
+    padding: 2px 0;
+}
+.rich-tree ul > li::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 14px;
+    width: 10px;
+    border-top: 1px solid var(--line-strong);
+}
+.rich-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 9px;
+    border-radius: var(--r-s);
+    background: var(--carved);
+    box-shadow: var(--inset);
+}
+.rich-node svg {
+    color: var(--accent);
+    flex: none;
+}
+.rich-node small {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    font-variant-numeric: tabular-nums;
+}
+.rich-flow {
+    display: grid;
+    gap: 8px;
+}
+.rich-chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.rich-step-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+}
+.rich-step {
+    padding: 4px 11px;
+    border-radius: var(--r-s);
+    background: var(--carved);
+    box-shadow: var(--inset);
+    color: var(--text);
+}
+.rich-code {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: var(--r-s);
+    background: var(--carved);
+    box-shadow: var(--inset);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    overflow-x: auto;
+}

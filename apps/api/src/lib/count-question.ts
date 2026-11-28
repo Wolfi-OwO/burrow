@@ -36,6 +36,10 @@ const GERMAN = /\b(wie ?viele|wieviel|anzahl|dateien|datei|bilder|fotos?|ordner|
 // "A tree of my categories and how many pictures are in each": an overview of all folders, not a count of one.
 const OVERVIEW =
     /\b(tree|overview|each|every|per|all (?:my |the )?(?:categories|folders)|jede[nrms]?|show|list|zeig\w*|liste|[uü]bersicht|ordnerbaum|baum)\b/i;
+// "Which categories do I have?" asks for the same overview. A request for advice goes to the model instead.
+const WHICH = /\b(which|what|welche[nrms]?|was f[uü]r)\b/i;
+const HAVING = /\b(have|got|exist\w*|there|habe|hab|gibt|vorhanden)\b/i;
+const ADVICE = /\b(recommend\w*|suggest\w*|should|could|would|empfehl\w*|vorschl\w*|sollte\w*)\b/i;
 const FOLDERS = /\b(categor(?:y|ies)|folders?|kategorie[n]?|ordner)\b/i;
 const MINE = /\b(my|current|existing|meine[nrs]?|aktuelle[nrs]?|bestehende[nrs]?)\b/i;
 // A message that makes or changes folders is for the outline builder and the model, not for this.
@@ -47,10 +51,11 @@ const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\
 export function parseCountQuestion(text: string, folderNames: string[]): CountQuestion | null {
     const german = GERMAN.test(text);
     if (
-        OVERVIEW.test(text) &&
         FOLDERS.test(text) &&
-        (ASKING.test(text) || MINE.test(text)) &&
-        !BUILDING.test(text)
+        !BUILDING.test(text) &&
+        !ADVICE.test(text) &&
+        ((OVERVIEW.test(text) && (ASKING.test(text) || MINE.test(text))) ||
+            (WHICH.test(text) && (HAVING.test(text) || MINE.test(text))))
     )
         return { topic: { kind: 'tree' }, german };
     if (!ASKING.test(text)) return null;
@@ -78,9 +83,9 @@ const files = (n: number, german: boolean): string =>
 export function answerCount(question: CountQuestion, counts: Counts): string {
     const { topic, german } = question;
     if (topic.kind === 'tree') {
+        // A fenced `tree` block (two spaces per level, the count in brackets) is drawn as a tree by the page.
         const lines = counts.tree.map(
-            (c) =>
-                `${'    '.repeat(c.depth)}${c.depth > 0 ? '└ ' : ''}${c.name}: ${String(c.count)}`,
+            (c) => `${'  '.repeat(c.depth)}${c.name} (${String(c.count)})`,
         );
         const rest = german
             ? `Ohne Ordner: ${String(counts.unsorted)}, im Review: ${String(counts.review)}. Insgesamt ${files(counts.total, true)}.`
@@ -89,7 +94,7 @@ export function answerCount(question: CountQuestion, counts: Counts): string {
             return german
                 ? `Du hast noch keine Ordner. ${rest}`
                 : `You have no folders yet. ${rest}`;
-        return `${german ? 'Deine Ordner mit der Zahl der Dateien direkt darin:' : 'Your folders, with the number of files directly in each:'}\n${lines.join('\n')}\n\n${rest}`;
+        return `${german ? 'Deine Ordner mit der Zahl der Dateien direkt darin:' : 'Your folders, with the number of files directly in each:'}\n\n\`\`\`tree\n${lines.join('\n')}\n\`\`\`\n\n${rest}`;
     }
     if (topic.kind === 'review') {
         if (counts.review === 0)

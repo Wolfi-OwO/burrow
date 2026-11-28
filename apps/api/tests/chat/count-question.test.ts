@@ -65,10 +65,16 @@ describe('count questions are answered from the numbers, not by the model', () =
         const reply = ask(
             'Make me a nice tree of my current categories + how many pictures are there in each category',
         );
-        assert.match(reply ?? '', /Furry: 40\n {4}└ Wolves: 1\nMatura feier: 0/);
+        assert.match(
+            reply ?? '',
+            /```tree\nFurry \(40\)\n {2}Wolves \(1\)\nMatura feier \(0\)\n```/,
+        );
         assert.match(reply ?? '', /In no folder: 15, in review: 7\. 120 files in total/);
         assert.match(ask('Wie viele Bilder sind in jedem Ordner?') ?? '', /Deine Ordner/);
-        assert.match(ask('show me my folders') ?? '', /Furry: 40/);
+        assert.match(ask('show me my folders') ?? '', /Furry \(40\)/);
+        assert.match(ask('which categories do I have?') ?? '', /Furry \(40\)/);
+        assert.match(ask('welche Ordner habe ich') ?? '', /Furry \(40\)/);
+        assert.equal(ask('which folders would you recommend?'), null);
     });
 
     it('does not take a request to build folders for a request to list them', () => {

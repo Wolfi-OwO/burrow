@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
+import { RichReply } from '../components/RichReply.tsx';
 import { Lightbox } from '../components/Lightbox.tsx';
 import { ProtectedImage, Spinner, useToast } from '../components/ui.tsx';
 import { api, request } from '../lib/api.ts';
@@ -163,7 +164,13 @@ function Bubble({
                 </span>
             ) : null}
             <div className="chat-stack">
-                <p className="chat-bubble">{message.content}</p>
+                {message.role === 'assistant' ? (
+                    <div className="chat-bubble rich">
+                        <RichReply text={message.content} />
+                    </div>
+                ) : (
+                    <p className="chat-bubble">{message.content}</p>
+                )}
                 {message.actions.length > 0 ? (
                     <ul className="chat-cards" aria-label="What I did">
                         {message.actions.map((a, i) => (
@@ -417,7 +424,9 @@ export function ChatPage(): ReactNode {
                                         </span>
                                     </p>
                                 ) : (
-                                    <p className="chat-bubble streaming">{shown.text}</p>
+                                    <div className="chat-bubble streaming rich">
+                                        <RichReply text={shown.text} />
+                                    </div>
                                 )}
                                 {shown.actions.length > 0 ? (
                                     <ul className="chat-cards" aria-label="What I did">

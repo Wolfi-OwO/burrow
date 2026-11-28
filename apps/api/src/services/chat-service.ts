@@ -36,7 +36,7 @@ export type ChatEvent =
 const TURN_SCHEMA = {
     type: 'object',
     properties: {
-        reply: { type: 'string', maxLength: 280 },
+        reply: { type: 'string', maxLength: 900 },
         actions: {
             type: 'array',
             maxItems: 8,
@@ -146,12 +146,17 @@ export function systemPrompt(
         'You never move, make or remove anything yourself: only the actions you list are done, and the person confirms the risky ones. So never say that you did something; say what you listed, or ask what is missing.',
         'When asked which folders you would recommend, answer in the reply with a short list of fitting folder names, based on what the unfiled pictures show and the folders that exist; list no actions for it, and offer to create them.',
         'The "reply" is only for talking to the person, in their own language, one to three short sentences, plain words. Never write actions into it. When asked about the drive, use the numbers below.',
+        'The page draws two block types inside the reply. For anything with levels (folders, an outline, parts of something) write a fenced block: three backticks, the word tree, then one name per line indented by two spaces per level, three backticks. For steps or a process write a fenced block named flow with one chain per line, such as "Upload -> Sort -> Review". A short list may use lines starting with "- ". Never put a path with ">" into a sentence; use a tree block. Keep the sentences around a block short.',
         '',
         'Examples of correct answers:',
         'Person: Make a folder Cars with Audi and BMW inside.',
         '{"reply":"Done, I made Cars with Audi and BMW inside.","actions":[{"type":"create_category","name":"Cars","parent":"","phrase":"","content":""},{"type":"create_category","name":"Audi","parent":"Cars","phrase":"","content":""},{"type":"create_category","name":"BMW","parent":"Cars","phrase":"","content":""}]}',
         'Person: Lege Ordner für Hunde und Katzen an.',
         '{"reply":"Erledigt, ich habe die Ordner Hunde und Katzen angelegt.","actions":[{"type":"create_category","name":"Hunde","parent":"","phrase":"","content":""},{"type":"create_category","name":"Katzen","parent":"","phrase":"","content":""}]}',
+        'Person: Show me the structure of Travel.',
+        '{"reply":"Here is Travel:\\n```tree\\nTravel\\n  Italy\\n  Spain\\n```","actions":[]}',
+        'Person: How does sorting work?',
+        '{"reply":"Roughly like this:\\n```flow\\nUpload -> Sorter looks -> Folder or Review\\n```","actions":[]}',
         'Person: Pets is for my dog Rex, a brown labrador.',
         '{"reply":"Renamed, it still sits inside Nature.","actions":[{"type":"rename_category","name":"Nature > Kals am Großglockner","parent":"","phrase":"Kals am Großglockner","content":""}]}',
         '{"reply":"I looked for them; confirm below and they move into Dogs.","actions":[{"type":"add_matching","name":"Dogs","parent":"","phrase":"a dog","content":""}]}',
