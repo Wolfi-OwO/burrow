@@ -64,3 +64,27 @@ export function folderForFile(
     const names = KIND_NAMES[kind] ?? [];
     return deepest(categories.filter((c) => names.includes(c.name.trim().toLowerCase())));
 }
+
+/** Kinds of folder a picture never belongs in, whatever the picture model thinks the folder name looks like. */
+const NOT_FOR_PICTURES: FileType[] = ['video', 'audio', 'archive', 'route'];
+
+/** "Media" and friends mean moving pictures and sound too, which KIND_NAMES keeps under video and audio. */
+const MOVING_OR_SOUND_EXT = new Set(
+    'mp4 mov mkv avi webm m4v wmv flv mpg mpeg 3gp mp3 wav flac ogg m4a aac opus wma'.split(' '),
+);
+
+const MEDIA_NAMES = ['media', 'film', 'films', 'footage', 'recordings', 'movie', 'tv', 'shows'];
+
+/**
+ * False for a folder that holds another kind of file: Video, Movies, Media, Audio, Archives, Routes, or one named
+ * after such an extension (MP4, ZIP, GPX). The picture model scores a folder by its name, so a JPG of a film poster
+ * could win "Movies"; the sorter leaves those folders out of the choice for pictures.
+ */
+export function acceptsPictures(category: Category): boolean {
+    const name = category.name.trim().toLowerCase();
+    if (MEDIA_NAMES.includes(name)) return false;
+    for (const kind of NOT_FOR_PICTURES) if (KIND_NAMES[kind]?.includes(name)) return false;
+    const ext = folderExt(name);
+    if (!/^[a-z0-9]{2,5}$/.test(ext)) return true;
+    return !MOVING_OR_SOUND_EXT.has(ext) && !NOT_FOR_PICTURES.includes(typeOfFile(`x.${ext}`, ''));
+}

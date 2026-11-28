@@ -1,5 +1,5 @@
 import { sniffMime } from '../lib/sniff.ts';
-import { folderForFile } from '../lib/type-folders.ts';
+import { acceptsPictures, folderForFile } from '../lib/type-folders.ts';
 import { config } from '../config/index.ts';
 import { blobStore } from '../lib/blob-store.ts';
 import { logger } from '../lib/logger.ts';
@@ -351,7 +351,10 @@ export const classificationService = {
                     : null;
             const decision = placeDecision(
                 await descend(
-                    (parentId) => categoryRepository.listChildren(file.userId, parentId),
+                    async (parentId) =>
+                        (await categoryRepository.listChildren(file.userId, parentId)).filter(
+                            acceptsPictures,
+                        ),
                     (labels) => visionClient.classify(path, labels),
                     config.sorting.autoFileThreshold,
                     nsfw,
@@ -361,7 +364,7 @@ export const classificationService = {
                 ),
                 place,
                 placeScore,
-                await categoryRepository.listAll(file.userId),
+                (await categoryRepository.listAll(file.userId)).filter(acceptsPictures),
             );
 
             // FR-037: an NSFW file never auto-files into a category that may sit behind a preview link. Without a

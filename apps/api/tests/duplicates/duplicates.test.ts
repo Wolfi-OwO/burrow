@@ -30,6 +30,32 @@ describe('duplicates and ratings', () => {
     beforeEach(resetDatabase);
     after(closeServer);
 
+    it('finds a text saved under another name with other line endings as an exact copy', async () => {
+        const { token } = await registerOwner();
+        await upload(token, 'notes.txt', new Blob(['one\ntwo\n'], { type: 'text/plain' }));
+        await upload(token, 'notes (2).txt', new Blob(['one\r\ntwo\r\n'], { type: 'text/plain' }));
+        await upload(token, 'other.txt', new Blob(['three\n'], { type: 'text/plain' }));
+        const found = await api('GET', '/api/duplicates?mode=exact', { token });
+        assert.equal(found.json.groups.length, 1);
+        assert.equal(found.json.groups[0].files.length, 2);
+    });
+
+    it('gives old files their content key in the background', async () => {
+        const { token } = await registerOwner();
+        await upload(token, 'a.txt', new Blob(['same\n'], { type: 'text/plain' }));
+        await upload(token, 'b.txt', new Blob(['same\r\n'], { type: 'text/plain' }));
+        await getPool().query('UPDATE blobs SET content_key = NULL, content_key_done = false');
+        assert.equal(
+            (await api('GET', '/api/duplicates?mode=exact', { token })).json.groups.length,
+            0,
+        );
+        assert.equal(await duplicateService.keyBatch(), 2);
+        assert.equal(
+            (await api('GET', '/api/duplicates?mode=exact', { token })).json.groups.length,
+            1,
+        );
+    });
+
     it('finds byte-identical files, keeps the filed one and removes the rest', async () => {
         const { token } = await registerOwner();
         const cat = (

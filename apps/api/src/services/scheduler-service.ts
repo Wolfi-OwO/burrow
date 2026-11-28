@@ -311,6 +311,9 @@ export const schedulerService = {
             // The "same picture, other size" search trickles along a batch a minute, except while a sort run needs
             // the CPU (it compares everything itself when it ends).
             if (!job.running) {
+                duplicateService.keyBatch().catch((error: unknown) => {
+                    logger.warn({ err: error }, 'content key step failed');
+                });
                 duplicateService.checkBatch().catch((error: unknown) => {
                     logger.warn({ err: error }, 'duplicate comparison step failed');
                 });

@@ -26,6 +26,8 @@ import type { ChatAction, ChatMessage } from '../lib/types.ts';
 interface ChatState {
     enabled: boolean;
     ready: boolean;
+    /** The server is still answering a message, e.g. one sent before the person left this page. */
+    working?: boolean;
     messages: ChatMessage[];
 }
 
@@ -192,14 +194,18 @@ export function ChatPage(): ReactNode {
     const [opened, setOpened] = useState<ChatAction | null>(null);
     const end = useRef<HTMLDivElement>(null);
     const field = useRef<HTMLTextAreaElement>(null);
-    const busy = draft !== null;
     const state = useQuery({
         queryKey: ['chat'],
         queryFn: () => api<ChatState>('GET', '/api/chat'),
         // Not while an answer is being made: the server already saved the question, and showing that copy next to
         // the page's own would put the message on screen twice.
-        refetchInterval: busy ? false : 20_000,
+        refetchInterval: (query) =>
+            draft !== null ? false : query.state.data?.working ? 2_000 : 20_000,
     });
+
+    // An answer the server is still writing (sent before the person left the page) shows as thinking, too.
+    const busy = draft !== null || state.data?.working === true;
+    const shown: Draft | null = draft ?? (busy ? { text: '', actions: [], queued: 0 } : null);
 
     // Follow new messages, but leave the page where it opens: scrolling on arrival pushed the heading up under the
     // sticky sort bar, which hid it whenever a sort or duplicate run was on.
@@ -391,13 +397,13 @@ export function ChatPage(): ReactNode {
                     !messages.some((m) => m.role === 'user' && m.id > baseId) ? (
                         <Bubble message={{ role: 'user', content: sentText, actions: [] }} />
                     ) : null}
-                    {draft ? (
+                    {shown ? (
                         <div className="chat-row assistant">
                             <span className="chat-avatar thinking" aria-hidden="true">
                                 <Sparkles size={16} />
                             </span>
                             <div className="chat-stack">
-                                {draft.text === '' ? (
+                                {shown.text === '' ? (
                                     <p className="chat-bubble chat-wait" role="status">
                                         <span className="chat-dots" aria-hidden="true">
                                             <i />
@@ -405,17 +411,17 @@ export function ChatPage(): ReactNode {
                                             <i />
                                         </span>
                                         <span className="muted small">
-                                            {draft.queued > 0
-                                                ? `${String(draft.queued)} ahead of you, one moment`
+                                            {shown.queued > 0
+                                                ? `${String(shown.queued)} ahead of you, one moment`
                                                 : 'Thinking'}
                                         </span>
                                     </p>
                                 ) : (
-                                    <p className="chat-bubble streaming">{draft.text}</p>
+                                    <p className="chat-bubble streaming">{shown.text}</p>
                                 )}
-                                {draft.actions.length > 0 ? (
+                                {shown.actions.length > 0 ? (
                                     <ul className="chat-cards" aria-label="What I did">
-                                        {draft.actions.map((a, i) => (
+                                        {shown.actions.map((a, i) => (
                                             <ActionCard
                                                 key={`${a.label}-${String(i)}`}
                                                 action={a}

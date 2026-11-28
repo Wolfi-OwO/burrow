@@ -12,7 +12,8 @@ export interface UserEvent {
         | 'sorting.done'
         | 'sorting.progress'
         | 'duplicates.progress'
-        | 'duplicates.checked';
+        | 'duplicates.checked'
+        | 'chat.answered';
     data: Record<string, unknown>;
 }
 
