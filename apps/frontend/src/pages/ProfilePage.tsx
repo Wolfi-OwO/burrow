@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router';
 
 import { DrivePicker } from '../components/DrivePicker.tsx';
 import { Dialog, ProtectedImage, useToast } from '../components/ui.tsx';
-import { api, ApiError, fetchBlob, uploadForm } from '../lib/api.ts';
+import { api, ApiError, downloadExport, uploadForm } from '../lib/api.ts';
 import { derivePasswordProof } from '../lib/password-proof.ts';
 import { addPasskey, listPasskeys, passkeysSupported, removePasskey } from '../lib/passkeys.ts';
 import type { PasskeyInfo } from '../lib/passkeys.ts';
@@ -82,16 +82,8 @@ export function ProfilePage(): ReactNode {
     });
     // Art 15 and 20 DSGVO: everything this account holds, as one zip.
     const exportData = useMutation({
-        mutationFn: async () => {
-            const blob = await fetchBlob('/api/me/export');
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `burrow-export-${new Date().toISOString().slice(0, 10)}.zip`;
-            link.click();
-            URL.revokeObjectURL(url);
-        },
-        onSuccess: () => toast.say('Your export was downloaded.'),
+        mutationFn: downloadExport,
+        onSuccess: () => toast.say('Your export is downloading.'),
         onError: fail,
     });
     // Art 17 DSGVO: deletes the account and everything it owns.

@@ -167,6 +167,16 @@ export async function fetchBlob(path: string): Promise<Blob> {
     return response.blob();
 }
 
+/**
+ * Starts the download of the whole account as a zip. The browser does the download itself (a link with a one-minute
+ * ticket), so it streams to disk and a large drive never has to fit in the page's memory.
+ */
+export async function downloadExport(): Promise<void> {
+    const { url } = await api<{ url: string }>('POST', '/api/me/export/ticket');
+    const link = Object.assign(document.createElement('a'), { href: url });
+    link.click();
+}
+
 /** The current access token, for the one caller (the event stream) that cannot go through `request`. */
 export function currentAccessToken(): string | null {
     return accessToken;

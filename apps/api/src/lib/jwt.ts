@@ -56,3 +56,37 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
     return { sub: decoded.sub, sid: decoded.sid, role: decoded.role as Role };
 }
+
+/** How long a download ticket stays valid: long enough for the browser to follow the link, too short to be worth keeping. */
+const EXPORT_TICKET_SECONDS = 60;
+
+/**
+ * Signs a short-lived ticket that lets a plain browser navigation download the account export. A navigation cannot
+ * carry the bearer header, and buffering a whole drive in the page to add it would not fit in memory. The ticket has
+ * a `purpose` and no session id, so it can never pass for an access token (and an access token never for a ticket).
+ *
+ * @param userId - The account the ticket exports.
+ */
+export function signExportTicket(userId: string): string {
+    return jwt.sign({ sub: userId, purpose: 'export' }, config.jwtSecret as string, {
+        algorithm: ALGORITHM,
+        expiresIn: EXPORT_TICKET_SECONDS,
+    });
+}
+
+/**
+ * @param token - The ticket from the download link.
+ * @returns The account id it was issued for.
+ * @throws {Error} If the signature or expiry is invalid or the token is not an export ticket.
+ */
+export function verifyExportTicket(token: string): string {
+    const decoded = jwt.verify(token, config.jwtSecret as string, { algorithms: [ALGORITHM] });
+    if (
+        typeof decoded === 'string' ||
+        typeof decoded.sub !== 'string' ||
+        decoded['purpose'] !== 'export'
+    ) {
+        throw new Error('Token is not an export ticket.');
+    }
+    return decoded.sub;
+}
