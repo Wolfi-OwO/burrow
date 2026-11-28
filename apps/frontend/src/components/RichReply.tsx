@@ -51,7 +51,7 @@ function Flow({ lines }: { lines: string[] }): ReactNode {
 
 /** "- a", "  - b" lines as a nested list; the rest as paragraphs. */
 function TextLines({ lines }: { lines: string[] }): ReactNode {
-    const out: ReactTreeNode[] = [];
+    const out: ReactNode[] = [];
     let items: { depth: number; text: string }[] = [];
     const flush = (): void => {
         if (items.length === 0) return;

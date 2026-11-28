@@ -10,7 +10,7 @@ first release is cut.
 
 ### Added
 
-- The assistant's answers are drawn, not run together: folder trees as a connected tree with counts, step chains (`A -> B -> C`) as linked boxes, and `- ` lists as nested lists. "Which categories do I have?" (and the German "welche Ordner habe ich") is answered from the database as a tree. Replies may be up to 900 characters.
+- The assistant's answers are drawn, not run together: folder trees as a connected tree with counts, step chains (`A -> B -> C`) as linked boxes, and bulleted lists as nested lists. "Which categories do I have?" (and the German "welche Ordner habe ich") is answered from the database as a tree. Replies may be up to 900 characters.
 - Duplicate detection looks at content, not names: a text saved with other line endings, a BOM or trailing blanks, and a Word, Excel, PowerPoint, OpenDocument, EPUB or zip file saved again (only timestamps and `docProps` differ) now count as exact copies. Files stored earlier get their content key in the background.
 - The assistant keeps answering when you leave its page, and a notice in the bottom-right corner tells you when the answer is ready. A page opened mid-answer shows it as thinking.
 - The sorter never files a picture into a video, audio, media, archive or route folder (or one named after such an extension), whatever the picture model makes of the folder name.
